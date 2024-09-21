@@ -1,82 +1,86 @@
-use core::error;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use iced::{
-    border, color,
-    futures::{SinkExt, Stream, StreamExt},
-    padding,
-    stream::try_channel,
+    border, color, padding,
     widget::{
-        button, center, column, container, horizontal_rule, progress_bar, row,
+        button, center, column, container, horizontal_rule,
         rule::{self, FillMode},
-        scrollable, stack, svg, text, text_input, vertical_rule, vertical_space,
+        scrollable, text, vertical_space,
     },
-    Alignment, Background, ContentFit, Element, Error, Length, Padding, Shadow, Subscription, Task,
+    Alignment, Element, Length, Shadow, Subscription, Task, Vector,
 };
-use rfd::FileHandle;
-use tokio::{
-    io::{AsyncBufReadExt, BufReader},
-    process::ChildStdout,
-};
+use serde::{Deserialize, Serialize};
 
-use crate::{
-    core::depotdownloader::{self, DepotDownloader},
-    ui::components::modal::modal,
-};
+use crate::ui::components::modal::modal;
+
+use super::servercreation::{self, FormPage};
 
 pub struct ServerList {
-    is_create_server_popup_visible: bool,
-    is_add_info_to_server_creation: bool,
-    server_name: String,
-    server_path: PathBuf,
-    download_output: Vec<String>,
-    is_downloading: bool,
-    progress_percent: f32,
+    is_server_creation_popup_visible: bool,
+    server_creation_screen: servercreation::State,
+    servers: Vec<ServerInfo>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct ServerInfo {
+    pub name: String,
+    pub game: SourceAppIDs,
+    pub path: PathBuf,
+    pub map: String,
+    pub max_players: u32,
+    pub password: String,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     CreateServer,
     OnClickOutsidePopup,
-    OnGameChosen(SourceAppIDs),
-    OnServerName(String),
-    OpenFilePicker,
-    ServerPathChosen(Option<FileHandle>),
-    DownloadServer,
-    DownloadProgress(Result<Progress, CustomError>),
+    ServerCreation(servercreation::Message),
+    TestingGrounds(()),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub enum SourceAppIDs {
+    #[default]
     TeamFortress2,
     CounterStrike2,
     LeftForDead1,
     LeftForDead2,
 }
 
-impl From<u32> for SourceAppIDs {
-    fn from(value: u32) -> Self {
+impl From<SourceAppIDs> for u32 {
+    fn from(value: SourceAppIDs) -> Self {
         match value {
-            232250 => SourceAppIDs::TeamFortress2,
-            730 => SourceAppIDs::CounterStrike2,
-            222840 => SourceAppIDs::LeftForDead1,
-            222860 => SourceAppIDs::LeftForDead2,
-            _ => panic!("Unsupported App ID"),
+            SourceAppIDs::TeamFortress2 => 232250,
+            SourceAppIDs::CounterStrike2 => 730,
+            SourceAppIDs::LeftForDead1 => 222840,
+            SourceAppIDs::LeftForDead2 => 222860,
         }
     }
 }
 
 impl ServerList {
     pub fn new() -> (Self, Task<Message>) {
+        #[derive(Deserialize)]
+        struct DummyDeserializeStruct {
+            servers: Vec<ServerInfo>,
+        }
+
+        let mut servers: Vec<ServerInfo> = vec![];
+
+        if let Ok(servers_from_config) = fs::read_to_string(PathBuf::from(
+            "/home/suza/Coding/Rust/mannager-source/Servers/server_list.toml",
+        )) {
+            if let Ok(str_config) = toml::from_str::<DummyDeserializeStruct>(&servers_from_config) {
+                servers = str_config.servers
+            }
+        }
+
         (
             Self {
-                is_create_server_popup_visible: false,
-                is_add_info_to_server_creation: false,
-                server_name: "Test".into(),
-                server_path: PathBuf::new(),
-                download_output: vec!["".to_string()],
-                is_downloading: false,
-                progress_percent: 0.0,
+                is_server_creation_popup_visible: false,
+                server_creation_screen: servercreation::State::new(),
+                servers: servers,
             },
             Task::none(),
         )
@@ -89,95 +93,99 @@ impl ServerList {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::CreateServer => {
-                self.is_create_server_popup_visible = !self.is_create_server_popup_visible;
+                self.is_server_creation_popup_visible = !self.is_server_creation_popup_visible;
 
                 Task::none()
             }
             Message::OnClickOutsidePopup => {
-                self.is_create_server_popup_visible = false;
-
-                Task::none()
-            }
-            Message::OnGameChosen(x) => {
-                self.is_add_info_to_server_creation = true;
-
-                Task::none()
-            }
-            Message::OnServerName(str) => {
-                self.server_name = str;
-
-                Task::none()
-            }
-            Message::OpenFilePicker => Task::perform(
-                rfd::AsyncFileDialog::new()
-                    .set_title("Set the server's installation path")
-                    .set_directory("./")
-                    .pick_folder(),
-                Message::ServerPathChosen,
-            ),
-            Message::ServerPathChosen(file_handle) => {
-                if let Some(file) = file_handle {
-                    self.server_path = file.path().into();
+                if !self.server_creation_screen.form_info.is_downloading {
+                    self.is_server_creation_popup_visible = false;
+                    self.server_creation_screen.form_page = FormPage::GameSelection;
                 }
 
                 Task::none()
             }
-            Message::DownloadServer => {
-                self.is_downloading = true;
+            Message::ServerCreation(server_creation_message) => match server_creation_message {
+                servercreation::Message::FinishServerCreation => {
+                    self.is_server_creation_popup_visible = false;
 
-                Task::none()
-            }
-            Message::DownloadProgress(progress) => {
-                if let Ok(progress) = progress {
-                    match progress {
-                        Progress::Downloading(string) => {
-                            self.download_output.push(string.clone());
+                    self.servers.push(ServerInfo {
+                        name: self.server_creation_screen.form_info.server_name.clone(),
+                        game: self.server_creation_screen.form_info.source_game.clone(),
+                        path: self.server_creation_screen.form_info.server_path.clone(),
+                        map: self.server_creation_screen.form_info.map_name.clone(),
+                        max_players: self.server_creation_screen.form_info.max_players.clone(),
+                        password: self.server_creation_screen.form_info.password.clone(),
+                    });
 
-                            if let Some(percent) = string.split("%").next() {
-                                if let Ok(percent) = percent.trim().parse::<f32>() {
-                                    self.progress_percent = percent;
-                                }
-                            }
-                        }
-                        Progress::Finished => (),
+                    #[derive(Deserialize, Serialize)]
+                    struct DummyDeserializeStruct {
+                        servers: Vec<ServerInfo>,
                     }
-                }
 
-                Task::none()
-            }
+                    let fartimus = DummyDeserializeStruct {
+                        servers: Vec::from_iter(self.servers.iter().map(|item| item.clone())),
+                    };
+
+                    Task::perform(
+                        async move {
+                            tokio::fs::write(
+                                "/home/suza/Coding/Rust/mannager-source/Servers/server_list.toml",
+                                toml::to_string_pretty(&fartimus).unwrap(),
+                            )
+                            .await
+                            .unwrap();
+                        },
+                        Message::TestingGrounds,
+                    )
+                }
+                _ => self
+                    .server_creation_screen
+                    .update(server_creation_message)
+                    .map(Message::ServerCreation),
+            },
+            Message::TestingGrounds(_) => Task::none(),
         }
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        if self.is_downloading {
-            Subscription::run_with_id(1, download_server(&self.server_path, 232250u32))
-                .map(Message::DownloadProgress)
-        } else {
-            Subscription::none()
-        }
+        self.server_creation_screen
+            .subscription()
+            .map(Message::ServerCreation)
     }
 
     pub fn view(&self) -> Element<Message> {
         let base = container(column![
             navbar(),
-            container(show_servers()).padding(padding::all(10).top(30))
+            container(
+                container(scrollable(show_servers(&self.servers)))
+                    .width(900)
+                    .padding(50)
+                    .style(|_theme| {
+                        container::background(color!(0x2A2725))
+                            .border(border::width(3).rounded(3).color(color!(0x363230)))
+                            .shadow(Shadow {
+                                color: color!(0x0),
+                                offset: Vector::new(0.0, 3.0),
+                                blur_radius: 5.0,
+                            })
+                    })
+            )
+            .align_x(Alignment::Center)
+            .padding(40)
+            .width(Length::Fill)
+            .height(Length::Fill)
         ])
         .width(Length::Fill)
         .height(Length::Fill)
-        .style(|_theme| container::background(color!(0x34302d)));
+        .style(|_theme| container::background(color!(0x1c1a19)));
 
-        if self.is_create_server_popup_visible {
+        if self.is_server_creation_popup_visible {
             modal(
                 base,
-                if !self.is_downloading {
-                    if self.is_add_info_to_server_creation {
-                        create_server_container_step_two(self)
-                    } else {
-                        create_server_container()
-                    }
-                } else {
-                    downloading_container(self)
-                },
+                self.server_creation_screen
+                    .view()
+                    .map(Message::ServerCreation),
                 Message::OnClickOutsidePopup,
             )
         } else {
@@ -193,7 +201,7 @@ where
     container(column![
         vertical_space(),
         horizontal_rule(0).style(|_theme| rule::Style {
-            color: color!(0x6a4535),
+            color: color!(0x363230),
             width: 3,
             fill_mode: FillMode::Full,
             ..rule::default(_theme)
@@ -202,204 +210,46 @@ where
     .width(Length::Fill)
     .height(64)
     .padding(0)
-    .style(|_theme| container::background(color!(0x462d26)))
+    .style(|_theme| {
+        container::background(color!(0x2A2725)).shadow(Shadow {
+            color: color!(0x0),
+            offset: Vector::new(0.0, 3.0),
+            blur_radius: 5.0,
+        })
+    })
     .into()
 }
 
-fn show_servers<'a>() -> Element<'a, Message>
+fn show_servers<'a>(servers: &Vec<ServerInfo>) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    column![
-        container("Server name")
-            .width(Length::Fill)
-            .max_width(720)
-            .height(128)
-            .padding(10)
-            .style(|_theme| container::background(color!(0x462d26))
-                .border(border::color(color!(0x6a4535)).rounded(10).width(3))),
-        container("Server name")
-            .width(Length::Fill)
-            .max_width(720)
-            .height(128)
-            .padding(10)
-            .style(|_theme| container::background(color!(0x462d26))
-                .border(border::color(color!(0x6a4535)).rounded(10).width(3))),
-        container("Server name")
-            .width(Length::Fill)
-            .max_width(720)
-            .height(128)
-            .padding(10)
-            .style(|_theme| container::background(color!(0x462d26))
-                .border(border::color(color!(0x6a4535)).rounded(10).width(3))),
-        container("Server name")
-            .width(Length::Fill)
-            .max_width(720)
-            .height(128)
-            .padding(10)
-            .style(|_theme| container::background(color!(0x462d26))
-                .border(border::color(color!(0x6a4535)).rounded(10).width(3))),
-        button("+").on_press(Message::CreateServer)
-    ]
+    column(servers.iter().map(|server| {
+        container(column![
+            text!("{}", server.name.clone()),
+            text!("{}", server.max_players)
+        ])
+        .width(Length::Fill)
+        .max_width(720)
+        .height(128)
+        .padding(10)
+        .style(|_theme| {
+            container::background(color!(0x2A2725))
+                .border(border::width(1).rounded(10).color(color!(0x363230)))
+                .shadow(Shadow {
+                    color: color!(0, 0, 0, 0.5),
+                    offset: Vector::new(0.0, 3.0),
+                    blur_radius: 5.0,
+                })
+        })
+        .into()
+    }))
+    .push(
+        button("+")
+            .on_press(Message::CreateServer)
+            .padding([15, 80]),
+    )
     .align_x(Alignment::Center)
     .spacing(10)
     .into()
-}
-
-fn create_server_container<'a>() -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    container(column![
-        text!("Create a server").size(32).color(color!(0xFFF)),
-        container(
-            row![
-                button(
-                    svg(svg::Handle::from_path("images/tf2-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::OnGameChosen(SourceAppIDs::TeamFortress2))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-                button(
-                    svg(svg::Handle::from_path("images/cs2-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::OnGameChosen(SourceAppIDs::CounterStrike2))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-                button(
-                    svg(svg::Handle::from_path("images/l4d1-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::OnGameChosen(SourceAppIDs::LeftForDead1))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-                button(
-                    svg(svg::Handle::from_path("images/l4d2-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::OnGameChosen(SourceAppIDs::LeftForDead2))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-            ]
-            .align_y(Alignment::Center)
-        )
-        .padding(50)
-    ])
-    .padding(10)
-    .style(|_theme| container::background(color!(0x34302d)))
-    .into()
-}
-
-fn create_server_container_step_two<'a>(state: &ServerList) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    container(column![
-        row![
-            "Server Name",
-            text_input("server name", state.server_name.as_str())
-                .on_input(Message::OnServerName)
-                .width(350)
-        ]
-        .align_y(Alignment::Center)
-        .spacing(50),
-        row![
-            "Server Path",
-            button("Pick a directory").on_press(Message::OpenFilePicker)
-        ]
-        .align_y(Alignment::Center)
-        .spacing(50),
-        center(button("Create").on_press(Message::DownloadServer))
-    ])
-    .padding(10)
-    .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5)))
-    .into()
-}
-
-fn downloading_container<'a>(state: &ServerList) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    stack![
-        container(
-            scrollable(column(state.download_output.iter().map(|element| {
-                text!("{}", element)
-                    .wrapping(text::Wrapping::None)
-                    .style(|_theme| text::Style {
-                        color: Some(color!(0, 0, 0, 0.1)),
-                    })
-                    .into()
-            })))
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new().width(0).scroller_width(0),
-            ))
-            .anchor_bottom()
-        )
-        .padding(10)
-        .width(720)
-        .height(400)
-        .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5))),
-        center(
-            progress_bar(0.0..=100.0, state.progress_percent)
-                .height(10)
-                .width(300)
-        )
-        .width(Length::Fill)
-        .height(Length::Fill),
-    ]
-    .into()
-}
-
-fn download_server(
-    path: &PathBuf,
-    appid: impl Into<u32>,
-) -> impl Stream<Item = Result<Progress, CustomError>> {
-    let testun = path.to_str().unwrap().to_string();
-
-    try_channel(1, move |mut output| async move {
-        let mut depot = DepotDownloader::new("./depotdownloader").await.unwrap();
-
-        let stdout = depot.download_app(&testun, appid.into()).await.unwrap();
-
-        if let Some(stdout) = stdout {
-            let mut reader = BufReader::new(stdout).lines();
-
-            while let Some(line) = reader.next_line().await.unwrap() {
-                let _ = output.send(Progress::Downloading(line)).await;
-            }
-        }
-
-        let _ = output.send(Progress::Finished).await;
-
-        Ok(())
-    })
-}
-
-#[derive(Debug, Clone)]
-pub enum Progress {
-    Downloading(String),
-    Finished,
-}
-
-#[derive(Debug, Clone)]
-pub enum CustomError {
-    Null,
 }

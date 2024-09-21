@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 decompress = "0.6.0"
 iced = {version = "0.13.1", features = ["svg", "tokio"]}
+iced_aw = { version = "0.11.0", features = ["number_input"] }
 reqwest = "0.12.7"
 rfd = "0.15.0"
+serde = "1.0.210"
 tokio = {version = "1.40.0", features = ["full"]}
+toml = "0.8.19"

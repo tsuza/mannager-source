@@ -18,7 +18,7 @@ where
                 container::Style {
                     background: Some(
                         Color {
-                            a: 0.8,
+                            a: 0.9,
                             ..Color::BLACK
                         }
                         .into(),
