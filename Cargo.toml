@@ -7,6 +7,7 @@ edition = "2021"
 decompress = "0.6.0"
 iced = {version = "0.13.1", features = ["svg", "tokio"]}
 iced_aw = { version = "0.11.0", features = ["number_input"] }
+pty-process = {version = "0.4.0", features = ["async"]}
 reqwest = "0.12.7"
 rfd = "0.15.0"
 serde = "1.0.210"

@@ -98,7 +98,7 @@ impl State {
             ),
             Message::ServerPathChosen(file_handle) => {
                 if let Some(file) = file_handle {
-                    self.form_info.server_path = file.path().into();
+                    self.form_info.server_path = file.path().file_stem().unwrap().into();
                 }
 
                 Task::none()
@@ -108,7 +108,10 @@ impl State {
 
                 self.form_page = FormPage::Downloading;
 
-                Task::none()
+                Task::run(
+                    download_server(&self.form_info.server_path, &self.form_info.source_game),
+                    Message::DownloadProgress,
+                )
             }
             Message::DownloadProgress(progress) => {
                 if let Ok(progress) = progress {
@@ -178,15 +181,7 @@ impl State {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        if self.form_info.is_downloading {
-            Subscription::run_with_id(
-                1,
-                download_server(&self.form_info.server_path, &self.form_info.source_game),
-            )
-            .map(Message::DownloadProgress)
-        } else {
-            Subscription::none()
-        }
+        Subscription::none()
     }
 
     pub fn view<'a>(&self) -> Element<'a, Message> {

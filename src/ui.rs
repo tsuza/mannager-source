@@ -42,10 +42,7 @@ impl State {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        self.screen
-            .serverlist_page
-            .subscription()
-            .map(Message::ServerList)
+        Subscription::none()
     }
 
     pub fn view(&self) -> Element<Message> {
