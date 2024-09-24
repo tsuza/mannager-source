@@ -1,5 +1,5 @@
 use core::error;
-use decompress::{self, ExtractOpts, ExtractOptsBuilder};
+use decompress::{self, ExtractOptsBuilder};
 use reqwest::{self};
 use std::{
     fs,
@@ -26,15 +26,6 @@ impl DepotDownloader {
         }
 
         let executable_path = format!("{path}/DepotDownloader");
-
-        /*
-        let mut steamcmd_process = Command::new(executable_path)
-            .args(["+login", "anonymous"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        */
 
         Ok(Self {
             depotdownloader_path: executable_path.into(),
@@ -86,6 +77,6 @@ async fn download_file(path: &str) -> Result<(), Box<dyn error::Error>> {
 
 impl Drop for DepotDownloader {
     fn drop(&mut self) {
-        self.process.as_mut().unwrap().kill();
+        let _ = self.process.as_mut().unwrap().start_kill();
     }
 }

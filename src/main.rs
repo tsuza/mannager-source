@@ -4,7 +4,7 @@ pub mod core;
 pub mod ui;
 
 fn main() -> iced::Result {
-    iced::application(State::title, State::update, State::view)
+    iced::daemon(State::title, State::update, State::view)
         .subscription(State::subscription)
         .run_with(State::new)
 }

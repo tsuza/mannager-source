@@ -1,5 +1,5 @@
 use core::str;
-use std::{fmt::format, fs, path::PathBuf, process::Stdio};
+use std::{fs, path::PathBuf};
 
 use iced::{
     advanced::image,
@@ -8,11 +8,11 @@ use iced::{
     padding,
     stream::try_channel,
     widget::{
-        button, center, column, container, horizontal_rule, row,
+        button, column, container, horizontal_rule, row,
         rule::{self, FillMode},
-        scrollable, svg, text, text_input, vertical_space, TextInput,
+        scrollable, svg, text, vertical_space,
     },
-    Alignment, ContentFit, Element, Length, Padding, Shadow, Subscription, Task, Vector,
+    window, Alignment, ContentFit, Element, Length, Shadow, Subscription, Task, Vector,
 };
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -22,20 +22,24 @@ use tokio::{
 
 use crate::ui::components::modal::modal;
 
-use super::servercreation::{self, FormPage};
+use super::{
+    serverboot,
+    servercreation::{self, FormPage},
+};
 
-pub struct ServerList {
+pub struct State {
     is_server_creation_popup_visible: bool,
     server_creation_screen: servercreation::State,
-    servers: Vec<ServerInfo>,
-    running_servers_output: Vec<String>,
-    server_running: bool,
-    server_terminal_input: String,
-    test: pty_process::Pty,
+    pub servers: Vec<Server>,
+}
+
+pub struct Server {
+    pub info: ServerInfo,
+    pub is_running: bool,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
-struct ServerInfo {
+pub struct ServerInfo {
     pub name: String,
     pub game: SourceAppIDs,
     pub path: PathBuf,
@@ -50,10 +54,9 @@ pub enum Message {
     OnClickOutsidePopup,
     ServerCreation(servercreation::Message),
     TestingGrounds(()),
-    StartServer(usize),
-    ServerOutput(Result<String, CustomError>),
-    ServerTerminalInput(String),
-    SendServerTerminalInput,
+    ServerBoot(serverboot::Message),
+    StartServerTerminal(usize),
+    ServerConsoleOpened(usize, window::Id),
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -76,20 +79,27 @@ impl From<SourceAppIDs> for u32 {
     }
 }
 
-impl ServerList {
+impl State {
     pub fn new() -> (Self, Task<Message>) {
         #[derive(Deserialize)]
         struct DummyDeserializeStruct {
             servers: Vec<ServerInfo>,
         }
 
-        let mut servers: Vec<ServerInfo> = vec![];
+        let mut servers: Vec<Server> = vec![];
 
         if let Ok(servers_from_config) = fs::read_to_string(PathBuf::from(
             "/home/suza/Coding/Rust/mannager-source/Servers/server_list.toml",
         )) {
             if let Ok(str_config) = toml::from_str::<DummyDeserializeStruct>(&servers_from_config) {
-                servers = str_config.servers
+                servers = str_config
+                    .servers
+                    .into_iter()
+                    .map(|server| Server {
+                        info: server,
+                        is_running: false,
+                    })
+                    .collect()
             }
         }
 
@@ -97,11 +107,7 @@ impl ServerList {
             Self {
                 is_server_creation_popup_visible: false,
                 server_creation_screen: servercreation::State::new(),
-                servers: servers,
-                running_servers_output: vec![],
-                server_running: false,
-                server_terminal_input: "".into(),
-                test: pty_process::Pty::new().unwrap(),
+                servers,
             },
             Task::none(),
         )
@@ -128,17 +134,33 @@ impl ServerList {
 
                 Task::none()
             }
+            Message::StartServerTerminal(server_id) => {
+                let (_id, open) = window::open(window::Settings {
+                    decorations: true,
+                    ..window::Settings::default()
+                });
+
+                open.map(move |window_id| Message::ServerConsoleOpened(server_id, window_id))
+            }
+            /*
+            Task::run(
+                start_server(server_id, &self.servers[server_id]),
+                Message::ServerOutput,
+            )*/
             Message::ServerCreation(server_creation_message) => match server_creation_message {
                 servercreation::Message::FinishServerCreation => {
                     self.is_server_creation_popup_visible = false;
 
-                    self.servers.push(ServerInfo {
-                        name: self.server_creation_screen.form_info.server_name.clone(),
-                        game: self.server_creation_screen.form_info.source_game.clone(),
-                        path: self.server_creation_screen.form_info.server_path.clone(),
-                        map: self.server_creation_screen.form_info.map_name.clone(),
-                        max_players: self.server_creation_screen.form_info.max_players.clone(),
-                        password: self.server_creation_screen.form_info.password.clone(),
+                    self.servers.push(Server {
+                        info: ServerInfo {
+                            name: self.server_creation_screen.form_info.server_name.clone(),
+                            game: self.server_creation_screen.form_info.source_game.clone(),
+                            path: self.server_creation_screen.form_info.server_path.clone(),
+                            map: self.server_creation_screen.form_info.map_name.clone(),
+                            max_players: self.server_creation_screen.form_info.max_players.clone(),
+                            password: self.server_creation_screen.form_info.password.clone(),
+                        },
+                        is_running: false,
                     });
 
                     #[derive(Deserialize, Serialize)]
@@ -147,7 +169,9 @@ impl ServerList {
                     }
 
                     let fartimus = DummyDeserializeStruct {
-                        servers: Vec::from_iter(self.servers.iter().map(|item| item.clone())),
+                        servers: Vec::from_iter(
+                            self.servers.iter().map(|server| server.info.clone()),
+                        ),
                     };
 
                     Task::perform(
@@ -168,35 +192,8 @@ impl ServerList {
                     .map(Message::ServerCreation),
             },
             Message::TestingGrounds(_) => Task::none(),
-            Message::StartServer(server_id) => {
-                self.server_running = true;
-
-                Task::run(
-                    start_server(server_id, &self.servers[server_id]),
-                    Message::ServerOutput,
-                )
-            }
-            Message::ServerOutput(string) => {
-                self.running_servers_output.push(string.unwrap());
-
-                println!("Update message output sent");
-
-                Task::none()
-            }
-            Message::ServerTerminalInput(string) => {
-                self.server_terminal_input = string;
-
-                Task::none()
-            }
-            Message::SendServerTerminalInput => {
-                self.server_terminal_input = "".into();
-
-                let mut pty = pty_process::Pty::new().unwrap();
-
-                self.test = pty;
-
-                Task::none()
-            }
+            Message::ServerBoot(message) => todo!(),
+            Message::ServerConsoleOpened(id, window_id) => Task::none(),
         }
     }
 
@@ -214,8 +211,10 @@ impl ServerList {
                             color: Some(color!(0xffffff))
                         }),
                         horizontal_rule(0),
-                        container(scrollable(show_servers(&self.servers)))
-                            .padding(padding::top(20))
+                        container(scrollable(show_servers(
+                            &self.servers.iter().map(|server| &server.info).collect()
+                        )))
+                        .padding(padding::top(20))
                     ]
                     .align_x(Alignment::Center)
                 )
@@ -290,7 +289,7 @@ where
     .into()
 }
 
-fn show_servers<'a>(servers: &Vec<ServerInfo>) -> Element<'a, Message>
+fn show_servers<'a>(servers: &Vec<&'a ServerInfo>) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -338,7 +337,7 @@ where
             text!("Map: {}", server.map).style(|_theme| text::Style {
                 color: Some(color!(0xffffff))
             }),
-            button("Run").on_press(Message::StartServer(id))
+            button("Run").on_press(Message::StartServerTerminal(id))
         ]
         .width(Length::FillPortion(3))
     ])
@@ -355,124 +354,6 @@ where
                 blur_radius: 5.0,
             })
     })
-    .into()
-}
-
-fn start_server(id: usize, server: &ServerInfo) -> impl Stream<Item = Result<String, CustomError>> {
-    let binary_path = format!("{}/srcds_run", &server.path.to_str().unwrap());
-
-    let args = format!(
-        "-console -game tf +map {} +maxplayers {}",
-        server.map, server.max_players
-    );
-
-    try_channel(id, move |mut output| async move {
-        let mut pty = pty_process::Pty::new().unwrap();
-
-        pty.resize(pty_process::Size::new(24, 80)).unwrap();
-
-        let mut process = pty_process::Command::new(binary_path)
-            .args(args.split_whitespace())
-            .spawn(&pty.pts().unwrap())
-            .unwrap();
-
-        let mut out_buf = [0_u8; 4096];
-
-        loop {
-            let bytes = pty.read(&mut out_buf).await.unwrap();
-
-            println!("{}", str::from_utf8(&out_buf[..bytes]).unwrap());
-
-            output
-                .send(str::from_utf8(&out_buf[..bytes]).unwrap().to_string())
-                .await;
-        }
-        /*
-        if let Some(stdout) = process.stdout.take() {
-            let mut reader = BufReader::new(stdout).lines();
-            let mut output_clone = output.clone();
-
-            tokio::spawn(async move {
-                while let Some(line) = reader.next_line().await.unwrap() {
-                    let _ = output_clone.send(line).await;
-                }
-            });
-        }
-        if let Some(stderr) = process.stderr.take() {
-            let mut reader = BufReader::new(stderr).lines();
-            let mut output_clone = output.clone();
-
-            tokio::spawn(async move {
-                while let Some(line) = reader.next_line().await.unwrap() {
-                    let _ = output_clone.send(line).await;
-                }
-            });
-        }
-
-        let _ = process.wait().await;
-
-        */
-
-        Ok(())
-    })
-}
-
-fn server_console<'a>(
-    server_terminal_input: &String,
-    output: &Vec<String>,
-) -> Element<'a, Message> {
-    container(
-        column![
-            container(
-                scrollable(
-                    column(output.iter().map(|string| {
-                        text!("{}", string)
-                            .style(|_theme| text::Style {
-                                color: Some(color!(0xffffff)),
-                            })
-                            .into()
-                    }))
-                    .padding(5)
-                )
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new().width(30).scroller_width(25),
-                ))
-                .anchor_bottom()
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(|_theme, _status| scrollable::Style {
-                    vertical_rail: scrollable::Rail {
-                        background: Some(iced::Background::Color(color!(0x686252))),
-                        border: border::rounded(0),
-                        scroller: scrollable::Scroller {
-                            color: color!(0xada28d),
-                            border: border::rounded(0)
-                        }
-                    },
-                    gap: None,
-                    ..scrollable::default(_theme, _status)
-                }),
-            )
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(|_theme| container::background(color!(0x2a2421)).border(border::rounded(5))),
-            text_input("test", server_terminal_input)
-                .on_input(Message::ServerTerminalInput)
-                .on_submit(Message::SendServerTerminalInput)
-                .width(Length::Fill)
-                .style(|_theme, _status| text_input::Style {
-                    background: iced::Background::Color(color!(0x2a2421)),
-                    border: border::width(0),
-                    value: color!(0xffffff),
-                    ..text_input::default(_theme, _status)
-                })
-        ]
-        .spacing(20),
-    )
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .padding(20)
-    .style(|_theme| container::background(color!(0x3a3430)).border(border::rounded(5)))
     .into()
 }
 

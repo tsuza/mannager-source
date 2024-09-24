@@ -1,12 +1,11 @@
-use serverlist::ServerList;
-
+pub mod serverboot;
 pub mod servercreation;
 pub mod serverlist;
 
 pub struct Screen {
     pub current_page: ScreenKind,
 
-    pub serverlist_page: ServerList,
+    pub serverlist_page: serverlist::State,
 }
 
 pub enum ScreenKind {
