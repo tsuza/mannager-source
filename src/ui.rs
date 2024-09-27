@@ -8,6 +8,7 @@ use screen::{serverboot, serverlist, Screen, ScreenKind};
 
 pub mod components;
 pub mod screen;
+pub mod style;
 
 pub struct State {
     windows: BTreeMap<window::Id, Window>,
@@ -28,7 +29,7 @@ pub enum Message {
 
 impl State {
     pub fn new() -> (Self, Task<Message>) {
-        let (_id, open) = window::open(window::Settings::default());
+        let (_, open) = window::open(window::Settings::default());
 
         (
             Self {
@@ -88,12 +89,30 @@ impl State {
                 task.map(move |msg| Message::ServerList(id, msg))
             }
             Message::WindowClosed(id) => {
-                self.windows.remove(&id);
+                let window = self.windows.remove(&id);
+
+                let mut task: Task<Message> = Task::none();
+
+                if let Some(window1) = window {
+                    match window1 {
+                        Window::MainApp(mut screen) => {
+                            task = screen
+                                .serverlist_page
+                                .update(serverlist::Message::WindowClosed)
+                                .map(move |msg6| Message::ServerList(id, msg6));
+                        }
+                        Window::ServerTerminal(mut state) => {
+                            task = state
+                                .update(serverboot::Message::ShutDownServer)
+                                .map(move |msg6| Message::ServerTerminal(id, msg6))
+                        }
+                    }
+                }
 
                 if self.windows.is_empty() {
-                    iced::exit()
+                    Task::batch(vec![iced::exit(), task])
                 } else {
-                    Task::none()
+                    Task::batch(vec![Task::none(), task])
                 }
             }
             Message::ServerTerminal(window_id, msg) => {
@@ -112,31 +131,22 @@ impl State {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-<<<<<<< HEAD
-        Subscription::none()
-=======
         window::close_events().map(Message::WindowClosed)
->>>>>>> dc3c440 (changes)
     }
 
     pub fn view(&self, window_id: window::Id) -> Element<Message> {
-        if let Some(window) = self.windows.get(&window_id) {
-            match window {
-                Window::MainApp(screen) => screen
-                    .serverlist_page
-                    .view()
-                    .map(move |msg| Message::ServerList(window_id, msg)),
-                Window::ServerTerminal(state) => state
-                    .view()
-                    .map(move |msg| Message::ServerTerminal(window_id, msg)),
-            }
-        } else {
-            container("").into()
+        let Some(window) = self.windows.get(&window_id) else {
+            return container("").into();
+        };
+
+        match window {
+            Window::MainApp(screen) => screen
+                .serverlist_page
+                .view()
+                .map(move |msg| Message::ServerList(window_id, msg)),
+            Window::ServerTerminal(state) => state
+                .view()
+                .map(move |msg| Message::ServerTerminal(window_id, msg)),
         }
-        /*
-        match &self.screen.current_page {
-            ScreenKind::ServerList => self.screen.serverlist_page.view().map(Message::ServerList),
-        }
-        */
     }
 }

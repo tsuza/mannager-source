@@ -1,26 +1,44 @@
 use core::str;
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use iced::{
     advanced::image,
     border, color,
-    futures::{SinkExt, Stream},
+    futures::{SinkExt, Stream, TryFutureExt},
     padding,
     stream::try_channel,
     widget::{
-        button, column, container, horizontal_rule, row,
+        button, column, container, horizontal_rule, horizontal_space, row,
         rule::{self, FillMode},
-        scrollable, svg, text, vertical_space,
+        scrollable, svg, text, vertical_rule, vertical_space,
     },
-    window, Alignment, ContentFit, Element, Length, Shadow, Subscription, Task, Vector,
+    window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Subscription,
+    Task, Vector,
 };
+use iced_aw::{drop_down, menu, menu_bar, menu_items, MenuBar};
+use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, BufReader},
     process::Command,
 };
 
-use crate::ui::components::modal::modal;
+use iced_aw::menu::{Item, Menu};
+
+use crate::{
+    core::{
+        metamod::{self, MetamodBranch, MetamodDownloader},
+        sourcemod::{SourcemodBranch, SourcemodDownloader},
+        SourceEngineVersion,
+    },
+    ui::{
+        components::modal::modal,
+        style::{self, icon},
+    },
+};
 
 use super::{
     serverboot,
@@ -54,9 +72,13 @@ pub enum Message {
     OnClickOutsidePopup,
     ServerCreation(servercreation::Message),
     TestingGrounds(()),
-    ServerBoot(serverboot::Message),
     StartServerTerminal(usize),
     ServerConsoleOpened(usize, window::Id),
+    WindowClosed,
+    DownloadSourcemod(usize, SourcemodBranch),
+    OpenFolder(usize),
+    DeleteServer(usize),
+    OnServerDeletion(usize),
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
@@ -114,7 +136,7 @@ impl State {
     }
 
     pub fn title(&self) -> String {
-        "Mannager - Server List".into()
+        "Mannager".into()
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -192,8 +214,69 @@ impl State {
                     .map(Message::ServerCreation),
             },
             Message::TestingGrounds(_) => Task::none(),
-            Message::ServerBoot(message) => todo!(),
             Message::ServerConsoleOpened(id, window_id) => Task::none(),
+            Message::WindowClosed => Task::none(),
+            Message::DownloadSourcemod(id, sourcemod_branch) => {
+                let path: PathBuf = self.servers[id].info.path.clone();
+
+                let branch = sourcemod_branch.clone();
+
+                println!("Test");
+
+                Task::future(async move {
+                    setup_sourcemod(path, branch, SourceEngineVersion::Source1).await
+                })
+                .discard()
+            }
+            Message::OpenFolder(id) => {
+                let _ = open::that(self.servers[id].info.path.clone());
+
+                Task::none()
+            }
+            Message::DeleteServer(id) => {
+                let path = self.servers[id].info.path.clone();
+
+                Task::perform(
+                    async move {
+                        let _ = tokio::fs::remove_dir_all(path).await;
+                    },
+                    move |_| Message::OnServerDeletion(id),
+                )
+            }
+            Message::OnServerDeletion(id) => {
+                self.servers.remove(id);
+
+                let server_name = self.servers[id].info.name.clone();
+
+                #[derive(Deserialize, Serialize)]
+                struct DummyDeserializeStruct {
+                    servers: Vec<ServerInfo>,
+                }
+
+                let fartimus = DummyDeserializeStruct {
+                    servers: Vec::from_iter(self.servers.iter().map(|server| server.info.clone())),
+                };
+
+                Task::future(async move {
+                    tokio::fs::write(
+                        "/home/suza/Coding/Rust/mannager-source/Servers/server_list.toml",
+                        toml::to_string_pretty(&fartimus).unwrap(),
+                    )
+                    .await
+                    .unwrap();
+
+                    Notification::new()
+                        .appname("MANNager")
+                        .summary("[ MANNager ] Server Deletion")
+                        .body(&format!("{server_name} has been successfully deleted."))
+                        .timeout(5)
+                        .show_async()
+                        .await
+                        .unwrap()
+                        .on_close(|_| ())
+                })
+                .discard()
+            }
         }
     }
 
@@ -207,9 +290,12 @@ impl State {
             container(
                 container(
                     column![
-                        text!("Servers").style(|_theme| text::Style {
-                            color: Some(color!(0xffffff))
-                        }),
+                        text!("Servers")
+                            .font(Font::with_name("TF2 Build"))
+                            .size(32)
+                            .style(|_theme| text::Style {
+                                color: Some(color!(0xffffff))
+                            }),
                         horizontal_rule(0),
                         container(scrollable(show_servers(
                             &self.servers.iter().map(|server| &server.info).collect()
@@ -245,16 +331,6 @@ impl State {
                 self.server_creation_screen
                     .view()
                     .map(Message::ServerCreation),
-                Message::OnClickOutsidePopup,
-            )
-        } else if self.server_running {
-            modal(
-                base,
-                container(server_console(
-                    &self.server_terminal_input,
-                    &self.running_servers_output,
-                ))
-                .padding(100),
                 Message::OnClickOutsidePopup,
             )
         } else {
@@ -320,30 +396,94 @@ where
         SourceAppIDs::LeftForDead2 => svg::Handle::from_path("images/l4d2-logo.svg"),
     };
 
+    let menu_settings = {
+        let sourcemod_sub = Item::with_menu(
+            button(text!("Download Sourcemod").color(Color::WHITE))
+                .width(Length::Fill)
+                .style(|_theme, _status| button::text(_theme, _status)),
+            Menu::new(
+                [
+                    Item::new(
+                        button(text!("Stable branch").color(Color::WHITE))
+                            .on_press(Message::DownloadSourcemod(id, SourcemodBranch::Stable))
+                            .width(Length::Fill)
+                            .style(|_theme, _status| button::text(_theme, _status)),
+                    ),
+                    Item::new(
+                        button(text!("Dev branch").color(Color::WHITE))
+                            .on_press(Message::DownloadSourcemod(id, SourcemodBranch::Dev))
+                            .width(Length::Fill)
+                            .style(|_theme, _status| button::text(_theme, _status)),
+                    ),
+                ]
+                .into(),
+            )
+            .offset(5.0)
+            .max_width(200.0),
+        );
+
+        MenuBar::new(
+            [Item::with_menu(
+                button(icon::settings().size(20).color(Color::WHITE))
+                    .style(|_theme, _status| button::text(_theme, _status)),
+                Menu::new(
+                    [
+                        sourcemod_sub,
+                        Item::new(container(horizontal_rule(1)).padding([0, 10])),
+                        Item::new(
+                            button(text!("Open folder").color(Color::WHITE))
+                                .on_press(Message::OpenFolder(id))
+                                .width(Length::Fill)
+                                .style(|_theme, _status| button::text(_theme, _status)),
+                        ),
+                        Item::new(
+                            button(text!("Delete server").color(Color::WHITE))
+                                .on_press(Message::DeleteServer(id))
+                                .width(Length::Fill)
+                                .style(|_theme, _status| button::text(_theme, _status)),
+                        ),
+                    ]
+                    .into(),
+                )
+                .max_width(250.0)
+                .offset(5.0),
+            )]
+            .into(),
+        )
+        .padding(0)
+        .style(|_theme, _status| style::tf2::Style::menu(_theme, _status))
+    };
+
     container(row![
         svg(server_game_image_handle)
             .content_fit(ContentFit::Contain)
-            .width(Length::FillPortion(1)),
+            .width(94)
+            .height(94),
         column![
-            text!("{}", server.name.clone())
-                .size(30)
-                .style(|_theme| text::Style {
-                    color: Some(color!(0xffffff))
-                }),
+            row![
+                text!("{}", server.name.clone())
+                    .width(400)
+                    .wrapping(text::Wrapping::None)
+                    .size(30)
+                    .style(|_theme| text::Style {
+                        color: Some(color!(0xffffff))
+                    }),
+                horizontal_space(),
+                button(icon::start().size(20).color(Color::WHITE))
+                    .on_press(Message::StartServerTerminal(id)),
+                menu_settings
+            ]
+            .spacing(10),
             horizontal_rule(0),
-            text!("Max Players: {}", server.max_players).style(|_theme| text::Style {
-                color: Some(color!(0xffffff))
-            }),
-            text!("Map: {}", server.map).style(|_theme| text::Style {
-                color: Some(color!(0xffffff))
-            }),
-            button("Run").on_press(Message::StartServerTerminal(id))
+            column![
+                text!("Max Players: {}", server.max_players).color(Color::WHITE),
+                text!("Map: {}", server.map).color(Color::WHITE),
+            ]
         ]
-        .width(Length::FillPortion(3))
+        .padding(padding::left(10))
     ])
     .width(Length::Fill)
     .max_width(720)
-    .height(128)
     .padding(10)
     .style(|_theme| {
         container::background(color!(0x2A2725))
@@ -360,4 +500,25 @@ where
 #[derive(Debug, Clone)]
 pub enum CustomError {
     Null,
+}
+
+pub async fn setup_sourcemod(
+    path: impl AsRef<Path>,
+    branch: SourcemodBranch,
+    engine: SourceEngineVersion,
+) -> Result<(), CustomError> {
+    MetamodDownloader::download(&path, &MetamodBranch::Stable, &engine)
+        .await
+        .unwrap();
+    SourcemodDownloader::download(&path, &branch, &engine)
+        .await
+        .unwrap();
+
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub enum MannagerError {
+    MetamodDownloadFailed,
+    SourcemodDownloadFailed,
 }

@@ -1,11 +1,12 @@
 use core::error;
-use decompress::{self, ExtractOptsBuilder};
 use reqwest::{self};
 use std::{
     fs,
-    path::{self, PathBuf},
+    io::Cursor,
+    path::{Path, PathBuf},
     process::Stdio,
 };
+use thiserror::Error;
 use tokio::process::{Child, ChildStdout, Command};
 
 pub struct DepotDownloader {
@@ -20,12 +21,14 @@ const DEPOTDOWNLOADER_URL: &str = "https://github.com/SteamRE/DepotDownloader/re
 const DEPOTDOWNLOADER_URL: &str = "https://github.com/SteamRE/DepotDownloader/releases/latest/download/DepotDownloader-windows-x64.zip";
 
 impl DepotDownloader {
-    pub async fn new(path: &str) -> Result<Self, Box<dyn error::Error>> {
-        if !path::Path::new(&path).try_exists()? {
-            download_file(path).await?;
+    pub async fn new(path: impl AsRef<Path>) -> Result<Self, Box<dyn error::Error>> {
+        let path = path.as_ref().to_path_buf();
+
+        if !path.try_exists()? {
+            download_file(&path).await?;
         }
 
-        let executable_path = format!("{path}/DepotDownloader");
+        let executable_path = path.join("DepotDownloader");
 
         Ok(Self {
             depotdownloader_path: executable_path.into(),
@@ -55,22 +58,16 @@ impl DepotDownloader {
     }
 }
 
-async fn download_file(path: &str) -> Result<(), Box<dyn error::Error>> {
+async fn download_file(path: &PathBuf) -> Result<(), Box<dyn error::Error>> {
     fs::create_dir_all(path)?;
 
     let steamcmd_contents = reqwest::get(DEPOTDOWNLOADER_URL).await?.bytes().await?;
 
-    tokio::fs::write(
-        format!("{path}/depotdownloader_compressed.zip"),
-        steamcmd_contents,
-    )
-    .await?;
+    let cursor = Cursor::new(steamcmd_contents);
 
-    decompress::decompress(
-        format!("{path}/depotdownloader_compressed.zip"),
-        format!("{path}"),
-        &ExtractOptsBuilder::default().build()?,
-    )?;
+    let mut zip = zip::ZipArchive::new(cursor)?;
+
+    zip.extract(path)?;
 
     Ok(())
 }
@@ -80,3 +77,5 @@ impl Drop for DepotDownloader {
         let _ = self.process.as_mut().unwrap().start_kill();
     }
 }
+#[derive(Error, Debug)]
+pub enum Error {}

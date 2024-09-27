@@ -1,34 +1,14 @@
-use ui::State;
+use ui::{style::icon, State};
 
 pub mod core;
 pub mod ui;
 
+const TF2_BUILD_FONT_BYTES: &[u8] = include_bytes!("../fonts/tf2build.ttf");
+
 fn main() -> iced::Result {
     iced::daemon(State::title, State::update, State::view)
         .subscription(State::subscription)
+        .font(icon::FONT_BYTES)
+        .font(TF2_BUILD_FONT_BYTES)
         .run_with(State::new)
 }
-
-/*
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn error::Error>> {
-    //iced::application(State::title, State::update, State::view).run_with(State::new)
-    let mut depot = steamcmd::DepotDownloader::new("./depotdownloader").await?;
-
-    let stdout = depot
-        .create_game_server("/home/suza/Coding/Rust/mannager-source/servers/tf2", 232250)
-        .await?;
-
-    if let Some(stdout) = stdout {
-        let mut reader = BufReader::new(stdout).lines();
-
-        while let Some(line) = reader.next_line().await? {
-            println!("Output: {}", line);
-        }
-    }
-
-    println!("Done!");
-
-    Ok(())
-}
-*/

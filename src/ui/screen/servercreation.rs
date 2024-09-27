@@ -1,7 +1,8 @@
 use core::error;
 use std::path::PathBuf;
 
-use iced::widget::scrollable;
+use iced::widget::{scrollable, tooltip};
+use iced::Font;
 use iced::{
     border, color,
     futures::{SinkExt, Stream, StreamExt},
@@ -98,7 +99,7 @@ impl State {
             ),
             Message::ServerPathChosen(file_handle) => {
                 if let Some(file) = file_handle {
-                    self.form_info.server_path = file.path().file_stem().unwrap().into();
+                    self.form_info.server_path = file.path().to_path_buf();
                 }
 
                 Task::none()
@@ -117,8 +118,6 @@ impl State {
                 if let Ok(progress) = progress {
                     match progress {
                         Progress::Downloading(string) => {
-                            self.form_info.download_output.push(string.clone());
-
                             if let Some(percent) = string.split("%").next() {
                                 if let Ok(percent) = percent.trim().parse::<f32>() {
                                     self.form_info.progress_percent = percent;
@@ -127,7 +126,6 @@ impl State {
                         }
                         Progress::Finished => {
                             self.form_info.is_downloading = false;
-                            self.form_info.download_output = vec![];
                             self.form_page = FormPage::ServerInfo;
                         }
                     }
@@ -156,7 +154,13 @@ impl State {
             ),
             Message::ServerMapChosen(file_handle) => {
                 if let Some(file) = file_handle {
-                    self.form_info.map_name = file.file_name();
+                    self.form_info.map_name = file
+                        .path()
+                        .file_stem()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string();
                 }
 
                 Task::none()
@@ -199,53 +203,75 @@ where
     Message: Clone + 'a,
 {
     container(column![
-        container(text!("Select a game server").size(32).color(color!(0xFFF))).padding(10),
+        container(
+            text!("Select a game server")
+                .font(Font::with_name("TF2 Build"))
+                .size(32)
+                .color(color!(0xFFF))
+        )
+        .padding(10),
         container(
             row![
-                button(
-                    svg(svg::Handle::from_path("images/tf2-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::GameChosen(SourceAppIDs::TeamFortress2))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-                button(
-                    svg(svg::Handle::from_path("images/cs2-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::GameChosen(SourceAppIDs::CounterStrike2))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-                button(
-                    svg(svg::Handle::from_path("images/l4d1-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::GameChosen(SourceAppIDs::LeftForDead1))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
-                button(
-                    svg(svg::Handle::from_path("images/l4d2-logo.svg"))
-                        .width(128)
-                        .content_fit(ContentFit::Contain)
-                )
-                .on_press(Message::GameChosen(SourceAppIDs::LeftForDead2))
-                .padding(0)
-                .style(|_theme, _status| button::Style {
-                    background: None,
-                    ..button::Style::default()
-                }),
+                tooltip(
+                    button(
+                        svg(svg::Handle::from_path("images/tf2-logo.svg"))
+                            .width(128)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::TeamFortress2))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("Team Fortress 2").padding(10),
+                    tooltip::Position::Top
+                ),
+                tooltip(
+                    button(
+                        svg(svg::Handle::from_path("images/cs2-logo.svg"))
+                            .width(128)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::CounterStrike2))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("Counter Strike 2").padding(10),
+                    tooltip::Position::Top
+                ),
+                tooltip(
+                    button(
+                        svg(svg::Handle::from_path("images/l4d1-logo.svg"))
+                            .width(128)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::LeftForDead1))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("Left For Dead 1").padding(10),
+                    tooltip::Position::Top
+                ),
+                tooltip(
+                    button(
+                        svg(svg::Handle::from_path("images/l4d2-logo.svg"))
+                            .width(128)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::LeftForDead2))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("Left For Dead 2").padding(10),
+                    tooltip::Position::Top
+                ),
             ]
             .spacing(20)
             .align_y(Alignment::Center)
@@ -291,25 +317,11 @@ where
     Message: Clone + 'a,
 {
     stack![
-        container(
-            scrollable(column(state.download_output.iter().map(|element| {
-                text!("{}", element)
-                    .wrapping(text::Wrapping::None)
-                    .style(|_theme| text::Style {
-                        color: Some(color!(0, 0, 0, 0.1)),
-                    })
-                    .into()
-            })))
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new().width(0).scroller_width(0),
-            ))
-            .on_scroll(|viewport| Message::OnDownloadingScrollableScroll(viewport))
-            .anchor_bottom()
-        )
-        .padding(10)
-        .width(720)
-        .height(400)
-        .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5))),
+        container(scrollable(""))
+            .padding(10)
+            .width(720)
+            .height(400)
+            .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5))),
         center(
             progress_bar(0.0..=100.0, state.progress_percent)
                 .height(10)
