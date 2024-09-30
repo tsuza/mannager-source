@@ -1,15 +1,12 @@
+use std::path::PathBuf;
+
 use iced::{
     border, color,
     futures::{channel::mpsc, SinkExt, Stream, StreamExt},
-    padding,
     stream::try_channel,
     task,
-    widget::{
-        button, center, column, container, horizontal_rule, row,
-        rule::{self, FillMode},
-        scrollable, svg, text, text_input, vertical_space, TextInput,
-    },
-    Alignment, Color, ContentFit, Element, Length, Padding, Shadow, Subscription, Task, Vector,
+    widget::{column, container, scrollable, text, text_input},
+    Color, Element, Length, Subscription, Task,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -18,7 +15,7 @@ use tokio::{
 
 use crate::ui::style;
 
-use super::serverlist::ServerInfo;
+use super::serverlist::{ServerInfo, SourceAppIDs};
 
 pub struct State {
     running_servers_output: Vec<String>,
@@ -29,8 +26,7 @@ pub struct State {
 
 #[derive(Clone, Debug)]
 pub enum Message {
-    ServerOutput(Result<String, CustomError>),
-    ServerCommunication(Result<ServerCommunicationTwoWay, CustomError>),
+    ServerCommunication(Result<ServerCommunicationTwoWay, Error>),
     ServerTerminalInput(String),
     SendServerTerminalInput,
     ShutDownServer,
@@ -44,8 +40,28 @@ pub enum ServerCommunicationTwoWay {
 
 impl State {
     pub fn new(server: &ServerInfo) -> (Self, Task<Message>) {
-        let (task, handle) =
-            Task::run(start_server(server), Message::ServerCommunication).abortable();
+        let binary_path = server.path.join("srcds_run");
+
+        let args = {
+            let mut temp = format!(
+                "-console -game {} +map {} +max_players {}",
+                get_arg_game_name(server.game.clone()),
+                server.map,
+                server.max_players
+            );
+
+            if server.max_players > 32 {
+                temp = format!("{temp} -unrestricted_maxplayers");
+            }
+
+            temp
+        };
+
+        let (task, handle) = Task::run(
+            start_server(binary_path, args),
+            Message::ServerCommunication,
+        )
+        .abortable();
 
         (
             Self {
@@ -57,17 +73,13 @@ impl State {
             task,
         )
     }
+
+    pub fn title() -> String {
+        "MANNager - Server Terminal".into()
+    }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ServerOutput(output) => {
-                let Ok(string) = output else {
-                    return Task::none();
-                };
-
-                self.running_servers_output.push(string);
-
-                Task::none()
-            }
             Message::ServerTerminalInput(string) => {
                 self.server_terminal_input = string;
 
@@ -85,7 +97,7 @@ impl State {
 
                 let input_to_send = self.server_terminal_input.clone();
 
-                self.server_terminal_input = "".to_string();
+                self.server_terminal_input.clear();
 
                 Task::future(async move { sender.send(input_to_send).await }).discard()
             }
@@ -141,7 +153,7 @@ impl State {
                     .on_input(Message::ServerTerminalInput)
                     .on_submit(Message::SendServerTerminalInput)
                     .width(Length::Fill)
-                    .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                    .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
             ]
             .spacing(20),
         )
@@ -153,32 +165,35 @@ impl State {
     }
 }
 
+fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
+    match game {
+        SourceAppIDs::TeamFortress2 => "tf",
+        SourceAppIDs::CounterStrike2 => "cs",
+        SourceAppIDs::LeftForDead1 => "left4dead",
+        SourceAppIDs::LeftForDead2 => "left4dead2",
+    }
+}
+
 fn start_server(
-    server: &ServerInfo,
-) -> impl Stream<Item = Result<ServerCommunicationTwoWay, CustomError>> {
-    let binary_path = format!("{}/srcds_run", &server.path.to_str().unwrap());
-
-    let args = format!(
-        "-console -game tf +map cp_dustbowl +maxplayers {} +ip 192.168.178.40 -port 27015",
-        server.max_players
-    );
-
-    try_channel(1000, move |mut output| async move {
+    executable_path: PathBuf,
+    args: String,
+) -> impl Stream<Item = Result<ServerCommunicationTwoWay, Error>> {
+    try_channel(1, |mut output| async move {
         let (sender, mut receiver) = mpsc::channel(100);
 
         output
             .send(ServerCommunicationTwoWay::Input(sender))
-            .await
-            .unwrap();
+            .await?;
 
-        let mut pty = pty_process::Pty::new().unwrap();
+        let mut pty =
+            pty_process::Pty::new().map_err(|err| Error::SpawnProcessError(err.to_string()))?;
 
-        pty.resize(pty_process::Size::new(24, 80)).unwrap();
+        let _ = pty.resize(pty_process::Size::new(24, 80));
 
-        let mut _process = pty_process::Command::new(binary_path)
+        let mut _process = pty_process::Command::new(executable_path)
             .args(args.split_whitespace())
             .spawn(&pty.pts().unwrap())
-            .unwrap();
+            .map_err(|err| Error::SpawnProcessError(err.to_string()))?;
 
         let (mut process_reader, mut process_writer) = pty.split();
 
@@ -190,9 +205,7 @@ fn start_server(
 
             select! {
                 pty_output = read_future => {
-                    let Ok(byte) = pty_output else {
-                        break;
-                    };
+                    let byte = pty_output.map_err(|err| Error::CommunicationError(err.to_string()))?;
 
                     buffer.push(byte);
 
@@ -205,24 +218,40 @@ fn start_server(
                     };
 
                     if last_byte == &13u8 && byte == 10u8 {
-                        let _ = output.send(ServerCommunicationTwoWay::Output(String::from_utf8(buffer.clone()).unwrap())).await;
+                        let Ok(string) = String::from_utf8(buffer.clone()) else {
+                            buffer.clear();
+
+                            continue;
+                        };
+
+                        let _ = output.send(ServerCommunicationTwoWay::Output(string)).await;
 
                         buffer.clear();
                     }
                 },
 
                 input = input_future => {
-                    let _ = process_writer.write_all(format!("{}\n\0", input).as_bytes()).await;
+                    let formatted_string = format!("{}\n\0", input);
+
+                    let _ = process_writer.write_all(formatted_string.as_bytes()).await;
                     let _ = process_writer.flush().await;
                 }
             }
         }
-
-        Ok(())
     })
 }
 
-#[derive(Debug, Clone)]
-pub enum CustomError {
-    Null,
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+pub enum Error {
+    #[error("Failed to spawn the process: {0}")]
+    SpawnProcessError(String),
+
+    #[error("Error in comunication: {0}")]
+    CommunicationError(String),
+
+    #[error("Channel send failed: {0}")]
+    ChannelSendError(#[from] mpsc::SendError),
+
+    #[error("Server path does not exist")]
+    ServerPathError,
 }

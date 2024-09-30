@@ -1,10 +1,9 @@
-use core::error;
 use std::{fs, io::Cursor, path::Path};
 
 use flate2::read::GzDecoder;
 use scraper::{Html, Selector};
 
-use super::SourceEngineVersion;
+use super::{Error, ExtractError, SourceEngineVersion};
 
 pub struct SourcemodDownloader;
 
@@ -21,14 +20,12 @@ impl SourcemodDownloader {
         path: impl AsRef<Path>,
         branch: &SourcemodBranch,
         source_version: &SourceEngineVersion,
-    ) -> Result<(), Box<dyn error::Error>> {
+    ) -> Result<(), Error> {
         let version = get_latest_sourcemod_version(branch, source_version).await?;
-
-        println!("Inside Sourcemod");
 
         let path = path.as_ref();
 
-        fs::create_dir_all(path)?;
+        fs::create_dir_all(path).unwrap();
 
         let latest_sourcemod_archive_name_url = format!(
             "{}/{version}/sourcemod-latest-linux",
@@ -54,9 +51,9 @@ impl SourcemodDownloader {
 
         let mut archive = tar::Archive::new(tar);
 
-        archive.unpack(path.to_path_buf().join("tf/"))?;
-
-        println!("Done Sourcemod");
+        archive
+            .unpack(path.to_path_buf().join("tf/"))
+            .map_err(|err| ExtractError::TarError(err))?;
 
         Ok(())
     }
@@ -66,32 +63,29 @@ impl SourcemodDownloader {
 async fn get_latest_sourcemod_version(
     branch: &SourcemodBranch,
     source_version: &SourceEngineVersion,
-) -> Result<String, Box<dyn error::Error>> {
+) -> Result<String, Error> {
     let page_contents = reqwest::get(SOURCEMOD_VERSIONS_URL).await?.text().await?;
 
     let html = Html::parse_fragment(&page_contents);
 
-    let a_selector = Selector::parse("a")?;
+    let a_selector = Selector::parse("a").map_err(|_| Error::UnableToFindLatestVersionError)?;
 
     let mut stable = 0u32;
     let mut dev = 0u32;
 
     for element in html.select(&a_selector).skip(1) {
-        println!("{}", element.inner_html().trim_end_matches("/"));
-
         let string = element.inner_html();
 
-        let (major, minor) = {
-            let mut split = string.trim_end_matches("/").trim().split(".");
+        let mut split = string.trim_end_matches("/").trim().split(".");
 
-            (
-                match split.nth(0).unwrap().parse::<u32>()? {
-                    1 => SourceEngineVersion::Source1,
-                    2 => SourceEngineVersion::Source2,
-                    _ => panic!(),
-                },
-                split.nth(0).unwrap().parse::<u32>()?,
-            )
+        let major = match split.next().and_then(|next| next.parse::<u32>().ok()) {
+            Some(1) => SourceEngineVersion::Source1,
+            Some(2) => SourceEngineVersion::Source2,
+            _ => continue,
+        };
+
+        let Some(Ok(minor)) = split.next().map(|s| s.parse::<u32>()) else {
+            continue;
         };
 
         if &major != source_version {
@@ -106,9 +100,6 @@ async fn get_latest_sourcemod_version(
             dev = minor;
         }
     }
-
-    println!("Stable version: {stable}");
-    println!("Dev version: {dev}");
 
     let version: u32 = source_version.clone().into();
 

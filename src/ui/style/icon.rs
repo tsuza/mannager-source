@@ -24,7 +24,15 @@ pub fn download<'a>() -> Text<'a> {
 }
 
 pub fn loading<'a>() -> Text<'a> {
-    with_codepoint('\u{E832}')
+    with_codepoint('\u{E805}')
+}
+
+pub fn stop<'a>() -> Text<'a> {
+    with_codepoint('\u{E806}')
+}
+
+pub fn right_arrow<'a>() -> Text<'a> {
+    with_codepoint('\u{E807}')
 }
 
 fn with_codepoint<'a>(codepoint: char) -> Text<'a> {

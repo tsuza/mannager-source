@@ -1,9 +1,6 @@
 use std::collections::BTreeMap;
 
-use iced::{
-    widget::{self, container},
-    window, Element, Subscription, Task,
-};
+use iced::{widget::container, window, Element, Subscription, Task};
 use screen::{serverboot, serverlist, Screen, ScreenKind};
 
 pub mod components;
@@ -39,7 +36,7 @@ impl State {
         )
     }
 
-    pub fn title(&self, window: window::Id) -> String {
+    pub fn title(&self, _window: window::Id) -> String {
         "MANNager".into()
     }
 

@@ -1,29 +1,24 @@
-use core::error;
 use std::path::PathBuf;
 
-use iced::widget::{scrollable, tooltip};
-use iced::Font;
+use iced::widget::tooltip;
 use iced::{
     border, color,
-    futures::{SinkExt, Stream, StreamExt},
+    futures::{SinkExt, Stream},
     padding,
     stream::try_channel,
     widget::{
-        button, center, column, container, horizontal_rule, progress_bar, row,
-        rule::{self, FillMode},
-        scrollable::Viewport,
-        stack, svg, text, text_input, vertical_rule, vertical_space,
+        button, center, column, container, horizontal_rule, progress_bar, row, svg, text,
+        text_input,
     },
-    Alignment, Background, ContentFit, Element, Error, Length, Padding, Shadow, Subscription, Task,
+    Alignment, ContentFit, Element, Length, Subscription, Task,
 };
+use iced::{Color, Font};
 use iced_aw::number_input;
 use rfd::FileHandle;
-use tokio::{
-    io::{AsyncBufReadExt, BufReader},
-    process::ChildStdout,
-};
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::core::depotdownloader::DepotDownloader;
+use crate::ui::style;
 
 use super::serverlist::SourceAppIDs;
 
@@ -33,7 +28,7 @@ pub struct State {
     pub form_info: FormInfo,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub enum FormPage {
     #[default]
     GameSelection,
@@ -42,7 +37,7 @@ pub enum FormPage {
     ServerInfo,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct FormInfo {
     pub source_game: SourceAppIDs,
     pub server_name: String,
@@ -64,7 +59,6 @@ pub enum Message {
     ServerPathChosen(Option<FileHandle>),
     DownloadServer,
     DownloadProgress(Result<Progress, CustomError>),
-    OnDownloadingScrollableScroll(Viewport),
     SelectMap,
     ServerMapChosen(Option<FileHandle>),
     MessageDescriptionUpdate(String),
@@ -140,7 +134,6 @@ impl State {
 
                 Task::none()
             }
-            Message::OnDownloadingScrollableScroll(viewport) => Task::none(),
             Message::SelectMap => Task::perform(
                 rfd::AsyncFileDialog::new()
                     .set_title("Choose a default map")
@@ -203,13 +196,14 @@ where
     Message: Clone + 'a,
 {
     container(column![
-        container(
-            text!("Select a game server")
-                .font(Font::with_name("TF2 Build"))
-                .size(32)
-                .color(color!(0xFFF))
-        )
-        .padding(10),
+        text!("Server creation")
+            .font(Font::with_name("TF2 Build"))
+            .size(32)
+            .color(Color::WHITE)
+            .width(Length::Fill)
+            .align_x(Alignment::Center),
+        horizontal_rule(0),
+        text!("Select the game server").size(20).color(Color::WHITE),
         container(
             row![
                 tooltip(
@@ -278,6 +272,7 @@ where
         )
         .padding(50)
     ])
+    .width(720)
     .padding(10)
     .style(|_theme| container::background(color!(0x34302d)))
     .into()
@@ -287,25 +282,53 @@ fn server_creation_form_container<'a>(state: &FormInfo) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    container(column![
-        row![
-            "Server Name",
-            text_input("server name", state.server_name.as_str())
-                .on_input(Message::ServerNameInput)
-                .width(350)
+    container(
+        column![
+            column![
+                text!("Server creation")
+                    .font(Font::with_name("TF2 Build"))
+                    .size(32)
+                    .color(Color::WHITE)
+                    .width(Length::Fill)
+                    .align_x(Alignment::Center),
+                horizontal_rule(0),
+            ],
+            row![
+                text!("Server Name")
+                    .color(Color::WHITE)
+                    .width(Length::FillPortion(1)),
+                text_input("server name", state.server_name.as_str())
+                    .on_input(Message::ServerNameInput)
+                    .width(Length::FillPortion(2))
+                    .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+            ]
+            .align_y(Alignment::Center),
+            row![
+                text!("Server Path")
+                    .color(Color::WHITE)
+                    .width(Length::FillPortion(1)),
+                container(
+                    button("Click to pick a directory")
+                        .on_press(Message::OpenFilePicker)
+                        .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+                )
+                .width(Length::FillPortion(2))
+                .align_x(Alignment::Center)
+            ]
+            .align_y(Alignment::Center),
+            container(
+                button(text!("Create").size(25))
+                    .on_press(Message::DownloadServer)
+                    .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+            )
+            .width(Length::Fill)
+            .padding(padding::top(50))
+            .align_x(Alignment::Center)
         ]
-        .align_y(Alignment::Center)
-        .spacing(50),
-        row![
-            "Server Path",
-            button("Pick a directory").on_press(Message::OpenFilePicker)
-        ]
-        .align_y(Alignment::Center)
-        .spacing(50),
-        container(button("Create").on_press(Message::DownloadServer)).align_x(Alignment::Center)
-    ])
+        .spacing(20),
+    )
     .padding(10)
-    .width(600)
+    .width(720)
     .height(600)
     .height(Length::Shrink)
     .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5)))
@@ -316,20 +339,26 @@ fn downloading_container<'a>(state: &FormInfo) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    stack![
-        container(scrollable(""))
-            .padding(10)
-            .width(720)
-            .height(400)
-            .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5))),
+    container(column![
+        text!("Downloading the server...")
+            .font(Font::with_name("TF2 Build"))
+            .size(32)
+            .color(Color::WHITE)
+            .width(Length::Fill)
+            .align_x(Alignment::Center),
+        horizontal_rule(0),
         center(
             progress_bar(0.0..=100.0, state.progress_percent)
-                .height(10)
+                .height(20)
                 .width(300)
         )
         .width(Length::Fill)
-        .height(Length::Fill),
-    ]
+        .height(Length::Fill)
+    ])
+    .width(720)
+    .height(400)
+    .padding(10)
+    .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5)))
     .into()
 }
 
@@ -337,14 +366,73 @@ fn server_creation_info<'a>(state: &FormInfo) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    container(column![
-        text_input("Server Description", &state.server_description)
-            .on_input(Message::MessageDescriptionUpdate),
-        button("Select Map").on_press(Message::SelectMap),
-        number_input(state.max_players, 0..=100, Message::MaxPlayersUpdate),
-        text_input("Server Password", &state.password).on_input(Message::PasswordUpdate),
-        button("Finish").on_press(Message::FinishServerCreation)
-    ])
+    container(
+        column![
+            text!("Server creation")
+                .font(Font::with_name("TF2 Build"))
+                .size(32)
+                .color(Color::WHITE)
+                .width(Length::Fill)
+                .align_x(Alignment::Center),
+            horizontal_rule(0),
+            column![
+                row![
+                    text!("Server Description")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    text_input("Server Description", &state.server_description)
+                        .on_input(Message::MessageDescriptionUpdate)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text!("Map")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    container(
+                        button("Select Map")
+                            .on_press(Message::SelectMap)
+                            .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+                    )
+                    .width(Length::FillPortion(2))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text!("Max Players")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    container(number_input(
+                        state.max_players,
+                        0..=100,
+                        Message::MaxPlayersUpdate
+                    ))
+                    .width(Length::FillPortion(2))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text!("Server Password")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    text_input("Server Password", &state.password)
+                        .on_input(Message::PasswordUpdate)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
+                container(
+                    button(text!("Finish").size(20))
+                        .on_press(Message::FinishServerCreation)
+                        .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+                )
+                .width(Length::Fill)
+                .align_x(Alignment::Center)
+            ]
+            .spacing(15)
+            .padding(padding::top(10))
+        ]
+        .spacing(5),
+    )
     .padding(10)
     .width(720)
     .height(400)
