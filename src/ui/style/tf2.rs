@@ -82,9 +82,15 @@ impl Style {
 
     pub fn menu_button(_theme: &Theme, _status: button::Status) -> button::Style {
         match _status {
-            button::Status::Active | button::Status::Disabled => button::Style {
+            button::Status::Active => button::Style {
                 background: None,
                 text_color: color!(0xeee5cf),
+                border: border::rounded(3),
+                ..Default::default()
+            },
+            button::Status::Disabled => button::Style {
+                background: None,
+                text_color: color!(128, 128, 128, 0.9),
                 border: border::rounded(3),
                 ..Default::default()
             },
