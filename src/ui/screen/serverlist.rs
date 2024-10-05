@@ -39,6 +39,14 @@ pub struct State {
     is_server_creation_popup_visible: bool,
     server_creation_screen: servercreation::State,
     pub servers: Vec<Server>,
+    pub images: Images,
+}
+
+pub struct Images {
+    tf2: svg::Handle,
+    l4d1: svg::Handle,
+    l4d2: svg::Handle,
+    cs2: svg::Handle,
 }
 
 pub struct Server {
@@ -131,6 +139,12 @@ impl State {
                 is_server_creation_popup_visible: false,
                 server_creation_screen: servercreation::State::new(),
                 servers,
+                images: Images {
+                    tf2: svg::Handle::from_path("images/tf2-logo.svg"),
+                    l4d1: svg::Handle::from_path("images/l4d1-logo.svg"),
+                    l4d2: svg::Handle::from_path("images/l4d2-logo.svg"),
+                    cs2: svg::Handle::from_path("images/cs2-logo.svg"),
+                },
             },
             task,
         )
@@ -150,10 +164,14 @@ impl State {
 
         let config_file = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
 
-        Ok(config_file)
+        match config_file.try_exists()? {
+            true => Ok(config_file),
+            false => Err(Error::NoServerListFile),
+        }
     }
 
     fn create_config_file_path() -> Result<PathBuf, Error> {
+        println!("test");
         let project_path = directories::ProjectDirs::from("", "MANNager", "mannager-source")
             .ok_or(Error::NoServerListFile)?;
 
@@ -207,8 +225,11 @@ impl State {
             servers: Vec::from_iter(servers),
         };
 
+        let config_path = Self::get_config_file_path()
+            .unwrap_or_else(|_| Self::create_config_file_path().unwrap());
+
         tokio::fs::write(
-            "/home/suza/Coding/Rust/mannager-source/Servers/server_list.toml",
+            config_path,
             toml::to_string_pretty(&fartimus).map_err(|_| Error::ServerSaveError)?,
         )
         .await
@@ -241,7 +262,7 @@ impl State {
             Message::StartServerTerminal(server_id) => {
                 let (_id, open) = window::open(window::Settings::default());
 
-                open.map(move |window_id| Message::ServerConsoleOpened(server_id, window_id))
+                open.map(move |_| Message::ServerConsoleOpened(server_id, _id))
             }
             Message::ServerCreation(servercreation::Message::FinishServerCreation) => {
                 self.is_server_creation_popup_visible = false;
@@ -360,7 +381,7 @@ impl State {
                             .size(32)
                             .color(Color::WHITE),
                         horizontal_rule(0),
-                        container(scrollable(show_servers(&self.servers)))
+                        container(scrollable(show_servers(&self.servers, &self.images)))
                             .padding(padding::top(20))
                     ]
                     .align_x(Alignment::Center)
@@ -426,7 +447,7 @@ where
     .into()
 }
 
-fn show_servers<'a>(servers: &Vec<Server>) -> Element<'a, Message>
+fn show_servers<'a>(servers: &Vec<Server>, images: &Images) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -434,7 +455,7 @@ where
         servers
             .iter()
             .enumerate()
-            .map(|(id, server)| server_entry(id, server)),
+            .map(|(id, server)| server_entry(id, server, images)),
     )
     .push(
         button("+")
@@ -447,15 +468,15 @@ where
     .into()
 }
 
-fn server_entry<'a>(id: usize, server: &Server) -> Element<'a, Message>
+fn server_entry<'a>(id: usize, server: &Server, images: &Images) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
     let server_game_image_handle = match server.info.game {
-        SourceAppIDs::TeamFortress2 => svg::Handle::from_path("images/tf2-logo.svg"),
-        SourceAppIDs::CounterStrike2 => svg::Handle::from_path("images/cs2-logo.svg"),
-        SourceAppIDs::LeftForDead1 => svg::Handle::from_path("images/l4d1-logo.svg"),
-        SourceAppIDs::LeftForDead2 => svg::Handle::from_path("images/l4d2-logo.svg"),
+        SourceAppIDs::TeamFortress2 => images.tf2.clone(),
+        SourceAppIDs::CounterStrike2 => images.cs2.clone(),
+        SourceAppIDs::LeftForDead1 => images.l4d1.clone(),
+        SourceAppIDs::LeftForDead2 => images.l4d2.clone(),
     };
 
     let sourcemod_label = if !server.is_downloading_sourcemod {

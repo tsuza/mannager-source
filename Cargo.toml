@@ -10,6 +10,7 @@ iced = { version = "0.13.1", features = ["svg", "tokio", "multi-window", "debug"
 iced_aw = { version = "0.11.0", features = ["number_input", "menu"] }
 notify-rust = "4.11.3"
 open = "5.3.0"
+portforwarder-rs = "0.1.1"
 pty-process = {version = "0.4.0", features = ["async"]}
 reqwest = "0.12.7"
 rfd = "0.15.0"

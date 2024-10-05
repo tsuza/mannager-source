@@ -8,6 +8,7 @@ use iced::{
     widget::{column, container, scrollable, text, text_input},
     Color, Element, Length, Subscription, Task,
 };
+use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     select,
@@ -44,7 +45,7 @@ impl State {
 
         let args = {
             let mut temp = format!(
-                "-console -game {} +map {} +max_players {}",
+                "-console -game {} +map {} +max_players {} -strictportbind +ip 0.0.0.0 -port 27015 +clientport 27025",
                 get_arg_game_name(server.game.clone()),
                 server.map,
                 server.max_players
@@ -194,6 +195,18 @@ fn start_server(
             .args(args.split_whitespace())
             .spawn(&pty.pts().unwrap())
             .map_err(|err| Error::SpawnProcessError(err.to_string()))?;
+
+        let mut forwarder = portforwarder_rs::port_forwarder::create_forwarder_from_any(
+            portforwarder_rs::query_interfaces::get_network_interfaces()
+                .unwrap()
+                .into_iter()
+                .map(|interface| interface.addr),
+        )
+        .unwrap();
+
+        forwarder
+            .forward_port(27015, 27015, PortMappingProtocol::UDP, "server tf2")
+            .unwrap();
 
         let (mut process_reader, mut process_writer) = pty.split();
 

@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
+use std::{cell::LazyCell, collections::BTreeMap};
 
-use iced::{widget::container, window, Element, Subscription, Task};
+use iced::{advanced::svg, widget::container, window, Element, Subscription, Task};
 use screen::{serverboot, serverlist, Screen, ScreenKind};
 
 pub mod components;
