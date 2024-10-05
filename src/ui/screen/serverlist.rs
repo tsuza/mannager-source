@@ -11,8 +11,8 @@ use iced::{
         rule::{self, FillMode},
         scrollable, svg, text, vertical_space,
     },
-    window, Alignment, Color, ContentFit, Element, Font, Length, Shadow, Subscription, Task,
-    Vector,
+    window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Subscription,
+    Task, Vector,
 };
 use iced_aw::menu::{Item, Menu};
 use iced_aw::{menu, style::colors, MenuBar};
@@ -94,6 +94,7 @@ pub enum Message {
     DeleteServer(usize),
     OnServerDeletion(usize),
     ServerReorder(dragking::DragEvent),
+    DummyButtonEffectMsg,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -396,6 +397,7 @@ impl State {
                 },
                 dragking::DragEvent::Canceled { .. } => Task::none(),
             },
+            Message::DummyButtonEffectMsg => Task::none(),
         }
     }
 
@@ -493,7 +495,15 @@ where
         )
         .on_drag(Message::ServerReorder)
         .align_x(Alignment::Center)
-        .spacing(10),
+        .spacing(10)
+        .style(|_theme| dragking::column::Style {
+            ghost_border: border::width(1).rounded(10).color(color!(0x363230)),
+            ghost_background: Background::Color(Color {
+                a: 0.9,
+                ..color!(0x7a716b)
+            }),
+            ..dragking::column::default(_theme)
+        }),
         button("+")
             .on_press(Message::CreateServer)
             .padding([15, 80])
@@ -521,6 +531,11 @@ where
             horizontal_space(),
             icon::right_arrow()
         ])
+        .on_press_maybe(if server.is_downloading_sourcemod {
+            None
+        } else {
+            Some(Message::DummyButtonEffectMsg)
+        })
         .width(Length::Fill)
         .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
     } else {
@@ -533,6 +548,11 @@ where
             ]
             .spacing(10),
         )
+        .on_press_maybe(if server.is_downloading_sourcemod {
+            None
+        } else {
+            Some(Message::DummyButtonEffectMsg)
+        })
         .width(Length::Fill)
         .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
     };
@@ -544,7 +564,11 @@ where
                 [
                     Item::new(
                         button(text!("Stable branch"))
-                            .on_press(Message::DownloadSourcemod(id, SourcemodBranch::Stable))
+                            .on_press_maybe(if server.is_downloading_sourcemod {
+                                None
+                            } else {
+                                Some(Message::DownloadSourcemod(id, SourcemodBranch::Stable))
+                            })
                             .width(Length::Fill)
                             .style(|_theme, _status| {
                                 style::tf2::Style::menu_button(_theme, _status)
@@ -552,7 +576,11 @@ where
                     ),
                     Item::new(
                         button(text!("Dev branch"))
-                            .on_press(Message::DownloadSourcemod(id, SourcemodBranch::Dev))
+                            .on_press_maybe(if server.is_downloading_sourcemod {
+                                None
+                            } else {
+                                Some(Message::DownloadSourcemod(id, SourcemodBranch::Dev))
+                            })
                             .width(Length::Fill)
                             .style(|_theme, _status| {
                                 style::tf2::Style::menu_button(_theme, _status)
@@ -568,6 +596,7 @@ where
         MenuBar::new(
             [Item::with_menu(
                 button(icon::settings().size(20).align_y(Alignment::Center))
+                    .on_press(Message::DummyButtonEffectMsg)
                     .style(|_theme, _status| style::tf2::Style::button(_theme, _status)),
                 Menu::new(
                     [
@@ -597,7 +626,7 @@ where
             )]
             .into(),
         )
-        .draw_path(menu::DrawPath::Backdrop)
+        .draw_path(menu::DrawPath::FakeHovering)
         .padding(0)
         .style(|_theme, _status| style::tf2::Style::menu(_theme, _status))
     };
