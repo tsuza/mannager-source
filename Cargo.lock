@@ -1129,6 +1129,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f25c0e292a7ca6d6498557ff1df68f32c99850012b6ea401cf8daf771f22ff53"
 
 [[package]]
+name = "dragking"
+version = "0.1.0"
+source = "git+https://github.com/airstrike/dragking?rev=cc41dc7a156b63c820ff2547ed1208cd15a811fb#cc41dc7a156b63c820ff2547ed1208cd15a811fb"
+dependencies = [
+ "iced",
+]
+
+[[package]]
 name = "drm"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2588,6 +2596,7 @@ name = "mannager"
 version = "0.1.0"
 dependencies = [
  "directories",
+ "dragking",
  "flate2",
  "iced",
  "iced_aw",
