@@ -491,7 +491,9 @@ where
                 .enumerate()
                 .map(|(id, server)| server_entry(id, server, images)),
         )
-        .on_drag(Message::ServerReorder),
+        .on_drag(Message::ServerReorder)
+        .align_x(Alignment::Center)
+        .spacing(10),
         button("+")
             .on_press(Message::CreateServer)
             .padding([15, 80])
