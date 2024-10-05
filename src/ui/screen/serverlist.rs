@@ -19,6 +19,8 @@ use iced_aw::{menu, style::colors, MenuBar};
 use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 
+use dragking::{self, DropPosition};
+
 use crate::{
     core::{
         metamod::{MetamodBranch, MetamodDownloader},
@@ -91,6 +93,7 @@ pub enum Message {
     OpenFolder(usize),
     DeleteServer(usize),
     OnServerDeletion(usize),
+    ServerReorder(dragking::DragEvent),
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -363,6 +366,36 @@ impl State {
                 })
                 .discard()
             }
+            Message::ServerReorder(drag_event) => match drag_event {
+                dragking::DragEvent::Picked { .. } => Task::none(),
+                dragking::DragEvent::Dropped {
+                    index,
+                    target_index,
+                    drop_position,
+                } => match drop_position {
+                    DropPosition::Before => Task::none(),
+                    DropPosition::After => Task::none(),
+                    DropPosition::Swap => {
+                        if target_index != index {
+                            self.servers.swap(index, target_index);
+
+                            let servers: Vec<ServerInfo> = self
+                                .servers
+                                .iter()
+                                .map(|server| server.info.clone())
+                                .collect();
+
+                            return Task::future(async move {
+                                let _ = Self::save_server_list_to_file(servers.into_iter()).await;
+                            })
+                            .discard();
+                        }
+
+                        Task::none()
+                    }
+                },
+                dragking::DragEvent::Canceled { .. } => Task::none(),
+            },
         }
     }
 
@@ -451,18 +484,19 @@ fn show_servers<'a>(servers: &Vec<Server>, images: &Images) -> Element<'a, Messa
 where
     Message: Clone + 'a,
 {
-    column(
-        servers
-            .iter()
-            .enumerate()
-            .map(|(id, server)| server_entry(id, server, images)),
-    )
-    .push(
+    column![
+        dragking::column(
+            servers
+                .iter()
+                .enumerate()
+                .map(|(id, server)| server_entry(id, server, images)),
+        )
+        .on_drag(Message::ServerReorder),
         button("+")
             .on_press(Message::CreateServer)
             .padding([15, 80])
             .style(|_theme, _status| style::tf2::Style::button(_theme, _status)),
-    )
+    ]
     .align_x(Alignment::Center)
     .spacing(10)
     .into()
