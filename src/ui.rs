@@ -1,19 +1,12 @@
-use std::{cell::LazyCell, collections::BTreeMap};
-
-use iced::{advanced::svg, widget::container, window, Element, Subscription, Task};
-use screen::{serverboot, serverlist, Screen, ScreenKind};
+use iced::{window, Element, Subscription, Task};
+use screen::{serverlist, Screen, ScreenKind};
 
 pub mod components;
 pub mod screen;
 pub mod style;
 
 pub struct State {
-    windows: BTreeMap<window::Id, Window>,
-}
-
-enum Window {
-    MainApp(Screen),
-    ServerTerminal(serverboot::State),
+    screen: (Option<window::Id>, Screen),
 }
 
 #[derive(Debug, Clone)]
@@ -21,18 +14,27 @@ pub enum Message {
     ServerList(window::Id, serverlist::Message),
     WindowOpened(window::Id),
     WindowClosed(window::Id),
-    ServerTerminal(window::Id, serverboot::Message),
 }
 
 impl State {
     pub fn new() -> (Self, Task<Message>) {
-        let (_, open) = window::open(window::Settings::default());
+        let (id, open) = window::open(window::Settings::default());
+
+        let (main_screen_state, main_screen_task) = serverlist::State::new();
 
         (
             Self {
-                windows: BTreeMap::new(),
+                screen: (
+                    Some(id),
+                    Screen {
+                        current_page: ScreenKind::ServerList,
+                        serverlist_page: main_screen_state,
+                    },
+                ),
             },
-            open.map(Message::WindowOpened),
+            main_screen_task
+                .map(move |x| Message::ServerList(id, x))
+                .chain(open.map(Message::WindowOpened)),
         )
     }
 
@@ -43,85 +45,39 @@ impl State {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ServerList(window_id, msg) => {
-                let Some(mainapp) = self.windows.get_mut(&window_id) else {
-                    return Task::none();
-                };
+                let serverlist_page = &mut self.screen.1.serverlist_page;
 
-                let Window::MainApp(main_window) = mainapp else {
-                    return Task::none();
-                };
-
-                let mut tasks: Vec<Task<Message>> = vec![];
-
-                let msg_clone = msg.clone();
-
-                tasks.push(
-                    main_window
-                        .serverlist_page
-                        .update(msg_clone)
-                        .map(move |msg6| Message::ServerList(window_id, msg6)),
-                );
-
-                if let serverlist::Message::ServerConsoleOpened(server_id, window_id2) = msg {
-                    let (test, test1) = serverboot::State::new(
-                        &main_window.serverlist_page.servers[server_id].info,
-                    );
-
-                    tasks.push(test1.map(move |msg5| Message::ServerTerminal(window_id2, msg5)));
-
-                    self.windows
-                        .insert(window_id2, Window::ServerTerminal(test));
-                }
-
-                Task::batch(tasks)
+                serverlist_page
+                    .update(msg)
+                    .map(move |_mgs: serverlist::Message| Message::ServerList(window_id, _mgs))
             }
-            Message::WindowOpened(id) => {
-                let (state, task) = serverlist::State::new();
-                let screen = Screen {
-                    current_page: ScreenKind::ServerList,
-                    serverlist_page: state,
-                };
-                self.windows.insert(id, Window::MainApp(screen));
-
-                task.map(move |msg| Message::ServerList(id, msg))
-            }
+            Message::WindowOpened(_id) => Task::none(),
             Message::WindowClosed(id) => {
-                let window = self.windows.remove(&id);
+                let mut _task = Task::none();
 
-                let mut task: Task<Message> = Task::none();
+                let serverlist_page = &mut self.screen.1.serverlist_page;
 
-                if let Some(window1) = window {
-                    match window1 {
-                        Window::MainApp(mut screen) => {
-                            task = screen
-                                .serverlist_page
-                                .update(serverlist::Message::WindowClosed)
-                                .map(move |msg6| Message::ServerList(id, msg6));
-                        }
-                        Window::ServerTerminal(mut state) => {
-                            task = state
-                                .update(serverboot::Message::ShutDownServer)
-                                .map(move |msg6| Message::ServerTerminal(id, msg6))
-                        }
-                    }
-                }
+                if Some(id) == self.screen.0 {
+                    self.screen.0 = None;
 
-                if self.windows.is_empty() {
-                    Task::batch(vec![iced::exit(), task])
+                    _task = serverlist_page
+                        .update(serverlist::Message::WindowClosed)
+                        .map(move |x| Message::ServerList(id, x));
                 } else {
-                    Task::batch(vec![Task::none(), task])
+                    _task = serverlist_page
+                        .update(serverlist::Message::TerminalClosed(id))
+                        .map(move |x| Message::ServerList(id, x));
                 }
-            }
-            Message::ServerTerminal(window_id, msg) => {
-                let Some(terminal_window) = self.windows.get_mut(&window_id) else {
-                    return Task::none();
-                };
 
-                match terminal_window {
-                    Window::MainApp(_) => Task::none(),
-                    Window::ServerTerminal(state) => state
-                        .update(msg)
-                        .map(move |msg| Message::ServerTerminal(window_id, msg)),
+                let are_terminals_open = serverlist_page
+                    .servers
+                    .iter()
+                    .any(|server| server.terminal_window.0 != None);
+
+                if are_terminals_open || self.screen.0 != None {
+                    _task
+                } else {
+                    _task.chain(iced::exit())
                 }
             }
         }
@@ -132,18 +88,10 @@ impl State {
     }
 
     pub fn view(&self, window_id: window::Id) -> Element<Message> {
-        let Some(window) = self.windows.get(&window_id) else {
-            return container("").into();
-        };
+        let serverlist_page = &self.screen.1.serverlist_page;
 
-        match window {
-            Window::MainApp(screen) => screen
-                .serverlist_page
-                .view()
-                .map(move |msg| Message::ServerList(window_id, msg)),
-            Window::ServerTerminal(state) => state
-                .view()
-                .map(move |msg| Message::ServerTerminal(window_id, msg)),
-        }
+        serverlist_page
+            .view(window_id)
+            .map(move |msg| Message::ServerList(window_id, msg))
     }
 }

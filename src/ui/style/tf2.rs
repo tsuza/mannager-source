@@ -52,31 +52,13 @@ impl Style {
     }
 
     pub fn menu(_theme: &Theme, _status: iced_aw::style::Status) -> menu::Style {
-        match _status {
-            iced_aw::card::Status::Active
-            | iced_aw::card::Status::Disabled
-            | iced_aw::card::Status::Selected => menu::Style {
-                bar_background: Background::Color(Color::TRANSPARENT),
-                bar_border: border::rounded(0),
-                menu_background_expand: padding::all(5),
-                menu_background: Background::Color(color!(0x2A2725)),
-                menu_border: border::width(3).rounded(3).color(color!(0x6b6664)),
-                path: Background::Color(color!(0x994f3f)),
-                path_border: border::rounded(0),
-                ..Default::default()
-            },
-            iced_aw::card::Status::Hovered
-            | iced_aw::card::Status::Pressed
-            | iced_aw::card::Status::Focused => menu::Style {
-                bar_background: Background::Color(Color::TRANSPARENT),
-                bar_border: border::rounded(0),
-                menu_background_expand: padding::all(5),
-                menu_background: Background::Color(color!(0x2A2725)),
-                menu_border: border::width(3).rounded(3).color(color!(0x6b6664)),
-                path: Background::Color(color!(0x994f3f)),
-                path_border: border::rounded(0),
-                ..Default::default()
-            },
+        menu::Style {
+            bar_background: Background::Color(Color::TRANSPARENT),
+            bar_border: border::rounded(0),
+            menu_background_expand: padding::all(5),
+            menu_background: Background::Color(color!(0x2A2725)),
+            menu_border: border::width(3).rounded(3).color(color!(0x6b6664)),
+            ..Default::default()
         }
     }
 
