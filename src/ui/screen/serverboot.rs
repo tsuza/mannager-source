@@ -8,6 +8,7 @@ use iced::{
     widget::{column, container, scrollable, text, text_input},
     Color, Element, Length, Subscription, Task,
 };
+use iced_aw::style::colors;
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -19,7 +20,7 @@ use crate::ui::style;
 use super::serverlist::{ServerInfo, SourceAppIDs};
 
 pub struct State {
-    running_servers_output: Vec<String>,
+    running_servers_output: Vec<TerminalText>,
     server_terminal_input: String,
     server_stream_handle: task::Handle,
     sender: Option<mpsc::Sender<String>>,
@@ -36,6 +37,12 @@ pub enum Message {
 #[derive(Clone, Debug)]
 pub enum ServerCommunicationTwoWay {
     Input(mpsc::Sender<String>),
+    Output(TerminalText),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TerminalText {
+    Input(String),
     Output(String),
 }
 
@@ -127,11 +134,10 @@ impl State {
 
     pub fn view(&self) -> Element<Message> {
         let console_output_text = {
-            column(
-                self.running_servers_output
-                    .iter()
-                    .map(|string| text!("{}", string).color(Color::WHITE).into()),
-            )
+            column(self.running_servers_output.iter().map(|text| match text {
+                TerminalText::Input(string) => text!("{}", string).color(colors::SILVER).into(),
+                TerminalText::Output(string) => text!("{}", string).color(Color::WHITE).into(),
+            }))
             .padding(5)
         };
 
@@ -212,6 +218,8 @@ fn start_server(
 
         let mut buffer: Vec<u8> = vec![];
 
+        let mut input_bool = false;
+
         loop {
             let read_future = process_reader.read_u8();
             let input_future = receiver.select_next_some();
@@ -237,7 +245,16 @@ fn start_server(
                             continue;
                         };
 
-                        let _ = output.send(ServerCommunicationTwoWay::Output(string)).await;
+                        // This is definitely not error proof, but it's the only thing that came to mind.
+                        let text = if input_bool {
+                            input_bool = false;
+
+                            TerminalText::Input(string)
+                        } else {
+                            TerminalText::Output(string)
+                        };
+
+                        let _ = output.send(ServerCommunicationTwoWay::Output(text)).await;
 
                         buffer.clear();
                     }
@@ -248,6 +265,8 @@ fn start_server(
 
                     let _ = process_writer.write_all(formatted_string.as_bytes()).await;
                     let _ = process_writer.flush().await;
+
+                    input_bool = true;
                 }
             }
         }
