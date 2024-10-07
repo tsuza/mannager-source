@@ -1,7 +1,7 @@
 use iced::{
     border, color, padding,
-    widget::{self, button, scrollable, text_input},
-    Background, Color, Theme,
+    widget::{self, button, container, scrollable, text_input},
+    Background, Color, Shadow, Theme, Vector,
 };
 use iced_aw::{menu, style::colors};
 
@@ -134,5 +134,15 @@ impl Style {
                 ..Default::default()
             },
         }
+    }
+
+    pub fn primary_container(_theme: &Theme) -> container::Style {
+        container::background(color!(0x2A2725))
+            .border(border::width(3).rounded(3).color(color!(0x363230)))
+            .shadow(Shadow {
+                color: color!(0x0),
+                offset: Vector::new(0.0, 3.0),
+                blur_radius: 5.0,
+            })
     }
 }

@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use iced::widget::tooltip;
 use iced::{
-    border, color,
     futures::{SinkExt, Stream},
     padding,
     stream::try_channel,
@@ -210,7 +209,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/tf2-logo.svg"))
-                            .width(128)
+                            .width(80)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::TeamFortress2))
@@ -225,7 +224,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/cs2-logo.svg"))
-                            .width(128)
+                            .width(80)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::CounterStrike2))
@@ -240,7 +239,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/l4d1-logo.svg"))
-                            .width(128)
+                            .width(80)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::LeftForDead1))
@@ -255,7 +254,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/l4d2-logo.svg"))
-                            .width(128)
+                            .width(80)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::LeftForDead2))
@@ -267,15 +266,47 @@ where
                     container("Left For Dead 2").padding(10),
                     tooltip::Position::Top
                 ),
+                tooltip(
+                    button(
+                        svg(svg::Handle::from_path("images/hl2mp-logo.svg"))
+                            .width(80)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::HalfLife2DM))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("Half Life 2: Deathmatch").padding(10),
+                    tooltip::Position::Top
+                ),
+                tooltip(
+                    button(
+                        svg(svg::Handle::from_path("images/nmrih-logo.svg"))
+                            .width(80)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::NoMoreRoomInHell))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("No More Room In Hell").padding(10),
+                    tooltip::Position::Top
+                ),
             ]
             .spacing(20)
             .align_y(Alignment::Center)
         )
+        .width(Length::Fill)
+        .align_x(Alignment::Center)
         .padding(50)
     ])
     .width(720)
     .padding(10)
-    .style(|_theme| container::background(color!(0x34302d)))
+    .style(|_theme| style::tf2::Style::primary_container(_theme))
     .into()
 }
 
@@ -332,7 +363,7 @@ where
     .width(720)
     .height(600)
     .height(Length::Shrink)
-    .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5)))
+    .style(|_theme| style::tf2::Style::primary_container(_theme))
     .into()
 }
 
@@ -359,7 +390,7 @@ where
     .width(720)
     .height(400)
     .padding(10)
-    .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5)))
+    .style(|_theme| style::tf2::Style::primary_container(_theme))
     .into()
 }
 
@@ -437,7 +468,7 @@ where
     .padding(10)
     .width(720)
     .height(400)
-    .style(|_theme| container::background(color!(0x34302d)).border(border::rounded(5)))
+    .style(|_theme| style::tf2::Style::primary_container(_theme))
     .into()
 }
 

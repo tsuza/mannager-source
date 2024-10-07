@@ -52,6 +52,8 @@ pub struct Images {
     l4d1: svg::Handle,
     l4d2: svg::Handle,
     cs2: svg::Handle,
+    nmrih: svg::Handle,
+    hl2mp: svg::Handle,
 }
 
 pub struct Server {
@@ -111,6 +113,8 @@ pub enum SourceAppIDs {
     CounterStrike2,
     LeftForDead1,
     LeftForDead2,
+    HalfLife2DM,
+    NoMoreRoomInHell,
 }
 
 impl From<SourceAppIDs> for u32 {
@@ -120,6 +124,8 @@ impl From<SourceAppIDs> for u32 {
             SourceAppIDs::CounterStrike2 => 730,
             SourceAppIDs::LeftForDead1 => 222840,
             SourceAppIDs::LeftForDead2 => 222860,
+            SourceAppIDs::HalfLife2DM => 232370,
+            SourceAppIDs::NoMoreRoomInHell => 317670,
         }
     }
 }
@@ -130,6 +136,8 @@ pub fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
         SourceAppIDs::CounterStrike2 => "cs",
         SourceAppIDs::LeftForDead1 => "left4dead",
         SourceAppIDs::LeftForDead2 => "left4dead2",
+        SourceAppIDs::HalfLife2DM => "hl2mp",
+        SourceAppIDs::NoMoreRoomInHell => "nmrih",
     }
 }
 
@@ -164,6 +172,8 @@ impl State {
                     l4d1: svg::Handle::from_path("images/l4d1-logo.svg"),
                     l4d2: svg::Handle::from_path("images/l4d2-logo.svg"),
                     cs2: svg::Handle::from_path("images/cs2-logo.svg"),
+                    nmrih: svg::Handle::from_path("images/nmrih-logo.svg"),
+                    hl2mp: svg::Handle::from_path("images/hl2mp-logo.svg"),
                 },
             },
             task,
@@ -539,15 +549,7 @@ impl State {
                     )
                     .width(900)
                     .padding(padding::all(50).top(10))
-                    .style(|_theme| {
-                        container::background(color!(0x2A2725))
-                            .border(border::width(3).rounded(3).color(color!(0x363230)))
-                            .shadow(Shadow {
-                                color: color!(0x0),
-                                offset: Vector::new(0.0, 3.0),
-                                blur_radius: 5.0,
-                            })
-                    })
+                    .style(|_theme| style::tf2::Style::primary_container(_theme))
                 )
                 .align_x(Alignment::Center)
                 .padding(40)
@@ -640,6 +642,8 @@ where
         SourceAppIDs::CounterStrike2 => images.cs2.clone(),
         SourceAppIDs::LeftForDead1 => images.l4d1.clone(),
         SourceAppIDs::LeftForDead2 => images.l4d2.clone(),
+        SourceAppIDs::HalfLife2DM => images.hl2mp.clone(),
+        SourceAppIDs::NoMoreRoomInHell => images.nmrih.clone(),
     };
 
     let menu_settings = {
