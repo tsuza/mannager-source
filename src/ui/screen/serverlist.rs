@@ -124,6 +124,15 @@ impl From<SourceAppIDs> for u32 {
     }
 }
 
+pub fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
+    match game {
+        SourceAppIDs::TeamFortress2 => "tf",
+        SourceAppIDs::CounterStrike2 => "cs",
+        SourceAppIDs::LeftForDead1 => "left4dead",
+        SourceAppIDs::LeftForDead2 => "left4dead2",
+    }
+}
+
 impl State {
     pub fn new() -> (Self, Task<Message>) {
         let mut task = Task::none();
@@ -633,39 +642,39 @@ where
         SourceAppIDs::LeftForDead2 => images.l4d2.clone(),
     };
 
-    let sourcemod_label = if !server.is_downloading_sourcemod {
-        button(row![
-            text!("Download Sourcemod"),
-            horizontal_space(),
-            icon::right_arrow()
-        ])
-        .on_press_maybe(if server.is_downloading_sourcemod {
-            None
-        } else {
-            Some(Message::DummyButtonEffectMsg)
-        })
-        .width(Length::Fill)
-        .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
-    } else {
-        button(
-            row![
+    let menu_settings = {
+        let sourcemod_label = if !server.is_downloading_sourcemod {
+            button(row![
                 text!("Download Sourcemod"),
-                icon::loading(),
                 horizontal_space(),
                 icon::right_arrow()
-            ]
-            .spacing(10),
-        )
-        .on_press_maybe(if server.is_downloading_sourcemod {
-            None
+            ])
+            .on_press_maybe(if server.is_downloading_sourcemod {
+                None
+            } else {
+                Some(Message::DummyButtonEffectMsg)
+            })
+            .width(Length::Fill)
+            .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
         } else {
-            Some(Message::DummyButtonEffectMsg)
-        })
-        .width(Length::Fill)
-        .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
-    };
+            button(
+                row![
+                    text!("Download Sourcemod"),
+                    icon::loading(),
+                    horizontal_space(),
+                    icon::right_arrow()
+                ]
+                .spacing(10),
+            )
+            .on_press_maybe(if server.is_downloading_sourcemod {
+                None
+            } else {
+                Some(Message::DummyButtonEffectMsg)
+            })
+            .width(Length::Fill)
+            .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
+        };
 
-    let menu_settings = {
         let sourcemod_sub = Item::with_menu(
             sourcemod_label,
             Menu::new(
@@ -711,7 +720,7 @@ where
                         sourcemod_sub,
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         Item::new(
-                            button(text!("Open folder"))
+                            button("Open folder")
                                 .on_press(Message::OpenFolder(id))
                                 .width(Length::Fill)
                                 .style(|_theme, _status| {

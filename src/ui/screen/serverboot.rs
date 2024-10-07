@@ -17,7 +17,7 @@ use tokio::{
 
 use crate::ui::style;
 
-use super::serverlist::{ServerInfo, SourceAppIDs};
+use super::serverlist::{get_arg_game_name, ServerInfo};
 
 pub struct State {
     running_servers_output: Vec<TerminalText>,
@@ -169,15 +169,6 @@ impl State {
         .padding(20)
         .style(|_theme| container::background(color!(0x3a3430)))
         .into()
-    }
-}
-
-fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
-    match game {
-        SourceAppIDs::TeamFortress2 => "tf",
-        SourceAppIDs::CounterStrike2 => "cs",
-        SourceAppIDs::LeftForDead1 => "left4dead",
-        SourceAppIDs::LeftForDead2 => "left4dead2",
     }
 }
 

@@ -118,4 +118,21 @@ impl Style {
             },
         }
     }
+
+    pub fn form_button(_theme: &Theme, _status: button::Status) -> button::Style {
+        match _status {
+            button::Status::Active | button::Status::Disabled => button::Style {
+                background: Some(Background::Color(color!(0x7e7366))),
+                text_color: Color::WHITE,
+                border: border::rounded(0),
+                ..Default::default()
+            },
+            button::Status::Hovered | button::Status::Pressed => button::Style {
+                background: Some(Background::Color(color!(0x994f3f))),
+                text_color: Color::WHITE,
+                border: border::rounded(0),
+                ..Default::default()
+            },
+        }
+    }
 }

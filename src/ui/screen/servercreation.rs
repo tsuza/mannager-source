@@ -20,7 +20,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::core::depotdownloader::DepotDownloader;
 use crate::ui::style;
 
-use super::serverlist::SourceAppIDs;
+use super::serverlist::{get_arg_game_name, SourceAppIDs};
 
 #[derive(Default)]
 pub struct State {
@@ -138,8 +138,9 @@ impl State {
                 rfd::AsyncFileDialog::new()
                     .set_title("Choose a default map")
                     .set_directory(format!(
-                        "{}/tf/maps",
-                        self.form_info.server_path.to_str().unwrap()
+                        "{}/{}/maps",
+                        self.form_info.server_path.to_str().unwrap(),
+                        get_arg_game_name(self.form_info.source_game.clone())
                     ))
                     .add_filter("Source Map", &["bsp"])
                     .pick_file(),
@@ -310,7 +311,7 @@ where
                 container(
                     button("Click to pick a directory")
                         .on_press(Message::OpenFilePicker)
-                        .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+                        .style(|_theme, _status| style::tf2::Style::form_button(_theme, _status))
                 )
                 .width(Length::FillPortion(2))
                 .align_x(Alignment::Center)
@@ -391,9 +392,9 @@ where
                         .color(Color::WHITE)
                         .width(Length::FillPortion(1)),
                     container(
-                        button("Select Map")
-                            .on_press(Message::SelectMap)
-                            .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+                        button("Select Map").on_press(Message::SelectMap).style(
+                            |_theme, _status| style::tf2::Style::form_button(_theme, _status)
+                        )
                     )
                     .width(Length::FillPortion(2))
                 ]
