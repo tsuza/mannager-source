@@ -209,7 +209,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/tf2-logo.svg"))
-                            .width(80)
+                            .width(60)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::TeamFortress2))
@@ -223,8 +223,23 @@ where
                 ),
                 tooltip(
                     button(
+                        svg(svg::Handle::from_path("images/css-logo.svg"))
+                            .width(60)
+                            .content_fit(ContentFit::Contain)
+                    )
+                    .on_press(Message::GameChosen(SourceAppIDs::CounterStrikeSource))
+                    .padding(0)
+                    .style(|_theme, _status| button::Style {
+                        background: None,
+                        ..button::Style::default()
+                    }),
+                    container("Counter Strike: Source").padding(10),
+                    tooltip::Position::Top
+                ),
+                tooltip(
+                    button(
                         svg(svg::Handle::from_path("images/cs2-logo.svg"))
-                            .width(80)
+                            .width(60)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::CounterStrike2))
@@ -239,7 +254,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/l4d1-logo.svg"))
-                            .width(80)
+                            .width(60)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::LeftForDead1))
@@ -254,7 +269,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/l4d2-logo.svg"))
-                            .width(80)
+                            .width(60)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::LeftForDead2))
@@ -269,7 +284,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/hl2mp-logo.svg"))
-                            .width(80)
+                            .width(60)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::HalfLife2DM))
@@ -284,7 +299,7 @@ where
                 tooltip(
                     button(
                         svg(svg::Handle::from_path("images/nmrih-logo.svg"))
-                            .width(80)
+                            .width(60)
                             .content_fit(ContentFit::Contain)
                     )
                     .on_press(Message::GameChosen(SourceAppIDs::NoMoreRoomInHell))

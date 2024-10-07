@@ -49,9 +49,10 @@ pub struct State {
 
 pub struct Images {
     tf2: svg::Handle,
+    css: svg::Handle,
+    cs2: svg::Handle,
     l4d1: svg::Handle,
     l4d2: svg::Handle,
-    cs2: svg::Handle,
     nmrih: svg::Handle,
     hl2mp: svg::Handle,
 }
@@ -110,6 +111,7 @@ pub enum Message {
 pub enum SourceAppIDs {
     #[default]
     TeamFortress2,
+    CounterStrikeSource,
     CounterStrike2,
     LeftForDead1,
     LeftForDead2,
@@ -121,6 +123,7 @@ impl From<SourceAppIDs> for u32 {
     fn from(value: SourceAppIDs) -> Self {
         match value {
             SourceAppIDs::TeamFortress2 => 232250,
+            SourceAppIDs::CounterStrikeSource => 232330,
             SourceAppIDs::CounterStrike2 => 730,
             SourceAppIDs::LeftForDead1 => 222840,
             SourceAppIDs::LeftForDead2 => 222860,
@@ -133,6 +136,7 @@ impl From<SourceAppIDs> for u32 {
 pub fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
     match game {
         SourceAppIDs::TeamFortress2 => "tf",
+        SourceAppIDs::CounterStrikeSource => "cstrike",
         SourceAppIDs::CounterStrike2 => "cs",
         SourceAppIDs::LeftForDead1 => "left4dead",
         SourceAppIDs::LeftForDead2 => "left4dead2",
@@ -169,9 +173,10 @@ impl State {
                 servers,
                 images: Images {
                     tf2: svg::Handle::from_path("images/tf2-logo.svg"),
+                    css: svg::Handle::from_path("images/css-logo.svg"),
+                    cs2: svg::Handle::from_path("images/cs2-logo.svg"),
                     l4d1: svg::Handle::from_path("images/l4d1-logo.svg"),
                     l4d2: svg::Handle::from_path("images/l4d2-logo.svg"),
-                    cs2: svg::Handle::from_path("images/cs2-logo.svg"),
                     nmrih: svg::Handle::from_path("images/nmrih-logo.svg"),
                     hl2mp: svg::Handle::from_path("images/hl2mp-logo.svg"),
                 },
@@ -639,6 +644,7 @@ where
 {
     let server_game_image_handle = match server.info.game {
         SourceAppIDs::TeamFortress2 => images.tf2.clone(),
+        SourceAppIDs::CounterStrikeSource => images.css.clone(),
         SourceAppIDs::CounterStrike2 => images.cs2.clone(),
         SourceAppIDs::LeftForDead1 => images.l4d1.clone(),
         SourceAppIDs::LeftForDead2 => images.l4d2.clone(),
