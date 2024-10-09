@@ -9,13 +9,17 @@ use iced::{
     Color, Element, Length, Subscription, Task,
 };
 use iced_aw::style::colors;
+use notify_rust::Notification;
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     select,
 };
 
-use crate::ui::style;
+use crate::{
+    core::portforwarder::{self, PortForwarderIP},
+    ui::style,
+};
 
 use super::serverlist::{get_arg_game_name, ServerInfo};
 
@@ -190,20 +194,29 @@ fn start_server(
 
         let mut _process = pty_process::Command::new(executable_path)
             .args(args.split_whitespace())
-            .spawn(&pty.pts().unwrap())
+            .spawn(
+                &pty.pts()
+                    .map_err(|err| Error::SpawnProcessError(err.to_string()))?,
+            )
             .map_err(|err| Error::SpawnProcessError(err.to_string()))?;
 
-        let mut forwarder = portforwarder_rs::port_forwarder::create_forwarder_from_any(
-            portforwarder_rs::query_interfaces::get_network_interfaces()
-                .unwrap()
-                .into_iter()
-                .map(|interface| interface.addr),
-        )
-        .unwrap();
+        let forwarder = portforwarder::PortForwarder::open(
+            PortForwarderIP::Any,
+            27015,
+            27015,
+            PortMappingProtocol::UDP,
+            "TF2 Server",
+        );
 
-        forwarder
-            .forward_port(27015, 27015, PortMappingProtocol::UDP, "server tf2")
-            .unwrap();
+        if let Err(_) = forwarder {
+            let _ = Notification::new()
+                .appname("MANNager")
+                .summary("[ MANNager ] Server running...")
+                .body("Port forwarding failed.")
+                .timeout(5)
+                .show_async()
+                .await;
+        }
 
         let (mut process_reader, mut process_writer) = pty.split();
 
@@ -274,6 +287,9 @@ pub enum Error {
 
     #[error("Channel send failed: {0}")]
     ChannelSendError(#[from] mpsc::SendError),
+
+    #[error("There was an error while")]
+    PortForwardingError,
 
     #[error("Server path does not exist")]
     ServerPathError,

@@ -158,8 +158,7 @@ impl State {
                     .timeout(5)
                     .show_async()
                     .await
-                    .unwrap()
-                    .on_close(|_| ())
+                    .and_then(|notification| Ok(notification.on_close(|_| ())))
             })
             .discard();
 
@@ -213,8 +212,6 @@ impl State {
         std::fs::create_dir_all(&project_path.config_dir()).map_err(|_| Error::NoServerListFile)?;
 
         let config_file = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
-
-        println!("Path: {}", config_file.to_str().unwrap());
 
         std::fs::File::create_new(&config_file).map_err(|_| Error::NoServerListFile)?;
 
@@ -396,8 +393,7 @@ impl State {
                         .timeout(5)
                         .show_async()
                         .await
-                        .unwrap()
-                        .on_close(|_| ())
+                        .and_then(|notification| Ok(notification.on_close(|_| ())))
                 })
                 .discard()
             }
@@ -406,7 +402,7 @@ impl State {
                 let server_name = self.servers[id].info.name.clone();
 
                 Task::future(async move {
-                    Notification::new()
+                    let _ = Notification::new()
                         .appname("MANNager")
                         .summary("[ MANNager ] Sourcemod Download")
                         .body(&format!(
@@ -415,8 +411,7 @@ impl State {
                         .timeout(5)
                         .show_async()
                         .await
-                        .unwrap()
-                        .on_close(|_| ());
+                        .and_then(|notification| Ok(notification.on_close(|_| ())));
                 })
                 .discard()
             }

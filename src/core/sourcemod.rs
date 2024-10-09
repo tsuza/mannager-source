@@ -25,7 +25,7 @@ impl SourcemodDownloader {
 
         let path = path.as_ref();
 
-        fs::create_dir_all(path).unwrap();
+        fs::create_dir_all(path)?;
 
         let latest_sourcemod_archive_name_url = format!(
             "{}/{version}/sourcemod-latest-linux",

@@ -16,6 +16,7 @@ use iced_aw::number_input;
 use rfd::FileHandle;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
+use crate::core;
 use crate::core::depotdownloader::DepotDownloader;
 use crate::ui::style;
 
@@ -57,7 +58,7 @@ pub enum Message {
     OpenFilePicker,
     ServerPathChosen(Option<FileHandle>),
     DownloadServer,
-    DownloadProgress(Result<Progress, CustomError>),
+    DownloadProgress(Result<Progress, Error>),
     SelectMap,
     ServerMapChosen(Option<FileHandle>),
     MessageDescriptionUpdate(String),
@@ -150,10 +151,9 @@ impl State {
                     self.form_info.map_name = file
                         .path()
                         .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .and_then(|string| Some(string.to_string()))
                         .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string();
                 }
 
                 Task::none()
@@ -490,19 +490,27 @@ where
 fn download_server(
     path: &PathBuf,
     appid: &SourceAppIDs,
-) -> impl Stream<Item = Result<Progress, CustomError>> {
-    let testun = path.to_str().unwrap().to_string();
+) -> impl Stream<Item = Result<Progress, Error>> {
+    let testun = path
+        .to_str()
+        .and_then(|string| Some(string.to_string()))
+        .unwrap_or("server".to_string());
+
     let appid = appid.clone();
 
     try_channel(1, move |mut output| async move {
-        let mut depot = DepotDownloader::new("./depotdownloader").await.unwrap();
+        let mut depot = DepotDownloader::new("./depotdownloader").await?;
 
-        let stdout = depot.download_app(&testun, appid.into()).await.unwrap();
+        let stdout = depot.download_app(&testun, appid.into()).await?;
 
         if let Some(stdout) = stdout {
             let mut reader = BufReader::new(stdout).lines();
 
-            while let Some(line) = reader.next_line().await.unwrap() {
+            while let Some(line) = reader
+                .next_line()
+                .await
+                .map_err(|err| Error::Io(err.to_string()))?
+            {
                 let _ = output.send(Progress::Downloading(line)).await;
             }
         }
@@ -519,7 +527,11 @@ pub enum Progress {
     Finished,
 }
 
-#[derive(Debug, Clone)]
-pub enum CustomError {
-    Null,
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum Error {
+    #[error("")]
+    ServerDownloadError(#[from] core::Error),
+
+    #[error("Io error: {0}")]
+    Io(String),
 }

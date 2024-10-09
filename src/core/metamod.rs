@@ -25,7 +25,7 @@ impl MetamodDownloader {
 
         let path = path.as_ref();
 
-        fs::create_dir_all(path).unwrap();
+        fs::create_dir_all(path)?;
 
         let latest_metamod_archive_name_url =
             format!("{}/{version}/mmsource-latest-linux", METAMOD_VERSIONS_URL);
