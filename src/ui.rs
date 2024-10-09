@@ -57,17 +57,17 @@ impl State {
 
                 let serverlist_page = &mut self.screen.1.serverlist_page;
 
-                if Some(id) == self.screen.0 {
+                _task = if Some(id) == self.screen.0 {
                     self.screen.0 = None;
 
-                    _task = serverlist_page
+                    serverlist_page
                         .update(serverlist::Message::WindowClosed)
-                        .map(move |x| Message::ServerList(id, x));
+                        .map(move |x| Message::ServerList(id, x))
                 } else {
-                    _task = serverlist_page
+                    serverlist_page
                         .update(serverlist::Message::TerminalClosed(id))
-                        .map(move |x| Message::ServerList(id, x));
-                }
+                        .map(move |x| Message::ServerList(id, x))
+                };
 
                 let are_terminals_open = serverlist_page
                     .servers
