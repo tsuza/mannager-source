@@ -11,9 +11,9 @@ pub struct State {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ServerList(window::Id, serverlist::Message),
     WindowOpened(window::Id),
     WindowClosed(window::Id),
+    ServerList(window::Id, serverlist::Message),
 }
 
 impl State {
@@ -44,13 +44,6 @@ impl State {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ServerList(window_id, msg) => {
-                let serverlist_page = &mut self.screen.1.serverlist_page;
-
-                serverlist_page
-                    .update(msg)
-                    .map(move |_mgs: serverlist::Message| Message::ServerList(window_id, _mgs))
-            }
             Message::WindowOpened(_id) => Task::none(),
             Message::WindowClosed(id) => {
                 let mut _task = Task::none();
@@ -69,16 +62,23 @@ impl State {
                         .map(move |x| Message::ServerList(id, x))
                 };
 
-                let are_terminals_open = serverlist_page
+                let is_a_terminal_open = serverlist_page
                     .servers
                     .iter()
-                    .any(|server| server.terminal_window.0 != None);
+                    .any(|server| server.is_running());
 
-                if are_terminals_open || self.screen.0 != None {
+                if is_a_terminal_open || self.screen.0 != None {
                     _task
                 } else {
                     _task.chain(iced::exit())
                 }
+            }
+            Message::ServerList(window_id, msg) => {
+                let serverlist_page = &mut self.screen.1.serverlist_page;
+
+                serverlist_page
+                    .update(msg)
+                    .map(move |_mgs: serverlist::Message| Message::ServerList(window_id, _mgs))
             }
         }
     }
