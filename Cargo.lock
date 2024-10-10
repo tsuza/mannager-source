@@ -1131,7 +1131,7 @@ checksum = "f25c0e292a7ca6d6498557ff1df68f32c99850012b6ea401cf8daf771f22ff53"
 [[package]]
 name = "dragking"
 version = "0.1.0"
-source = "git+https://github.com/airstrike/dragking?rev=6ea7b90a88c23d7e379000e57fbaa27b49513669#6ea7b90a88c23d7e379000e57fbaa27b49513669"
+source = "git+https://github.com/airstrike/dragking?branch=on_drag_maybe#3cfbbcd577c9dae6e7b4b3bacf42359d27839b20"
 dependencies = [
  "iced",
 ]

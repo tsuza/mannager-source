@@ -21,4 +21,4 @@ thiserror = "1.0.64"
 tokio = {version = "1.40.0", features = ["full"]}
 toml = "0.8.19"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
-dragking = { git = "https://github.com/airstrike/dragking", rev = "6ea7b90a88c23d7e379000e57fbaa27b49513669"}
+dragking = { git = "https://github.com/airstrike/dragking", branch = "on_drag_maybe"}

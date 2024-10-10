@@ -673,7 +673,12 @@ where
                 .enumerate()
                 .map(|(id, server)| server_entry(id, server, images)),
         )
-        .on_drag(Message::ServerReorder)
+        .on_drag_maybe(
+            servers
+                .iter()
+                .all(|server| !server.is_running())
+                .then_some(Message::ServerReorder)
+        )
         .align_x(Alignment::Center)
         .spacing(10)
         .style(|_theme| dragking::column::Style {
