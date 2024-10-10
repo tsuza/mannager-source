@@ -59,9 +59,14 @@ pub struct Images {
 
 pub struct Server {
     pub info: ServerInfo,
-    pub is_running: bool,
     pub is_downloading_sourcemod: bool,
-    pub terminal_window: (Option<window::Id>, Option<serverboot::State>),
+    pub terminal_window: Option<TerminalWindow>,
+}
+
+impl Server {
+    pub fn is_running(&self) -> bool {
+        self.terminal_window.is_some()
+    }
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -72,6 +77,17 @@ pub struct ServerInfo {
     pub map: String,
     pub max_players: u32,
     pub password: String,
+}
+
+pub struct TerminalWindow {
+    pub window_id: Option<window::Id>,
+    pub window_state: serverboot::State,
+}
+
+impl TerminalWindow {
+    pub fn is_visible(&self) -> bool {
+        self.window_id.is_some()
+    }
 }
 
 impl From<FormInfo> for ServerInfo {
@@ -89,22 +105,23 @@ impl From<FormInfo> for ServerInfo {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    CreateServer,
-    OnClickOutsidePopup,
-    ServerCreation(servercreation::Message),
-    StartServerTerminal(usize),
-    CloseServerTerminal(usize),
     ServerTerminalWindowCreated(window::Id, usize),
     WindowClosed,
+    TerminalClosed(window::Id),
+    CreateServer,
+    DeleteServer(usize),
+    OnServerDeletion(usize),
+    StartServerTerminal(usize),
+    CloseServerTerminal(usize),
     DownloadSourcemod(usize, SourcemodBranch),
     FinishedSourcemodDownload(usize),
     OpenFolder(usize),
-    DeleteServer(usize),
-    OnServerDeletion(usize),
     ServerReorder(dragking::DragEvent),
+    ToggleTerminalWindow(usize),
+    ServerTerminal(usize, serverboot::Message),
+    ServerCreation(servercreation::Message),
+    OnClickOutsidePopup,
     DummyButtonEffectMsg,
-    ServerTerminal(window::Id, serverboot::Message),
-    TerminalClosed(window::Id),
 }
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
@@ -171,13 +188,17 @@ impl State {
                 server_creation_screen: servercreation::State::new(),
                 servers,
                 images: Images {
-                    tf2: svg::Handle::from_path("images/tf2-logo.svg"),
-                    css: svg::Handle::from_path("images/css-logo.svg"),
-                    cs2: svg::Handle::from_path("images/cs2-logo.svg"),
-                    l4d1: svg::Handle::from_path("images/l4d1-logo.svg"),
-                    l4d2: svg::Handle::from_path("images/l4d2-logo.svg"),
-                    nmrih: svg::Handle::from_path("images/nmrih-logo.svg"),
-                    hl2mp: svg::Handle::from_path("images/hl2mp-logo.svg"),
+                    tf2: svg::Handle::from_memory(include_bytes!("../../../images/tf2-logo.svg")),
+                    css: svg::Handle::from_memory(include_bytes!("../../../images/css-logo.svg")),
+                    cs2: svg::Handle::from_memory(include_bytes!("../../../images/cs2-logo.svg")),
+                    l4d1: svg::Handle::from_memory(include_bytes!("../../../images/l4d1-logo.svg")),
+                    l4d2: svg::Handle::from_memory(include_bytes!("../../../images/l4d2-logo.svg")),
+                    nmrih: svg::Handle::from_memory(include_bytes!(
+                        "../../../images/nmrih-logo.svg"
+                    )),
+                    hl2mp: svg::Handle::from_memory(include_bytes!(
+                        "../../../images/hl2mp-logo.svg"
+                    )),
                 },
             },
             task,
@@ -205,7 +226,6 @@ impl State {
     }
 
     fn create_config_file_path() -> Result<PathBuf, Error> {
-        println!("test");
         let project_path = directories::ProjectDirs::from("", "MANNager", "mannager-source")
             .ok_or(Error::NoServerListFile)?;
 
@@ -235,9 +255,8 @@ impl State {
             .into_iter()
             .map(|server| Server {
                 info: server,
-                is_running: false,
                 is_downloading_sourcemod: false,
-                terminal_window: (None, None),
+                terminal_window: None,
             })
             .collect();
 
@@ -277,90 +296,37 @@ impl State {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::CreateServer => {
-                self.is_server_creation_popup_visible = !self.is_server_creation_popup_visible;
+            Message::ServerTerminalWindowCreated(_window_id, _server_id) => Task::none(),
+            Message::WindowClosed => Task::none(),
+            Message::TerminalClosed(id) => {
+                let server_opt = self.servers.iter_mut().enumerate().find(|(_, server)| {
+                    server
+                        .terminal_window
+                        .as_ref()
+                        .map_or(false, |terminal_window| {
+                            terminal_window.window_id == Some(id)
+                        })
+                });
 
-                Task::none()
-            }
-            Message::OnClickOutsidePopup => {
-                if self.server_creation_screen.form_page != FormPage::Downloading
-                    && self.server_creation_screen.form_page != FormPage::ServerInfo
-                {
-                    self.is_server_creation_popup_visible = false;
-                    self.server_creation_screen.form_page = FormPage::GameSelection;
-                }
-
-                Task::none()
-            }
-            Message::StartServerTerminal(_server_id) => {
-                let Some(server) = self.servers.get_mut(_server_id) else {
+                let Some((server_id, server)) = server_opt else {
                     return Task::none();
                 };
 
-                if server.is_running {
+                let Some(mut terminal_state) = server.terminal_window.take() else {
+                    return Task::none();
+                };
+
+                if server.is_running() && !terminal_state.is_visible() {
                     return Task::none();
                 }
 
-                server.is_running = true;
-
-                let (_terminal_window_id, _window_task) = window::open(window::Settings::default());
-
-                server.terminal_window.0 = Some(_terminal_window_id);
-
-                let (_terminal_state, _terminal_task) = serverboot::State::new(&server.info);
-
-                server.terminal_window.1 = Some(_terminal_state);
-
-                Task::batch(vec![
-                    _window_task.discard(),
-                    _terminal_task.map(move |terminal_msg| {
-                        Message::ServerTerminal(_terminal_window_id, terminal_msg)
-                    }),
-                ])
+                terminal_state
+                    .window_state
+                    .update(serverboot::Message::ShutDownServer)
+                    .map(move |x: serverboot::Message| Message::ServerTerminal(server_id, x))
             }
-            Message::ServerCreation(servercreation::Message::FinishServerCreation) => {
-                self.is_server_creation_popup_visible = false;
-
-                self.servers.push(Server {
-                    info: self.server_creation_screen.form_info.clone().into(),
-                    is_running: false,
-                    is_downloading_sourcemod: false,
-                    terminal_window: (None, None),
-                });
-
-                let servers: Vec<ServerInfo> = self
-                    .servers
-                    .iter()
-                    .map(|server| server.info.clone())
-                    .collect();
-
-                Task::future(Self::save_server_list_to_file(servers.into_iter())).discard()
-            }
-            Message::ServerCreation(server_creation_message) => self
-                .server_creation_screen
-                .update(server_creation_message)
-                .map(Message::ServerCreation),
-            Message::WindowClosed => Task::none(),
-            Message::DownloadSourcemod(id, sourcemod_branch) => {
-                if self.servers[id].is_downloading_sourcemod {
-                    return Task::none();
-                }
-
-                let path = self.servers[id].info.path.clone();
-
-                let branch = sourcemod_branch.clone();
-
-                self.servers[id].is_downloading_sourcemod = true;
-
-                Task::perform(
-                    async move {
-                        let _ = setup_sourcemod(path, branch, SourceEngineVersion::Source1).await;
-                    },
-                    move |_| Message::FinishedSourcemodDownload(id),
-                )
-            }
-            Message::OpenFolder(id) => {
-                let _ = open::that(self.servers[id].info.path.clone());
+            Message::CreateServer => {
+                self.is_server_creation_popup_visible = !self.is_server_creation_popup_visible;
 
                 Task::none()
             }
@@ -397,6 +363,75 @@ impl State {
                 })
                 .discard()
             }
+            Message::StartServerTerminal(_server_id) => {
+                let Some(server) = self.servers.get_mut(_server_id) else {
+                    return Task::none();
+                };
+
+                if server.is_running() {
+                    return Task::none();
+                }
+
+                let (_terminal_window_id, _window_task) = window::open(window::Settings::default());
+                let (_terminal_state, _terminal_task) = serverboot::State::new(&server.info);
+
+                server.terminal_window = Some(TerminalWindow {
+                    window_id: Some(_terminal_window_id),
+                    window_state: _terminal_state,
+                });
+
+                Task::batch(vec![
+                    _window_task.discard(),
+                    _terminal_task
+                        .map(move |terminal_msg| Message::ServerTerminal(_server_id, terminal_msg)),
+                ])
+            }
+            Message::CloseServerTerminal(_server_id) => {
+                let Some(server) = self.servers.get_mut(_server_id) else {
+                    return Task::none();
+                };
+
+                let Some(window_terminal) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                let mut tasks = vec![];
+
+                if let Some(window_id) = window_terminal.window_id {
+                    window_terminal.window_id = None;
+
+                    tasks.push(window::close(window_id.clone()));
+                }
+
+                tasks.push(
+                    window_terminal
+                        .window_state
+                        .update(serverboot::Message::ShutDownServer)
+                        .map(move |x| Message::ServerTerminal(_server_id, x)),
+                );
+
+                server.terminal_window = None;
+
+                Task::batch(tasks)
+            }
+            Message::DownloadSourcemod(id, sourcemod_branch) => {
+                if self.servers[id].is_downloading_sourcemod {
+                    return Task::none();
+                }
+
+                let path = self.servers[id].info.path.clone();
+
+                let branch = sourcemod_branch.clone();
+
+                self.servers[id].is_downloading_sourcemod = true;
+
+                Task::perform(
+                    async move {
+                        let _ = setup_sourcemod(path, branch, SourceEngineVersion::Source1).await;
+                    },
+                    move |_| Message::FinishedSourcemodDownload(id),
+                )
+            }
             Message::FinishedSourcemodDownload(id) => {
                 self.servers[id].is_downloading_sourcemod = false;
                 let server_name = self.servers[id].info.name.clone();
@@ -415,101 +450,122 @@ impl State {
                 })
                 .discard()
             }
-            Message::CloseServerTerminal(_server_id) => {
-                let Some(server) = self.servers.get_mut(_server_id) else {
-                    return Task::none();
-                };
+            Message::OpenFolder(id) => {
+                let _ = open::that(self.servers[id].info.path.clone());
 
-                let mut tasks = vec![];
-
-                if let Some(window_id) = server.terminal_window.0 {
-                    tasks.push(window::close(window_id.clone()));
-                }
-
-                if let Some(terminal_state) = &mut server.terminal_window.1 {
-                    tasks.push(
-                        terminal_state
-                            .update(serverboot::Message::ShutDownServer)
-                            .map(move |x| Message::ServerTerminal(window::Id::unique(), x)),
-                    );
-                }
-
-                server.is_running = false;
-                server.terminal_window = (None, None);
-
-                Task::batch(tasks)
+                Task::none()
             }
-            Message::ServerReorder(drag_event) => match drag_event {
-                dragking::DragEvent::Picked { .. } => Task::none(),
-                dragking::DragEvent::Dropped {
-                    index,
-                    target_index,
-                    drop_position,
-                } => match drop_position {
-                    DropPosition::Before => Task::none(),
-                    DropPosition::After => Task::none(),
-                    DropPosition::Swap => {
-                        if target_index != index {
-                            self.servers.swap(index, target_index);
+            Message::ServerReorder(drag_event) => {
+                let is_a_server_running = self.servers.iter().any(|server| server.is_running());
 
-                            let servers: Vec<ServerInfo> = self
-                                .servers
-                                .iter()
-                                .map(|server| server.info.clone())
-                                .collect();
+                if is_a_server_running {
+                    return Task::none();
+                }
 
-                            return Task::future(async move {
-                                let _ = Self::save_server_list_to_file(servers.into_iter()).await;
-                            })
-                            .discard();
+                match drag_event {
+                    dragking::DragEvent::Picked { .. } => Task::none(),
+                    dragking::DragEvent::Dropped {
+                        index,
+                        target_index,
+                        drop_position,
+                    } => match drop_position {
+                        DropPosition::Before => Task::none(),
+                        DropPosition::After => Task::none(),
+                        DropPosition::Swap => {
+                            if target_index != index {
+                                self.servers.swap(index, target_index);
+
+                                let servers: Vec<ServerInfo> = self
+                                    .servers
+                                    .iter()
+                                    .map(|server| server.info.clone())
+                                    .collect();
+
+                                return Task::future(async move {
+                                    let _ =
+                                        Self::save_server_list_to_file(servers.into_iter()).await;
+                                })
+                                .discard();
+                            }
+
+                            Task::none()
                         }
+                    },
+                    dragking::DragEvent::Canceled { .. } => Task::none(),
+                }
+            }
+            Message::ToggleTerminalWindow(server_id) => {
+                let Some(server) = self.servers.get_mut(server_id) else {
+                    return Task::none();
+                };
 
-                        Task::none()
-                    }
-                },
-                dragking::DragEvent::Canceled { .. } => Task::none(),
-            },
-            Message::DummyButtonEffectMsg => Task::none(),
-            Message::ServerTerminalWindowCreated(_window_id, _server_id) => Task::none(),
+                let Some(terminal_window) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                if terminal_window.is_visible() {
+                    let Some(window_id) = terminal_window.window_id else {
+                        return Task::none();
+                    };
+
+                    terminal_window.window_id = None;
+
+                    window::close(window_id)
+                } else {
+                    let (window_id, window_task) = window::open(window::Settings::default());
+
+                    terminal_window.window_id = Some(window_id);
+
+                    window_task.discard()
+                }
+            }
             Message::ServerTerminal(id, message) => {
-                let Some(server) = self
-                    .servers
-                    .iter_mut()
-                    .find(|x| x.terminal_window.0 == Some(id))
-                else {
+                let Some(server) = self.servers.get_mut(id) else {
                     return Task::none();
                 };
 
-                let Some(terminal_state) = &mut server.terminal_window.1 else {
+                let Some(terminal_window) = &mut server.terminal_window else {
                     return Task::none();
                 };
 
-                terminal_state
+                terminal_window
+                    .window_state
                     .update(message)
                     .map(move |msg| Message::ServerTerminal(id, msg))
             }
-            Message::TerminalClosed(id) => {
-                let server_opt = self
+
+            Message::ServerCreation(servercreation::Message::FinishServerCreation) => {
+                self.is_server_creation_popup_visible = false;
+
+                self.servers.push(Server {
+                    info: self.server_creation_screen.form_info.clone().into(),
+                    is_downloading_sourcemod: false,
+                    terminal_window: None,
+                });
+
+                let servers: Vec<ServerInfo> = self
                     .servers
-                    .iter_mut()
-                    .find(|server| server.terminal_window.0 == Some(id));
+                    .iter()
+                    .map(|server| server.info.clone())
+                    .collect();
 
-                let Some(server) = server_opt else {
-                    return Task::none();
-                };
-
-                server.is_running = false;
-
-                server.terminal_window.0 = None;
-
-                let Some(terminal_state) = &mut server.terminal_window.1 else {
-                    return Task::none();
-                };
-
-                terminal_state
-                    .update(serverboot::Message::ShutDownServer)
-                    .map(move |x: serverboot::Message| Message::ServerTerminal(id, x))
+                Task::future(Self::save_server_list_to_file(servers.into_iter())).discard()
             }
+            Message::ServerCreation(server_creation_message) => self
+                .server_creation_screen
+                .update(server_creation_message)
+                .map(Message::ServerCreation),
+            Message::OnClickOutsidePopup => {
+                if self.server_creation_screen.form_page != FormPage::Downloading
+                    && self.server_creation_screen.form_page != FormPage::ServerInfo
+                {
+                    self.is_server_creation_popup_visible = false;
+                    self.server_creation_screen.form_page = FormPage::GameSelection;
+                }
+
+                Task::none()
+            }
+            Message::DummyButtonEffectMsg => Task::none(),
         }
     }
 
@@ -518,16 +574,21 @@ impl State {
     }
 
     pub fn view(&self, window_id: window::Id) -> Element<Message> {
-        let server_opt = self
-            .servers
-            .iter()
-            .find(|server| server.terminal_window.0 == Some(window_id));
+        let server_opt = self.servers.iter().enumerate().find(|(_, server)| {
+            server
+                .terminal_window
+                .as_ref()
+                .map_or(false, |terminal_window| {
+                    terminal_window.window_id == Some(window_id)
+                })
+        });
 
-        if let Some(server) = server_opt {
-            if let Some(terminal_state) = &server.terminal_window.1 {
-                terminal_state
+        if let Some((server_id, server)) = server_opt {
+            if let Some(terminal_window) = &server.terminal_window {
+                terminal_window
+                    .window_state
                     .view()
-                    .map(move |msg| Message::ServerTerminal(window_id, msg))
+                    .map(move |msg| Message::ServerTerminal(server_id, msg))
             } else {
                 container("").into()
             }
@@ -671,11 +732,11 @@ where
                 ]
                 .spacing(10),
             )
-            .on_press_maybe(if server.is_downloading_sourcemod {
-                None
-            } else {
-                Some(Message::DummyButtonEffectMsg)
-            })
+            .on_press_maybe(
+                server
+                    .is_downloading_sourcemod
+                    .then(|| Message::DummyButtonEffectMsg),
+            )
             .width(Length::Fill)
             .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
         };
@@ -722,6 +783,19 @@ where
                     .style(|_theme, _status| style::tf2::Style::button(_theme, _status)),
                 Menu::new(
                     [
+                        Item::new(
+                            button("Toggle window")
+                                .on_press_maybe(if server.is_running() {
+                                    Some(Message::ToggleTerminalWindow(id))
+                                } else {
+                                    None
+                                })
+                                .width(Length::Fill)
+                                .style(|_theme, _status| {
+                                    style::tf2::Style::menu_button(_theme, _status)
+                                }),
+                        ),
+                        Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         sourcemod_sub,
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         Item::new(
@@ -753,7 +827,7 @@ where
         .style(|_theme, _status| style::tf2::Style::menu(_theme, _status))
     };
 
-    let running_button = if !server.is_running {
+    let running_button = if !server.is_running() {
         button(icon::start().size(20).align_y(Alignment::Center))
             .on_press(Message::StartServerTerminal(id))
             .style(|_theme, _status| style::tf2::Style::play_button(_theme, _status))

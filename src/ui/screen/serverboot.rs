@@ -21,7 +21,7 @@ use crate::{
     ui::style,
 };
 
-use super::serverlist::{get_arg_game_name, ServerInfo};
+use super::serverlist::{get_arg_game_name, ServerInfo, SourceAppIDs};
 
 pub struct State {
     running_servers_output: Vec<TerminalText>,
@@ -34,7 +34,7 @@ pub struct State {
 pub enum Message {
     ServerCommunication(Result<ServerCommunicationTwoWay, Error>),
     ServerTerminalInput(String),
-    SendServerTerminalInput,
+    SubmitServerTerminalInput,
     ShutDownServer,
 }
 
@@ -62,7 +62,7 @@ impl State {
                 server.max_players
             );
 
-            if server.max_players > 32 {
+            if server.max_players > 32 && server.game == SourceAppIDs::TeamFortress2 {
                 temp = format!("{temp} -unrestricted_maxplayers");
             }
 
@@ -79,7 +79,7 @@ impl State {
             Self {
                 running_servers_output: vec![],
                 server_terminal_input: "".into(),
-                server_stream_handle: handle,
+                server_stream_handle: handle.abort_on_drop(),
                 sender: None,
             },
             task,
@@ -92,17 +92,17 @@ impl State {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::ServerTerminalInput(string) => {
-                self.server_terminal_input = string;
-
-                Task::none()
-            }
             Message::ShutDownServer => {
                 self.server_stream_handle.abort();
 
                 Task::none()
             }
-            Message::SendServerTerminalInput => {
+            Message::ServerTerminalInput(string) => {
+                self.server_terminal_input = string;
+
+                Task::none()
+            }
+            Message::SubmitServerTerminalInput => {
                 let Some(mut sender) = self.sender.clone() else {
                     return Task::none();
                 };
@@ -162,7 +162,7 @@ impl State {
                 .style(|_theme| container::background(color!(0x2a2421)).border(border::rounded(5))),
                 text_input("Type your command...", &self.server_terminal_input)
                     .on_input(Message::ServerTerminalInput)
-                    .on_submit(Message::SendServerTerminalInput)
+                    .on_submit(Message::SubmitServerTerminalInput)
                     .width(Length::Fill)
                     .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
             ]
