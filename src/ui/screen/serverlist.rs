@@ -692,7 +692,7 @@ where
         .on_drag_maybe(
             servers
                 .iter()
-                .all(|server| !server.is_running())
+                .all(|server| !server.is_running() && !server.is_downloading_sourcemod)
                 .then_some(Message::ServerReorder)
         )
         .align_x(Alignment::Center)
@@ -754,9 +754,7 @@ where
                 .spacing(10),
             )
             .on_press_maybe(
-                server
-                    .is_downloading_sourcemod
-                    .then_some(Message::DummyButtonEffectMsg),
+                (!server.is_downloading_sourcemod).then_some(Message::DummyButtonEffectMsg),
             )
             .width(Length::Fill)
             .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
