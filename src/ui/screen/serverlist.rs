@@ -331,7 +331,11 @@ impl State {
                 Task::none()
             }
             Message::DeleteServer(id) => {
-                let path = self.servers[id].info.path.clone();
+                let Some(server) = self.servers.get(id) else {
+                    return Task::none();
+                };
+
+                let path = server.info.path.clone();
 
                 Task::perform(
                     async move {
@@ -415,15 +419,19 @@ impl State {
                 Task::batch(tasks)
             }
             Message::DownloadSourcemod(id, sourcemod_branch) => {
-                if self.servers[id].is_downloading_sourcemod {
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                if server.is_downloading_sourcemod {
                     return Task::none();
                 }
 
-                let path = self.servers[id].info.path.clone();
+                let path = server.info.path.clone();
 
                 let branch = sourcemod_branch.clone();
 
-                self.servers[id].is_downloading_sourcemod = true;
+                server.is_downloading_sourcemod = true;
 
                 Task::perform(
                     async move {
@@ -433,8 +441,12 @@ impl State {
                 )
             }
             Message::FinishedSourcemodDownload(id) => {
-                self.servers[id].is_downloading_sourcemod = false;
-                let server_name = self.servers[id].info.name.clone();
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                server.is_downloading_sourcemod = false;
+                let server_name = server.info.name.clone();
 
                 Task::future(async move {
                     let _ = Notification::new()
@@ -451,7 +463,11 @@ impl State {
                 .discard()
             }
             Message::OpenFolder(id) => {
-                let _ = open::that(self.servers[id].info.path.clone());
+                let Some(server) = self.servers.get(id) else {
+                    return Task::none();
+                };
+
+                let _ = open::that(server.info.path.clone());
 
                 Task::none()
             }
@@ -740,7 +756,7 @@ where
             .on_press_maybe(
                 server
                     .is_downloading_sourcemod
-                    .then(|| Message::DummyButtonEffectMsg),
+                    .then_some(Message::DummyButtonEffectMsg),
             )
             .width(Length::Fill)
             .style(|_theme, _status| style::tf2::Style::menu_button(_theme, _status))
