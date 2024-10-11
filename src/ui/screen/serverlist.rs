@@ -802,7 +802,6 @@ where
                     .style(|_theme, _status| style::tf2::Style::button(_theme, _status)),
                 Menu::new(
                     [
-                        Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         sourcemod_sub,
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         Item::new(
