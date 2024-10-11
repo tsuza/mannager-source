@@ -802,18 +802,6 @@ where
                     .style(|_theme, _status| style::tf2::Style::button(_theme, _status)),
                 Menu::new(
                     [
-                        Item::new(
-                            button("Toggle window")
-                                .on_press_maybe(if server.is_running() {
-                                    Some(Message::ToggleTerminalWindow(id))
-                                } else {
-                                    None
-                                })
-                                .width(Length::Fill)
-                                .style(|_theme, _status| {
-                                    style::tf2::Style::menu_button(_theme, _status)
-                                }),
-                        ),
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         sourcemod_sub,
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
@@ -844,6 +832,29 @@ where
         .draw_path(menu::DrawPath::FakeHovering)
         .padding(0)
         .style(|_theme, _status| style::tf2::Style::menu(_theme, _status))
+    };
+
+    let toggle_terminal_window: Element<'a, Message> = if server.is_running() {
+        button(
+            if server
+                .terminal_window
+                .as_ref()
+                .map_or(false, |window| !window.is_visible())
+            {
+                "Show"
+            } else {
+                "Hide"
+            },
+        )
+        .on_press_maybe(if server.is_running() {
+            Some(Message::ToggleTerminalWindow(id))
+        } else {
+            None
+        })
+        .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+        .into()
+    } else {
+        container("").into()
     };
 
     let running_button = if !server.is_running() {
