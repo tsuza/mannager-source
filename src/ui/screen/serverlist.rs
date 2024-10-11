@@ -877,15 +877,18 @@ where
                 text!("{}", server.info.name.clone())
                     .width(400)
                     .wrapping(text::Wrapping::None)
-                    .size(30)
+                    .size(25)
                     .style(|_theme| text::Style {
                         color: Some(color!(0xffffff))
                     }),
                 horizontal_space(),
+                toggle_terminal_window,
                 running_button,
                 menu_settings
             ]
-            .spacing(10),
+            .spacing(10)
+            .padding(padding::bottom(5))
+            .align_y(Alignment::Center),
             horizontal_rule(0),
             column![
                 text!("Max Players: {}", server.info.max_players).color(Color::WHITE),
@@ -906,11 +909,6 @@ where
             })
     })
     .into()
-}
-
-#[derive(Debug, Clone)]
-pub enum CustomError {
-    Null,
 }
 
 pub async fn setup_sourcemod(

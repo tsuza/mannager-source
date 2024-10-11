@@ -195,6 +195,20 @@ fn choose_game_container<'a>() -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
+    let game_entry = |game_name: &'static str, image_path: svg::Handle, button_event: Message| {
+        tooltip(
+            button(svg(image_path).width(60).content_fit(ContentFit::Contain))
+                .on_press(button_event)
+                .padding(0)
+                .style(|_theme, _status| button::Style {
+                    background: None,
+                    ..button::Style::default()
+                }),
+            container(game_name).padding(10),
+            tooltip::Position::Top,
+        )
+    };
+
     container(column![
         text!("Server creation")
             .font(Font::with_name("TF2 Build"))
@@ -206,110 +220,40 @@ where
         text!("Select the game server").size(20).color(Color::WHITE),
         container(
             row![
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/tf2-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::TeamFortress2))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("Team Fortress 2").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "Team Fortress 2",
+                    svg::Handle::from_path("images/tf2-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::TeamFortress2)
                 ),
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/css-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::CounterStrikeSource))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("Counter Strike: Source").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "Counter Strike: Source",
+                    svg::Handle::from_path("images/css-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::CounterStrikeSource)
                 ),
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/cs2-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::CounterStrike2))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("Counter Strike 2").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "Counter Strike 2",
+                    svg::Handle::from_path("images/cs2-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::CounterStrike2)
                 ),
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/l4d1-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::LeftForDead1))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("Left For Dead 1").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "Left For Dead 1",
+                    svg::Handle::from_path("images/l4d1-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::LeftForDead1)
                 ),
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/l4d2-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::LeftForDead2))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("Left For Dead 2").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "Left For Dead 2",
+                    svg::Handle::from_path("images/l4d2-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::LeftForDead2)
                 ),
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/hl2mp-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::HalfLife2DM))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("Half Life 2: Deathmatch").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "Half Life 2: Deathmatch",
+                    svg::Handle::from_path("images/hl2mp-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::HalfLife2DM)
                 ),
-                tooltip(
-                    button(
-                        svg(svg::Handle::from_path("images/nmrih-logo.svg"))
-                            .width(60)
-                            .content_fit(ContentFit::Contain)
-                    )
-                    .on_press(Message::GameChosen(SourceAppIDs::NoMoreRoomInHell))
-                    .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
-                    container("No More Room In Hell").padding(10),
-                    tooltip::Position::Top
+                game_entry(
+                    "No More Room In Hell",
+                    svg::Handle::from_path("images/nmrih-logo.svg"),
+                    Message::GameChosen(SourceAppIDs::NoMoreRoomInHell)
                 ),
             ]
             .spacing(20)
