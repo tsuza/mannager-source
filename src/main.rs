@@ -13,6 +13,5 @@ fn main() -> iced::Result {
         .font(icon::FONT_BYTES)
         .font(TF2_BUILD_FONT_BYTES)
         .font(TF2_SECONDARY_FONT_BYTES)
-        .default_font(Font::with_name("TF2 Secondary"))
         .run_with(State::new)
 }

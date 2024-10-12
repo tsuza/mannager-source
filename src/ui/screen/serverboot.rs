@@ -3,10 +3,13 @@ use std::path::PathBuf;
 use iced::{
     border, color,
     futures::{channel::mpsc, SinkExt, Stream, StreamExt},
+    padding,
     stream::try_channel,
     task,
-    widget::{column, container, scrollable, text, text_input},
-    Color, Element, Length, Subscription, Task,
+    widget::{
+        button, column, container, horizontal_space, mouse_area, row, scrollable, text, text_input,
+    },
+    Alignment, Color, Element, Length, Subscription, Task, Theme,
 };
 use iced_aw::style::colors;
 use notify_rust::Notification;
@@ -18,7 +21,7 @@ use tokio::{
 
 use crate::{
     core::portforwarder::{self, PortForwarderIP},
-    ui::style,
+    ui::style::{self, icon},
 };
 
 use super::serverlist::{get_arg_game_name, ServerInfo, SourceAppIDs};
@@ -36,6 +39,11 @@ pub enum Message {
     ServerTerminalInput(String),
     SubmitServerTerminalInput,
     ShutDownServer,
+    MinimizeTerminal,
+    ToogleMaximizeTerminal,
+    CloseTerminal,
+    OpenContextMenu,
+    OnTerminalBeingMoved(iced::Point),
 }
 
 #[derive(Clone, Debug)]
@@ -129,6 +137,11 @@ impl State {
 
                 Task::none()
             }
+            Message::MinimizeTerminal => Task::none(),
+            Message::ToogleMaximizeTerminal => Task::none(),
+            Message::CloseTerminal => Task::none(),
+            Message::OpenContextMenu => Task::none(),
+            Message::OnTerminalBeingMoved(_x) => Task::none(),
         }
     }
 
@@ -137,6 +150,39 @@ impl State {
     }
 
     pub fn view(&self) -> Element<Message> {
+        let title_bar = mouse_area(
+            container(
+                row![
+                    text!("Server Terminal").color(color!(0xeee5cf)),
+                    horizontal_space(),
+                    row![
+                        button(icon::window_minimize().size(13))
+                            .on_press(Message::MinimizeTerminal)
+                            .style(|_theme, _status| style::tf2::Style::titlerbar_button(
+                                _theme, _status
+                            )),
+                        button(icon::window_maximize().size(13))
+                            .on_press(Message::ToogleMaximizeTerminal)
+                            .style(|_theme, _status| style::tf2::Style::titlerbar_button(
+                                _theme, _status
+                            )),
+                        button(icon::window_close().size(13))
+                            .on_press(Message::CloseTerminal)
+                            .style(|_theme, _status| style::tf2::Style::titlerbar_button(
+                                _theme, _status
+                            ))
+                    ]
+                    .spacing(5)
+                    .align_y(Alignment::Center)
+                ]
+                .align_y(Alignment::Center)
+                .padding(0),
+            )
+            .padding([7, 0]),
+        )
+        .on_move(Message::OnTerminalBeingMoved)
+        .on_right_press(Message::OpenContextMenu);
+
         let console_output_text = {
             column(self.running_servers_output.iter().map(|text| match text {
                 TerminalText::Input(string) => text!("{}", string).color(colors::SILVER).into(),
@@ -145,7 +191,8 @@ impl State {
             .padding(5)
         };
 
-        container(
+        container(column![
+            title_bar,
             column![
                 container(
                     scrollable(console_output_text)
@@ -159,7 +206,7 @@ impl State {
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .style(|_theme| container::background(color!(0x2a2421)).border(border::rounded(5))),
+                .style(|_theme| container::background(color!(0x2a2421))),
                 text_input("Type your command...", &self.server_terminal_input)
                     .on_input(Message::ServerTerminalInput)
                     .on_submit(Message::SubmitServerTerminalInput)
@@ -167,11 +214,11 @@ impl State {
                     .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
             ]
             .spacing(20),
-        )
+        ])
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(20)
-        .style(|_theme| container::background(color!(0x3a3430)))
+        .padding(padding::all(20).top(0))
+        .style(|_theme| container::background(color!(0x3a3430)).border(border::rounded(10)))
         .into()
     }
 }

@@ -11,8 +11,8 @@ use iced::{
         rule::{self, FillMode},
         scrollable, svg, text, vertical_space,
     },
-    window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Subscription,
-    Task, Vector,
+    window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Size,
+    Subscription, Task, Theme, Vector,
 };
 use iced_aw::menu::{Item, Menu};
 use iced_aw::{menu, style::colors, MenuBar};
@@ -376,7 +376,13 @@ impl State {
                     return Task::none();
                 }
 
-                let (_terminal_window_id, _window_task) = window::open(window::Settings::default());
+                let (_terminal_window_id, _window_task) = window::open(window::Settings {
+                    min_size: Some(Size::new(400.0, 200.0)),
+                    resizable: true,
+                    decorations: false,
+                    transparent: true,
+                    ..window::Settings::default()
+                });
                 let (_terminal_state, _terminal_task) = serverboot::State::new(&server.info);
 
                 server.terminal_window = Some(TerminalWindow {
@@ -528,12 +534,93 @@ impl State {
 
                     window::close(window_id)
                 } else {
-                    let (window_id, window_task) = window::open(window::Settings::default());
+                    let (window_id, window_task) = window::open(window::Settings {
+                        min_size: Some(Size::new(400.0, 200.0)),
+                        resizable: true,
+                        decorations: false,
+                        transparent: true,
+                        ..window::Settings::default()
+                    });
 
                     terminal_window.window_id = Some(window_id);
 
                     window_task.discard()
                 }
+            }
+            Message::ServerTerminal(id, serverboot::Message::MinimizeTerminal) => {
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                let Some(terminal_window) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                let Some(window_id) = terminal_window.window_id else {
+                    return Task::none();
+                };
+
+                window::minimize(window_id, true)
+            }
+            Message::ServerTerminal(id, serverboot::Message::ToogleMaximizeTerminal) => {
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                let Some(terminal_window) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                let Some(window_id) = terminal_window.window_id else {
+                    return Task::none();
+                };
+
+                window::toggle_maximize(window_id)
+            }
+            Message::ServerTerminal(id, serverboot::Message::CloseTerminal) => {
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                let Some(terminal_window) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                let Some(window_id) = terminal_window.window_id else {
+                    return Task::none();
+                };
+
+                window::close(window_id)
+            }
+            Message::ServerTerminal(id, serverboot::Message::OpenContextMenu) => {
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                let Some(terminal_window) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                let Some(window_id) = terminal_window.window_id else {
+                    return Task::none();
+                };
+
+                window::show_system_menu(window_id)
+            }
+            Message::ServerTerminal(id, serverboot::Message::OnTerminalBeingMoved(_position)) => {
+                let Some(server) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                let Some(terminal_window) = &mut server.terminal_window else {
+                    return Task::none();
+                };
+
+                let Some(window_id) = terminal_window.window_id else {
+                    return Task::none();
+                };
+
+                window::drag(window_id)
             }
             Message::ServerTerminal(id, message) => {
                 let Some(server) = self.servers.get_mut(id) else {

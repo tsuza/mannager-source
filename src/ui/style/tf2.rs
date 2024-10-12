@@ -136,6 +136,23 @@ impl Style {
         }
     }
 
+    pub fn titlerbar_button(_theme: &Theme, _status: button::Status) -> button::Style {
+        match _status {
+            button::Status::Active | button::Status::Disabled => button::Style {
+                background: None,
+                text_color: color!(238, 229, 207, 0.2),
+                border: border::rounded(0),
+                ..Default::default()
+            },
+            button::Status::Hovered | button::Status::Pressed => button::Style {
+                background: Some(Background::Color(color!(0x994f3f))),
+                text_color: color!(0xffffff),
+                border: border::rounded(5),
+                ..Default::default()
+            },
+        }
+    }
+
     pub fn primary_container(_theme: &Theme) -> container::Style {
         container::background(color!(0x2A2725))
             .border(border::width(3).rounded(3).color(color!(0x363230)))

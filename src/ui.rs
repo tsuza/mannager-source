@@ -1,4 +1,4 @@
-use iced::{window, Element, Subscription, Task};
+use iced::{window, Element, Size, Subscription, Task, Theme};
 use screen::{serverlist, Screen, ScreenKind};
 
 pub mod components;
@@ -18,7 +18,10 @@ pub enum Message {
 
 impl State {
     pub fn new() -> (Self, Task<Message>) {
-        let (id, open) = window::open(window::Settings::default());
+        let (id, open) = window::open(window::Settings {
+            min_size: Some(Size::new(900.0, 600.0)),
+            ..window::Settings::default()
+        });
 
         let (main_screen_state, main_screen_task) = serverlist::State::new();
 
@@ -84,7 +87,7 @@ impl State {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        window::close_events().map(Message::WindowClosed)
+        Subscription::batch(vec![window::close_events().map(Message::WindowClosed)])
     }
 
     pub fn view(&self, window_id: window::Id) -> Element<Message> {

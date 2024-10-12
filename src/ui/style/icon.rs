@@ -35,6 +35,18 @@ pub fn right_arrow<'a>() -> Text<'a> {
     with_codepoint('\u{E807}')
 }
 
+pub fn window_close<'a>() -> Text<'a> {
+    with_codepoint('\u{E808}')
+}
+
+pub fn window_maximize<'a>() -> Text<'a> {
+    with_codepoint('\u{F2D0}')
+}
+
+pub fn window_minimize<'a>() -> Text<'a> {
+    with_codepoint('\u{F2D1}')
+}
+
 fn with_codepoint<'a>(codepoint: char) -> Text<'a> {
     const FONT: Font = Font::with_name("mannagericons");
 
