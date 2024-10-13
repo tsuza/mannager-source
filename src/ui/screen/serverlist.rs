@@ -290,8 +290,40 @@ impl State {
         Ok(())
     }
 
-    pub fn title(&self) -> String {
-        "Mannager".into()
+    pub fn title(&self, _window_id: window::Id) -> String {
+        let terminal_window_opt = self.servers.iter().find_map(|server| {
+            server.terminal_window.as_ref().and_then(|terminal_window| {
+                if terminal_window.window_id == Some(_window_id) {
+                    Some(terminal_window)
+                } else {
+                    None
+                }
+            })
+        });
+
+        if let Some(terminal_window) = terminal_window_opt {
+            terminal_window.window_state.title()
+        } else {
+            "MANNager - Server Manager".into()
+        }
+    }
+
+    pub fn theme(&self, _window_id: window::Id) -> Theme {
+        let terminal_window_opt = self.servers.iter().find_map(|server| {
+            server.terminal_window.as_ref().and_then(|terminal_window| {
+                if terminal_window.window_id == Some(_window_id) {
+                    Some(terminal_window)
+                } else {
+                    None
+                }
+            })
+        });
+
+        if let Some(terminal_window) = terminal_window_opt {
+            terminal_window.window_state.theme()
+        } else {
+            style::tf2::Themes::server_manager_theme()
+        }
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {

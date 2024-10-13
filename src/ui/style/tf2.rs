@@ -1,9 +1,34 @@
 use iced::{
     border, color, padding,
+    theme::Palette,
     widget::{self, button, container, scrollable, text_input},
     Background, Color, Shadow, Theme, Vector,
 };
 use iced_aw::{menu, style::colors};
+
+pub struct Themes;
+
+impl Themes {
+    pub const SERVER_MANAGER_PALETTE: Palette = Palette {
+        background: color!(0, 0, 0, 0.0),
+        text: color!(0xeee5cf),
+        ..Palette::DARK
+    };
+
+    pub const SOURCE_TERMINAL_PALETTE: Palette = Palette {
+        background: color!(0, 0, 0, 0.0),
+        text: color!(0xeee5cf),
+        ..Palette::DARK
+    };
+
+    pub fn server_manager_theme() -> Theme {
+        Theme::custom("ServerManagerTheme".into(), Self::SERVER_MANAGER_PALETTE)
+    }
+
+    pub fn source_terminal_theme() -> Theme {
+        Theme::custom("ServerManagerTheme".into(), Self::SERVER_MANAGER_PALETTE)
+    }
+}
 
 pub struct Style;
 

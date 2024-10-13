@@ -94,8 +94,12 @@ impl State {
         )
     }
 
-    pub fn title() -> String {
-        "MANNager - Server Terminal".into()
+    pub fn title(&self) -> String {
+        "Server Terminal".into()
+    }
+
+    pub fn theme(&self) -> Theme {
+        style::tf2::Themes::source_terminal_theme()
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {

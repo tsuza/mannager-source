@@ -42,7 +42,15 @@ impl State {
     }
 
     pub fn title(&self, _window: window::Id) -> String {
-        "MANNager".into()
+        let serverlist_page = &self.screen.1.serverlist_page;
+
+        serverlist_page.title(_window)
+    }
+
+    pub fn theme(&self, _window: window::Id) -> Theme {
+        let serverlist_page = &self.screen.1.serverlist_page;
+
+        serverlist_page.theme(_window)
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {

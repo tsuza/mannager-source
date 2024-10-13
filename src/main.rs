@@ -10,6 +10,8 @@ const TF2_SECONDARY_FONT_BYTES: &[u8] = include_bytes!("../fonts/TF2Secondary.tt
 fn main() -> iced::Result {
     iced::daemon(State::title, State::update, State::view)
         .subscription(State::subscription)
+        .theme(State::theme)
+        .default_font(Font::with_name("TF2 Secondary"))
         .font(icon::FONT_BYTES)
         .font(TF2_BUILD_FONT_BYTES)
         .font(TF2_SECONDARY_FONT_BYTES)
