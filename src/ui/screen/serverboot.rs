@@ -9,7 +9,7 @@ use iced::{
     widget::{
         button, column, container, horizontal_space, mouse_area, row, scrollable, text, text_input,
     },
-    Alignment, Color, Element, Length, Subscription, Task, Theme,
+    Alignment, Color, Element, Font, Length, Subscription, Task, Theme,
 };
 use iced_aw::style::colors;
 use notify_rust::Notification;
@@ -188,9 +188,17 @@ impl State {
         .on_right_press(Message::OpenContextMenu);
 
         let console_output_text = {
-            column(self.running_servers_output.iter().map(|text| match text {
-                TerminalText::Input(string) => text!("{}", string).color(colors::SILVER).into(),
-                TerminalText::Output(string) => text!("{}", string).color(Color::WHITE).into(),
+            column(self.running_servers_output.iter().map(|text| {
+                match text {
+                    TerminalText::Input(string) => text!("{}", string)
+                        .color(colors::SILVER)
+                        .font(Font::with_name("Iosevka"))
+                        .into(),
+                    TerminalText::Output(string) => text!("{}", string)
+                        .color(Color::WHITE)
+                        .font(Font::with_name("Iosevka"))
+                        .into(),
+                }
             }))
             .padding(5)
         };
