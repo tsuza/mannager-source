@@ -639,7 +639,7 @@ impl State {
 
                 window::show_system_menu(window_id)
             }
-            Message::ServerTerminal(id, serverboot::Message::OnTerminalBeingMoved(_position)) => {
+            Message::ServerTerminal(id, serverboot::Message::OnTerminalBeingMoved) => {
                 let Some(server) = self.servers.get_mut(id) else {
                     return Task::none();
                 };

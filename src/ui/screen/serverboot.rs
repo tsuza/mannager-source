@@ -43,7 +43,7 @@ pub enum Message {
     ToogleMaximizeTerminal,
     CloseTerminal,
     OpenContextMenu,
-    OnTerminalBeingMoved(iced::Point),
+    OnTerminalBeingMoved,
 }
 
 #[derive(Clone, Debug)]
@@ -145,7 +145,7 @@ impl State {
             Message::ToogleMaximizeTerminal => Task::none(),
             Message::CloseTerminal => Task::none(),
             Message::OpenContextMenu => Task::none(),
-            Message::OnTerminalBeingMoved(_x) => Task::none(),
+            Message::OnTerminalBeingMoved => Task::none(),
         }
     }
 
@@ -184,7 +184,7 @@ impl State {
             )
             .padding([7, 0]),
         )
-        .on_move(Message::OnTerminalBeingMoved)
+        .on_press(Message::OnTerminalBeingMoved)
         .on_right_press(Message::OpenContextMenu);
 
         let console_output_text = {
