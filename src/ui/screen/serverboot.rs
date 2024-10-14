@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{net::Ipv4Addr, path::PathBuf};
 
 use iced::{
     border, color,
@@ -50,16 +50,28 @@ pub enum TerminalText {
     Output(String),
 }
 
+const PORT_OFFSET: u16 = 10;
+
 impl State {
     pub fn new(server: &ServerInfo) -> (Self, Task<Message>) {
         let binary_path = server.path.join("srcds_run");
 
+        // Cheeky way to find out if it's already occupied.
+        let port = if server.port == 0 {
+            find_available_port(Ipv4Addr::new(0, 0, 0, 0), 27015)
+        } else {
+            server.port
+        };
+
         let args = {
             let mut temp = format!(
-                "-console -game {} +map {} +max_players {} -strictportbind +ip 0.0.0.0 -port 27015 +clientport 27025",
+                "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
                 get_arg_game_name(server.game.clone()),
+                server.name,
                 server.map,
-                server.max_players
+                server.max_players,
+                port,
+                port + PORT_OFFSET
             );
 
             if server.max_players > 32 && server.game == SourceAppIDs::TeamFortress2 {
@@ -70,7 +82,7 @@ impl State {
         };
 
         let (task, handle) = Task::run(
-            start_server(binary_path, args),
+            start_server(binary_path, args, server.name.clone(), port),
             Message::ServerCommunication,
         )
         .abortable();
@@ -179,8 +191,10 @@ impl State {
 fn start_server(
     executable_path: PathBuf,
     args: String,
+    server_name: String,
+    port: u16,
 ) -> impl Stream<Item = Result<ServerCommunicationTwoWay, Error>> {
-    try_channel(1, |mut output| async move {
+    try_channel(1, move |mut output| async move {
         let (sender, mut receiver) = mpsc::channel(100);
 
         output
@@ -202,10 +216,10 @@ fn start_server(
 
         let forwarder = portforwarder::PortForwarder::open(
             PortForwarderIP::Any,
-            27015,
-            27015,
+            port,
+            port,
             PortMappingProtocol::UDP,
-            "TF2 Server",
+            &server_name,
         );
 
         if let Err(_) = forwarder {
@@ -275,6 +289,31 @@ fn start_server(
             }
         }
     })
+}
+
+fn find_available_port(ip: Ipv4Addr, starting_port: u16) -> u16 {
+    let mut port = starting_port;
+
+    const MAX_ATTEMPTS: u32 = 50;
+
+    let _ip = ip.to_string();
+
+    for _ in 1..MAX_ATTEMPTS {
+        match std::net::UdpSocket::bind(format!("{_ip}:{port}"))
+            .and_then(|_| std::net::UdpSocket::bind(format!("{_ip}:{}", port + PORT_OFFSET)))
+        {
+            Ok(_) => {
+                break;
+            }
+            Err(_) => {
+                port += 10;
+
+                continue;
+            }
+        }
+    }
+
+    port
 }
 
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]

@@ -77,6 +77,8 @@ pub struct ServerInfo {
     pub map: String,
     pub max_players: u32,
     pub password: String,
+    #[serde(default)]
+    pub port: u16,
 }
 
 pub struct TerminalWindow {
@@ -99,6 +101,7 @@ impl From<FormInfo> for ServerInfo {
             map: form_info.map_name,
             max_players: form_info.max_players,
             password: form_info.password,
+            port: form_info.port,
         }
     }
 }
@@ -164,7 +167,7 @@ pub fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
 
 impl State {
     pub fn new() -> (Self, Task<Message>) {
-        let mut task = Task::none();
+        let mut task: Task<Message> = Task::none();
 
         let servers = Self::get_server_list().unwrap_or_else(|_| {
             task = Task::future(async move {
