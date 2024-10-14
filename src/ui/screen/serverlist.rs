@@ -14,8 +14,11 @@ use iced::{
     window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Subscription,
     Task, Vector,
 };
-use iced_aw::menu::{Item, Menu};
-use iced_aw::{menu, style::colors, MenuBar};
+use iced_aw::{
+    menu::{self, Item},
+    style::colors,
+    Menu, MenuBar,
+};
 use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +76,7 @@ impl Server {
 pub struct ServerInfo {
     pub name: String,
     pub game: SourceAppIDs,
+    pub description: String,
     pub path: PathBuf,
     pub map: String,
     pub max_players: u32,
@@ -97,6 +101,7 @@ impl From<FormInfo> for ServerInfo {
         ServerInfo {
             name: form_info.server_name,
             game: form_info.source_game,
+            description: form_info.server_description,
             path: form_info.server_path,
             map: form_info.map_name,
             max_players: form_info.max_players,
@@ -805,6 +810,15 @@ where
                     .style(|_theme, _status| style::tf2::Style::button(_theme, _status)),
                 Menu::new(
                     [
+                        Item::new(
+                            button("Edit")
+                                //.on_press(Message::EditServerEntry(id))
+                                .width(Length::Fill)
+                                .style(|_theme, _status| {
+                                    style::tf2::Style::menu_button(_theme, _status)
+                                }),
+                        ),
+                        Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         sourcemod_sub,
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         Item::new(
