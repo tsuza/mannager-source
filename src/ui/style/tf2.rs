@@ -1,5 +1,5 @@
 use iced::{
-    border, color, padding,
+    border, color, gradient, padding,
     widget::{self, button, container, scrollable, text_input},
     Background, Color, Shadow, Theme, Vector,
 };
@@ -144,5 +144,20 @@ impl Style {
                 offset: Vector::new(0.0, 3.0),
                 blur_radius: 5.0,
             })
+    }
+
+    pub fn tooltip_container(_theme: &Theme) -> container::Style {
+        container::background(Background::Gradient(iced::Gradient::Linear(
+            gradient::Linear::new(0)
+                .add_stop(0.0, color!(0x28231f))
+                .add_stop(0.6, color!(0x3f3a33)),
+        )))
+        .border(border::rounded(5))
+        .color(color!(0xeee5cf))
+        .shadow(Shadow {
+            color: color!(0, 0, 0, 0.24),
+            offset: Vector::new(3.0, 3.0),
+            blur_radius: 8.0,
+        })
     }
 }

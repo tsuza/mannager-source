@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use iced::widget::tooltip;
+use iced::{color, Color, Font};
 use iced::{
     futures::{SinkExt, Stream},
     padding,
@@ -11,14 +12,13 @@ use iced::{
     },
     Alignment, ContentFit, Element, Length, Subscription, Task,
 };
-use iced::{Color, Font};
 use iced_aw::number_input;
 use rfd::FileHandle;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::core;
 use crate::core::depotdownloader::DepotDownloader;
-use crate::ui::style;
+use crate::ui::style::{self, icon};
 
 use super::serverlist::{get_arg_game_name, SourceAppIDs};
 
@@ -49,6 +49,7 @@ pub struct FormInfo {
     pub server_description: String,
     pub max_players: u32,
     pub password: String,
+    pub port: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +66,7 @@ pub enum Message {
     MaxPlayersUpdate(u32),
     PasswordUpdate(String),
     FinishServerCreation,
+    PortUpdate(String),
 }
 
 impl State {
@@ -174,6 +176,15 @@ impl State {
                 Task::none()
             }
             Message::FinishServerCreation => Task::none(),
+            Message::PortUpdate(port) => {
+                let Ok(port) = port.parse::<u16>() else {
+                    return Task::none();
+                };
+
+                self.form_info.port = port;
+
+                Task::none()
+            }
         }
     }
 
@@ -357,6 +368,12 @@ fn server_creation_info<'a>(state: &FormInfo) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
+    let port = if state.port != 0 {
+        &state.port.to_string()
+    } else {
+        ""
+    };
+
     container(
         column![
             text!("Server creation")
@@ -407,6 +424,26 @@ where
                         .width(Length::FillPortion(1)),
                     text_input("Server Password", &state.password)
                         .on_input(Message::PasswordUpdate)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    row![
+                        text!("Port").color(Color::WHITE),
+                        tooltip(
+                            icon::warning().color(color!(0xeee5cf)),
+                            text!("If it's left empty, the app will automatically find an available port.").width(350),
+                            tooltip::Position::Top
+                        )
+                        .gap(10)
+                        .padding(20)
+                        .style(|_theme| style::tf2::Style::tooltip_container(_theme))
+                    ]
+                    .spacing(10)
+                    .width(Length::FillPortion(1)),
+                    text_input("Port", port)
+                        .on_input(Message::PortUpdate)
                         .width(Length::FillPortion(2))
                         .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
                 ]
