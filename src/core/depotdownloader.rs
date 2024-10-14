@@ -41,10 +41,9 @@ impl DepotDownloader {
         path: &str,
         appid: u32,
     ) -> Result<Option<ChildStdout>, Error> {
-        let args = format!("-app {appid} -dir {path}");
-
         let mut process = Command::new(&self.depotdownloader_path)
-            .args(args.split_whitespace())
+            .args(["-app", &appid.to_string()])
+            .args(["-dir", path])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
