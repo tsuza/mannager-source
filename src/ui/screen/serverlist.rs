@@ -46,6 +46,7 @@ const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
 pub struct State {
     is_server_creation_popup_visible: bool,
     server_creation_screen: servercreation::State,
+    server_edit_screen: Option<(usize, servercreation::State)>,
     pub servers: Vec<Server>,
     pub images: Images,
 }
@@ -126,6 +127,8 @@ pub enum Message {
     OpenFolder(usize),
     ServerReorder(dragking::DragEvent),
     ToggleTerminalWindow(usize),
+    OpenEditServerPopup(usize),
+    ServerEdit(usize, servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
     ServerCreation(servercreation::Message),
     OnClickOutsidePopup,
@@ -208,6 +211,7 @@ impl State {
                         "../../../images/hl2mp-logo.svg"
                     )),
                 },
+                server_edit_screen: None,
             },
             task,
         )
@@ -543,6 +547,48 @@ impl State {
                     window_task.discard()
                 }
             }
+            Message::OpenEditServerPopup(server_id) => {
+                let Some(server) = self.servers.get(server_id) else {
+                    return Task::none();
+                };
+
+                self.server_edit_screen = Some((
+                    server_id,
+                    servercreation::State::from_server_entry(&server.info),
+                ));
+
+                Task::none()
+            }
+            Message::ServerEdit(server_id, servercreation::Message::FinishServerCreation) => {
+                let server_edit_screen = self.server_edit_screen.take();
+
+                let Some((_, edit_server_state)) = server_edit_screen else {
+                    return Task::none();
+                };
+
+                let Some(server) = self.servers.get_mut(server_id) else {
+                    return Task::none();
+                };
+
+                server.info = edit_server_state.form_info.into();
+
+                let servers: Vec<ServerInfo> = self
+                    .servers
+                    .iter()
+                    .map(|server| server.info.clone())
+                    .collect();
+
+                Task::future(Self::save_server_list_to_file(servers.into_iter())).discard()
+            }
+            Message::ServerEdit(server_id, server_edit_message) => {
+                let Some((_, server_edit_state)) = &mut self.server_edit_screen else {
+                    return Task::none();
+                };
+
+                server_edit_state
+                    .update(server_edit_message)
+                    .map(move |x| Message::ServerEdit(server_id, x))
+            }
             Message::ServerTerminal(id, message) => {
                 let Some(server) = self.servers.get_mut(id) else {
                     return Task::none();
@@ -586,6 +632,8 @@ impl State {
                     self.is_server_creation_popup_visible = false;
                     self.server_creation_screen.form_page = FormPage::GameSelection;
                 }
+
+                self.server_edit_screen = None;
 
                 Task::none()
             }
@@ -645,7 +693,15 @@ impl State {
             .height(Length::Fill)
             .style(|_theme| container::background(color!(0x1c1a19)));
 
-            if self.is_server_creation_popup_visible {
+            if let Some((server_id, server_edit_state)) = &self.server_edit_screen {
+                modal(
+                    base,
+                    server_edit_state
+                        .view()
+                        .map(move |x| Message::ServerEdit(*server_id, x)),
+                    Message::OnClickOutsidePopup,
+                )
+            } else if self.is_server_creation_popup_visible {
                 modal(
                     base,
                     self.server_creation_screen
@@ -812,7 +868,7 @@ where
                     [
                         Item::new(
                             button("Edit")
-                                //.on_press(Message::EditServerEntry(id))
+                                .on_press(Message::OpenEditServerPopup(id))
                                 .width(Length::Fill)
                                 .style(|_theme, _status| {
                                     style::tf2::Style::menu_button(_theme, _status)

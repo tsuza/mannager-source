@@ -20,7 +20,7 @@ use crate::core;
 use crate::core::depotdownloader::DepotDownloader;
 use crate::ui::style::{self, icon};
 
-use super::serverlist::{get_arg_game_name, SourceAppIDs};
+use super::serverlist::{self, get_arg_game_name, SourceAppIDs};
 
 #[derive(Default)]
 pub struct State {
@@ -35,6 +35,7 @@ pub enum FormPage {
     ServerPath,
     Downloading,
     ServerInfo,
+    EditPage,
 }
 
 #[derive(Default, Clone)]
@@ -77,6 +78,22 @@ impl State {
                 ..Default::default()
             },
             ..Default::default()
+        }
+    }
+
+    pub fn from_server_entry(server_info: &serverlist::ServerInfo) -> Self {
+        Self {
+            form_info: FormInfo {
+                server_name: server_info.name.clone(),
+                source_game: server_info.game.clone(),
+                server_description: server_info.description.clone(),
+                server_path: server_info.path.clone(),
+                max_players: server_info.max_players.clone(),
+                password: server_info.password.clone(),
+                port: server_info.port.clone(),
+                ..Default::default()
+            },
+            form_page: FormPage::EditPage,
         }
     }
 
@@ -198,6 +215,7 @@ impl State {
             FormPage::ServerPath => server_creation_form_container(&self.form_info),
             FormPage::Downloading => downloading_container(&self.form_info),
             FormPage::ServerInfo => server_creation_info(&self.form_info),
+            FormPage::EditPage => edit_server_info(&self.form_info),
         }
     }
 }
@@ -384,6 +402,120 @@ where
                 .align_x(Alignment::Center),
             horizontal_rule(0),
             column![
+                row![
+                    text!("Server Description")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    text_input("Server Description", &state.server_description)
+                        .on_input(Message::MessageDescriptionUpdate)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text!("Map")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    container(
+                        button("Select Map").on_press(Message::SelectMap).style(
+                            |_theme, _status| style::tf2::Style::form_button(_theme, _status)
+                        )
+                    )
+                    .width(Length::FillPortion(2))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text!("Max Players")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    container(number_input(
+                        state.max_players,
+                        0..=100,
+                        Message::MaxPlayersUpdate
+                    ))
+                    .width(Length::FillPortion(2))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    text!("Server Password")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    text_input("Server Password", &state.password)
+                        .on_input(Message::PasswordUpdate)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
+                row![
+                    row![
+                        text!("Port").color(Color::WHITE),
+                        tooltip(
+                            icon::warning().color(color!(0xeee5cf)),
+                            text!("If it's left empty, the app will automatically find an available port.").width(350),
+                            tooltip::Position::Top
+                        )
+                        .gap(10)
+                        .padding(20)
+                        .style(|_theme| style::tf2::Style::tooltip_container(_theme))
+                    ]
+                    .spacing(10)
+                    .width(Length::FillPortion(1)),
+                    text_input("Port", port)
+                        .on_input(Message::PortUpdate)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
+                container(
+                    button(text!("Finish").size(20))
+                        .on_press(Message::FinishServerCreation)
+                        .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+                )
+                .width(Length::Fill)
+                .align_x(Alignment::Center)
+            ]
+            .spacing(15)
+            .padding(padding::top(10))
+        ]
+        .spacing(5),
+    )
+    .padding(10)
+    .width(720)
+    .height(400)
+    .style(|_theme| style::tf2::Style::primary_container(_theme))
+    .into()
+}
+
+fn edit_server_info<'a>(state: &FormInfo) -> Element<'a, Message>
+where
+    Message: Clone + 'a,
+{
+    let port = if state.port != 0 {
+        &state.port.to_string()
+    } else {
+        ""
+    };
+
+    container(
+        column![
+            text!("Edit server")
+                .font(Font::with_name("TF2 Build"))
+                .size(32)
+                .color(Color::WHITE)
+                .width(Length::Fill)
+                .align_x(Alignment::Center),
+            horizontal_rule(0),
+            column![
+                row![
+                    text!("Name")
+                        .color(Color::WHITE)
+                        .width(Length::FillPortion(1)),
+                    text_input("name...", &state.server_name)
+                        .on_input(Message::ServerNameInput)
+                        .width(Length::FillPortion(2))
+                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                ]
+                .align_y(Alignment::Center),
                 row![
                     text!("Server Description")
                         .color(Color::WHITE)
