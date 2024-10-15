@@ -87,6 +87,7 @@ impl State {
                 server_name: server_info.name.clone(),
                 source_game: server_info.game.clone(),
                 server_description: server_info.description.clone(),
+                map_name: server_info.map.clone(),
                 server_path: server_info.path.clone(),
                 max_players: server_info.max_players.clone(),
                 password: server_info.password.clone(),
@@ -194,11 +195,13 @@ impl State {
             }
             Message::FinishServerCreation => Task::none(),
             Message::PortUpdate(port) => {
-                let Ok(port) = port.parse::<u16>() else {
-                    return Task::none();
+                self.form_info.port = if port.is_empty() {
+                    0
+                } else if let Ok(port) = port.parse::<u16>() {
+                    port
+                } else {
+                    self.form_info.port
                 };
-
-                self.form_info.port = port;
 
                 Task::none()
             }
