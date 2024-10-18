@@ -1,11 +1,15 @@
 use core::str;
 use std::{
     fs, io,
+    net::Ipv4Addr,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use iced::{
-    border, color, padding,
+    border, color,
+    futures::TryFutureExt,
+    padding,
     widget::{
         button, column, container, horizontal_rule, horizontal_space, row,
         rule::{self, FillMode},
@@ -37,7 +41,7 @@ use crate::{
 };
 
 use super::{
-    serverboot,
+    serverboot::{self, find_available_port, DEFAULT_PORT},
     servercreation::{self, FormInfo, FormPage},
 };
 
@@ -63,6 +67,7 @@ pub struct Images {
 
 pub struct Server {
     pub info: ServerInfo,
+    pub server_port: Option<u16>,
     pub is_downloading_sourcemod: bool,
     pub terminal_window: Option<TerminalWindow>,
 }
@@ -267,6 +272,7 @@ impl State {
             .into_iter()
             .map(|server| Server {
                 info: server,
+                server_port: None,
                 is_downloading_sourcemod: false,
                 terminal_window: None,
             })
@@ -388,8 +394,16 @@ impl State {
                     return Task::none();
                 }
 
+                let port = if server.info.port == 0 {
+                    find_available_port(Ipv4Addr::new(0, 0, 0, 0), DEFAULT_PORT)
+                } else {
+                    server.info.port
+                };
+
+                server.server_port = Some(port);
+
                 let (_terminal_window_id, _window_task) = window::open(window::Settings::default());
-                let (_terminal_state, _terminal_task) = serverboot::State::new(&server.info);
+                let (_terminal_state, _terminal_task) = serverboot::State::new(&server.info, port);
 
                 server.terminal_window = Some(TerminalWindow {
                     window_id: Some(_terminal_window_id),
@@ -609,6 +623,7 @@ impl State {
 
                 self.servers.push(Server {
                     info: self.server_creation_screen.form_info.clone().into(),
+                    server_port: None,
                     is_downloading_sourcemod: false,
                     terminal_window: None,
                 });
@@ -994,10 +1009,28 @@ pub async fn setup_sourcemod(
     Ok(())
 }
 
+pub async fn get_public_ip() -> Result<Ipv4Addr, Error> {
+    // The URL of a service that returns the public IP
+    let url = "https://api.ipify.org";
+
+    // Send a blocking GET request to fetch the public IP
+    let public_ip = reqwest::get(url)
+        .map_err(|_| Error::NoPublicIp)
+        .await?
+        .text()
+        .await
+        .map_err(|_| Error::NoPublicIp)?;
+
+    Ipv4Addr::from_str(&public_ip).map_err(|_| Error::NoPublicIp)
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("An error occured while trying to download sourcemod / metamod: {0}")]
     SourcemodDownloadError(#[from] crate::core::Error),
+
+    #[error("")]
+    NoPublicIp,
 
     #[error("Failed to save the server state to the file")]
     ServerSaveError,
