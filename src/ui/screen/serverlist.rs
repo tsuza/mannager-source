@@ -7,7 +7,7 @@ use std::{
 };
 
 use iced::{
-    border, color,
+    border, clipboard, color,
     futures::TryFutureExt,
     padding,
     widget::{
@@ -133,6 +133,8 @@ pub enum Message {
     ServerReorder(dragking::DragEvent),
     ToggleTerminalWindow(usize),
     OpenEditServerPopup(usize),
+    CopyServerLinkToClipboard(usize),
+    CopyToClipboard(Option<String>),
     ServerEdit(usize, servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
     ServerCreation(servercreation::Message),
@@ -573,6 +575,33 @@ impl State {
 
                 Task::none()
             }
+            Message::CopyServerLinkToClipboard(server_id) => {
+                let Some(server) = self.servers.get(server_id) else {
+                    return Task::none();
+                };
+
+                let Some(port) = server.server_port else {
+                    return Task::none();
+                };
+
+                Task::perform(
+                    async move {
+                        let Ok(ip) = get_public_ip().await else {
+                            return None;
+                        };
+
+                        Some(format!("{ip}:{port}"))
+                    },
+                    Message::CopyToClipboard,
+                )
+            }
+            Message::CopyToClipboard(string) => {
+                let Some(string) = string else {
+                    return Task::none();
+                };
+
+                clipboard::write::<Message>(string).discard()
+            }
             Message::ServerEdit(server_id, servercreation::Message::FinishServerCreation) => {
                 let server_edit_screen = self.server_edit_screen.take();
 
@@ -921,6 +950,15 @@ where
         .style(|_theme, _status| style::tf2::Style::menu(_theme, _status))
     };
 
+    let join_link_button: Element<'a, Message> = if server.is_running() {
+        button(icon::link())
+            .on_press(Message::CopyServerLinkToClipboard(id))
+            .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
+            .into()
+    } else {
+        container("").into()
+    };
+
     let toggle_terminal_window: Element<'a, Message> = if server.is_running() {
         button(
             if server
@@ -969,6 +1007,7 @@ where
                         color: Some(color!(0xffffff))
                     }),
                 horizontal_space(),
+                join_link_button,
                 toggle_terminal_window,
                 running_button,
                 menu_settings

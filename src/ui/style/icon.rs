@@ -39,6 +39,10 @@ pub fn warning<'a>() -> Text<'a> {
     with_codepoint('\u{E809}')
 }
 
+pub fn link<'a>() -> Text<'a> {
+    with_codepoint('\u{E80A}')
+}
+
 fn with_codepoint<'a>(codepoint: char) -> Text<'a> {
     const FONT: Font = Font::with_name("mannagericons");
 
