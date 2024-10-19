@@ -603,7 +603,7 @@ where
     .into()
 }
 
-fn download_server(
+pub fn download_server(
     path: &PathBuf,
     appid: &SourceAppIDs,
 ) -> impl Stream<Item = Result<Progress, Error>> {
