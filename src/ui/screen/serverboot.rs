@@ -3,9 +3,10 @@ use std::{net::Ipv4Addr, path::PathBuf};
 use iced::{
     border, color,
     futures::{channel::mpsc, SinkExt, Stream, StreamExt},
+    keyboard,
     stream::try_channel,
     task,
-    widget::{column, container, scrollable, text, text_input},
+    widget::{column, container, scrollable, text},
     Color, Element, Length, Subscription, Task,
 };
 use iced_aw::style::colors;
@@ -18,7 +19,7 @@ use tokio::{
 
 use crate::{
     core::portforwarder::{self, PortForwarderIP},
-    ui::style,
+    ui::{components::textinput_terminal, style},
 };
 
 use super::serverlist::{get_arg_game_name, ServerInfo, SourceAppIDs};
@@ -26,6 +27,8 @@ use super::serverlist::{get_arg_game_name, ServerInfo, SourceAppIDs};
 pub struct State {
     running_servers_output: Vec<TerminalText>,
     server_terminal_input: String,
+    server_terminal_input_history: Vec<String>,
+    server_terminal_input_index: usize,
     server_stream_handle: task::Handle,
     sender: Option<mpsc::Sender<String>>,
 }
@@ -36,6 +39,7 @@ pub enum Message {
     ServerTerminalInput(String),
     SubmitServerTerminalInput,
     ShutDownServer,
+    OnKeyPress(keyboard::Key, keyboard::Modifiers),
 }
 
 #[derive(Clone, Debug)]
@@ -93,6 +97,8 @@ impl State {
                 server_terminal_input: "".into(),
                 server_stream_handle: handle.abort_on_drop(),
                 sender: None,
+                server_terminal_input_history: vec![],
+                server_terminal_input_index: 0,
             },
             task,
         )
@@ -121,6 +127,13 @@ impl State {
 
                 let input_to_send = self.server_terminal_input.clone();
 
+                if !self.server_terminal_input.is_empty() {
+                    self.server_terminal_input_history
+                        .push(self.server_terminal_input.clone());
+                }
+
+                self.server_terminal_input_index = self.server_terminal_input_history.len();
+
                 self.server_terminal_input.clear();
 
                 Task::future(async move { sender.send(input_to_send).await }).discard()
@@ -140,6 +153,53 @@ impl State {
                 }
 
                 Task::none()
+            }
+            Message::OnKeyPress(key, _) => {
+                let keyboard::Key::Named(key) = key else {
+                    return Task::none();
+                };
+
+                match key {
+                    keyboard::key::Named::ArrowUp => {
+                        if self.server_terminal_input_index < 1 {
+                            return Task::none();
+                        }
+
+                        self.server_terminal_input_index -= 1;
+
+                        let Some(history_input) = self
+                            .server_terminal_input_history
+                            .get(self.server_terminal_input_index)
+                        else {
+                            return Task::none();
+                        };
+
+                        self.server_terminal_input = history_input.clone();
+
+                        Task::none()
+                    }
+                    keyboard::key::Named::ArrowDown => {
+                        if self.server_terminal_input_index
+                            >= self.server_terminal_input_history.len()
+                        {
+                            return Task::none();
+                        }
+
+                        self.server_terminal_input_index += 1;
+
+                        let Some(history_input) = self
+                            .server_terminal_input_history
+                            .get(self.server_terminal_input_index)
+                        else {
+                            return Task::none();
+                        };
+
+                        self.server_terminal_input = history_input.clone();
+
+                        Task::none()
+                    }
+                    _ => Task::none(),
+                }
             }
         }
     }
@@ -172,11 +232,15 @@ impl State {
                 .width(Length::Fill)
                 .height(Length::Fill)
                 .style(|_theme| container::background(color!(0x2a2421)).border(border::rounded(5))),
-                text_input("Type your command...", &self.server_terminal_input)
-                    .on_input(Message::ServerTerminalInput)
-                    .on_submit(Message::SubmitServerTerminalInput)
-                    .width(Length::Fill)
-                    .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
+                textinput_terminal::TextInput::new(
+                    "Type your command...",
+                    &self.server_terminal_input
+                )
+                .on_input(Message::ServerTerminalInput)
+                .on_submit(Message::SubmitServerTerminalInput)
+                .on_key_press(Message::OnKeyPress)
+                .width(Length::Fill)
+                .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
             ]
             .spacing(20),
         )
