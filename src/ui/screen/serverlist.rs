@@ -4,14 +4,15 @@ use std::{
     net::Ipv4Addr,
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Arc,
 };
 
 use iced::{
     border, clipboard, color,
-    futures::TryFutureExt,
+    futures::{TryFutureExt, TryStreamExt},
     padding,
     widget::{
-        button, column, container, horizontal_rule, horizontal_space, row,
+        button, center, column, container, horizontal_rule, horizontal_space, progress_bar, row,
         rule::{self, FillMode},
         scrollable, svg, text, vertical_space,
     },
@@ -42,13 +43,14 @@ use crate::{
 
 use super::{
     serverboot::{self, find_available_port, DEFAULT_PORT},
-    servercreation::{self, FormInfo, FormPage},
+    servercreation::{self, download_server, FormInfo, FormPage, Progress},
 };
 
 const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
 
 pub struct State {
     is_server_creation_popup_visible: bool,
+    updating_server_progress: Option<f32>,
     server_creation_screen: servercreation::State,
     server_edit_screen: Option<(usize, servercreation::State)>,
     pub servers: Vec<Server>,
@@ -135,6 +137,8 @@ pub enum Message {
     OpenEditServerPopup(usize),
     CopyServerLinkToClipboard(usize),
     CopyToClipboard(Option<String>),
+    UpdateServer(usize),
+    UpdateServerProgress(Result<Progress, Error>),
     ServerEdit(usize, servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
     ServerCreation(servercreation::Message),
@@ -219,6 +223,7 @@ impl State {
                     )),
                 },
                 server_edit_screen: None,
+                updating_server_progress: None,
             },
             task,
         )
@@ -602,6 +607,39 @@ impl State {
 
                 clipboard::write::<Message>(string).discard()
             }
+            Message::UpdateServer(server_id) => {
+                let Some(server) = self.servers.get(server_id) else {
+                    return Task::none();
+                };
+
+                let path = server.info.path.clone();
+                let game = server.info.game.clone();
+
+                self.updating_server_progress = Some(0.0);
+
+                Task::run(
+                    download_server(&path, &game).map_err(|_| Error::ServerUpdateError),
+                    Message::UpdateServerProgress,
+                )
+            }
+            Message::UpdateServerProgress(progress) => {
+                if let Ok(progress) = progress {
+                    match progress {
+                        Progress::Downloading(string) => {
+                            if let Some(percent) = string.split("%").next() {
+                                if let Ok(percent) = percent.trim().parse::<f32>() {
+                                    self.updating_server_progress = Some(percent);
+                                }
+                            }
+                        }
+                        Progress::Finished => {
+                            self.updating_server_progress = None;
+                        }
+                    }
+                }
+
+                Task::none()
+            }
             Message::ServerEdit(server_id, servercreation::Message::FinishServerCreation) => {
                 let server_edit_screen = self.server_edit_screen.take();
 
@@ -743,6 +781,12 @@ impl State {
                     server_edit_state
                         .view()
                         .map(move |x| Message::ServerEdit(*server_id, x)),
+                    Message::OnClickOutsidePopup,
+                )
+            } else if let Some(progress) = self.updating_server_progress {
+                modal(
+                    base,
+                    show_update_contianer(progress),
                     Message::OnClickOutsidePopup,
                 )
             } else if self.is_server_creation_popup_visible {
@@ -918,6 +962,14 @@ where
                                     style::tf2::Style::menu_button(_theme, _status)
                                 }),
                         ),
+                        Item::new(
+                            button("Update Server")
+                                .on_press(Message::UpdateServer(id))
+                                .width(Length::Fill)
+                                .style(|_theme, _status| {
+                                    style::tf2::Style::menu_button(_theme, _status)
+                                }),
+                        ),
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
                         sourcemod_sub,
                         Item::new(container(horizontal_rule(1)).padding([5, 10])),
@@ -1037,6 +1089,26 @@ where
     .into()
 }
 
+fn show_update_contianer<'a>(progress: f32) -> Element<'a, Message> {
+    container(column![
+        text!("Updating the server...")
+            .font(Font::with_name("TF2 Build"))
+            .size(32)
+            .color(Color::WHITE)
+            .width(Length::Fill)
+            .align_x(Alignment::Center),
+        horizontal_rule(0),
+        center(progress_bar(0.0..=100.0, progress).height(20).width(300))
+            .width(Length::Fill)
+            .height(Length::Fill)
+    ])
+    .width(720)
+    .height(400)
+    .padding(10)
+    .style(|_theme| style::tf2::Style::primary_container(_theme))
+    .into()
+}
+
 pub async fn setup_sourcemod(
     path: impl AsRef<Path>,
     branch: SourcemodBranch,
@@ -1063,10 +1135,13 @@ pub async fn get_public_ip() -> Result<Ipv4Addr, Error> {
     Ipv4Addr::from_str(&public_ip).map_err(|_| Error::NoPublicIp)
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum Error {
     #[error("An error occured while trying to download sourcemod / metamod: {0}")]
     SourcemodDownloadError(#[from] crate::core::Error),
+
+    #[error("failed to update the server")]
+    ServerUpdateError,
 
     #[error("")]
     NoPublicIp,
@@ -1077,6 +1152,12 @@ pub enum Error {
     #[error("Failed to retrieve the server list file: the file might not exist")]
     NoServerListFile,
 
-    #[error(transparent)]
-    Io(#[from] io::Error),
+    #[error("io error: {0}")]
+    Io(Arc<io::Error>),
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Self::Io(Arc::new(error))
+    }
 }
