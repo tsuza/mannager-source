@@ -54,18 +54,12 @@ pub enum TerminalText {
     Output(String),
 }
 
-const PORT_OFFSET: u16 = 10;
+pub const DEFAULT_PORT: u16 = 27015;
+pub const PORT_OFFSET: u16 = 10;
 
 impl State {
-    pub fn new(server: &ServerInfo) -> (Self, Task<Message>) {
+    pub fn new(server: &ServerInfo, port: u16) -> (Self, Task<Message>) {
         let binary_path = server.path.join("srcds_run");
-
-        // Cheeky way to find out if it's already occupied.
-        let port = if server.port == 0 {
-            find_available_port(Ipv4Addr::new(0, 0, 0, 0), 27015)
-        } else {
-            server.port
-        };
 
         let args = {
             let mut temp = format!(
@@ -355,7 +349,7 @@ fn start_server(
     })
 }
 
-fn find_available_port(ip: Ipv4Addr, starting_port: u16) -> u16 {
+pub fn find_available_port(ip: Ipv4Addr, starting_port: u16) -> u16 {
     let mut port = starting_port;
 
     const MAX_ATTEMPTS: u32 = 50;
