@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+    <content_rating type="oars-1.1" />
+    <id>org.tsuza.mannager-source</id>
+    <metadata_license>MIT</metadata_license>
+    <project_license>MIT</project_license>
+    <name>MANNager</name>
+    <summary>Source Engine Dedicated Server Manager written in Rust</summary>
+    <description>
+        <p>            
+            MANNager is an open-source Source Engine Dedicated Server Manager written in Rust, with the Iced GUI library.
+            It aims to provide a simple, functional and straight forward way to download, update and manage server for Windows, and Linux platforms.
+            It's mainly meant to be use for local usage, such as testing and the development of Sourcemod plugins, though
+            automatic port forwarding is implemented to allow outside people to join your server, in case you want it.
+        </p>
+    </description>
+    <launchable type="desktop-id">org.tsuza.mannager-source.desktop</launchable>
+    <url type="homepage">https://github.com/tsuza/mannager-source</url>
+    <url type="bugtracker">https://github.com/tsuza/mannager-source/issues</url>
+    <screenshots>
+        <screenshot type="default">
+            <caption>Main page of the application</caption>
+            <image>https://raw.githubusercontent.com/tsuza/mannager-source/7aec18d29ffb1d3605131667c6e11d8cef6ada7b/assets/overview.png</image>
+        </screenshot>
+        <screenshot type="default">
+            <caption>Main page of the application with a server running</caption>
+            <image>https://raw.githubusercontent.com/tsuza/mannager-source/7aec18d29ffb1d3605131667c6e11d8cef6ada7b/assets/overview_with_server_running.png</image>
+        </screenshot>
+        <screenshot type="default">
+            <caption>Server Terminal</caption>
+            <image>https://raw.githubusercontent.com/tsuza/mannager-source/7aec18d29ffb1d3605131667c6e11d8cef6ada7b/assets/server_terminal.png</image>
+        </screenshot>
+    </screenshots>
+    <developer_name>tsuza</developer_name>
+    <releases>
+        <release version="2024.12"
+                 date="2024-09-17" />
+    </releases>
+</component>

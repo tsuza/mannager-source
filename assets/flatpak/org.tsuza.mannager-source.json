@@ -1,0 +1,49 @@
+{
+    "app-id": "org.tsuza.mannager-source",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "23.08",
+    "sdk": "org.freedesktop.Sdk",
+    "sdk-extensions": [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "command": "mannager-source",
+    "finish-args": [
+        "--share=ipc",
+        "--socket=fallback-x11",
+        "--socket=wayland",
+        "--filesystem=host",
+        "--filesystem=/usr",
+        "--device=dri",
+        "--share=network",
+        "--allow=devel"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin"
+    },
+    "modules": [
+        {
+            "name": "MANNager",
+            "buildsystem": "simple",
+            "build-options": {
+                "env": {
+                    "CARGO_HOME": "/run/build/mannager-source/cargo"
+                }
+            },
+            "build-commands": [
+                "cargo --offline fetch --manifest-path Cargo.toml --verbose",
+                "cargo --offline build --release --verbose",
+                "mkdir -p /app/share/icons && cp -R ./assets/linux/icons/. /app/share/icons/",
+                "install -Dm644 ./assets/linux/org.tsuza.mannager-source.appdata.xml /app/share/metainfo/org.tsuza.mannager-source.appdata.xml",
+                "install -Dm644 ./assets/linux/org.tsuza.mannager-source.desktop /app/share/applications/org.tsuza.mannager-source.desktop",
+                "install -Dm755 ./target/release/mannager-source -t /app/bin/"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "../.."
+                },
+                "generated-sources.json"
+            ]
+        }
+    ]
+}

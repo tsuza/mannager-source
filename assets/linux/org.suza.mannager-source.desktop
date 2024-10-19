@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MANNager
+Comment=Source Engine Dedicated Server Manager written in Rust
+Type=Application
+Keywords=IRC;IM;Chat;
+Categories=Development;Network;Utility;
+Exec=mannager
+Icon=org.tsuza.mannager-source
+StartupWMClass=org.tsuza.mannager-source
+Terminal=false
