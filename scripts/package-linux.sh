@@ -2,45 +2,122 @@
 
 ARCH="x86_64"
 TARGET="mannager"
-VERSION=$(cat VERSION)
+ID="com.github.tsuza.mannager-source"
+VERSION=$(cargo pkgid | cut -d '@' -f 2)
 PROFILE="release"
 ASSETS_DIR="assets/linux"
 RELEASE_DIR="target/$PROFILE"
 BINARY="$RELEASE_DIR/$TARGET"
-ARCHIVE_DIR="$RELEASE_DIR/archive"
+ARCHIVE_DIR=".temp"
 ARCHIVE_NAME="$TARGET-$VERSION-$ARCH-linux.tar.gz"
-ARCHIVE_PATH="$RELEASE_DIR/$ARCHIVE_NAME"
+ICON_NAME="app_icon.png"
+ICON_PATH="assets/$ICON_NAME"
+FLATPAK_MANIFEST_PATH="$ASSETS_DIR/flatpak/$ID.json"
 
 build() {
-  cargo build --profile $PROFILE
+    echo "Building Rust project with $PROFILE as the profile..."
+    cargo build --profile $PROFILE
+
+    if [ $? -ne 0 ]; then
+        echo "Rust build failed."
+        exit 1
+    fi
 }
 
-archive_name() {
-  echo $ARCHIVE_NAME
+setup_folder() {
+    echo "Copying binary and assets..."
+
+    appdir="$ARCHIVE_DIR/appdir"
+
+    mkdir -p $appdir
+
+    install -Dm755 $BINARY -t $appdir/usr/bin
+    install -Dm644 $ASSETS_DIR/$ID.appdata.xml -t $appdir/usr/share/metainfo
+    install -Dm644 $ASSETS_DIR/$ID.desktop -t $appdir/usr/share/applications
 }
 
-archive_path() {
-  echo $ARCHIVE_PATH
+generate_icons() {
+    echo "Generating icons..."
+
+    appdir="$ARCHIVE_DIR/appdir"
+
+    conv_opts="-colors 256 -background none -density 300"
+
+    for size in "16" "24" "32" "48" "64" "96" "128" "256" "512"; do
+      path="$appdir/usr/share/icons/hicolor/${size}x${size}/apps"
+      mkdir -p "$path"
+      magick "$ICON_PATH" $conv_opts -resize "!${size}x${size}" "$path/$ID.png"
+    done
 }
 
 package() {
-  build
+  archive_path="$ARCHIVE_DIR/$ARCHIVE_NAME"
+  appdir="$ARCHIVE_DIR/appdir"
 
-  install -Dm755 $BINARY -t $ARCHIVE_DIR/bin
-  install -Dm644 $ASSETS_DIR/org.tsuza.mannager-source.appdata.xml -t $ARCHIVE_DIR/share/metainfo
-  install -Dm644 $ASSETS_DIR/org.tsuza.mannager-source.desktop -t $ARCHIVE_DIR/share/applications
-  cp -r $ASSETS_DIR/icons $ARCHIVE_DIR/share/
+  tar czvf $archive_path -C $appdir .
 
-  tar czvf $ARCHIVE_PATH -C $ARCHIVE_DIR .
-
-  echo "Packaged archive: $ARCHIVE_PATH"
+  echo "Packaged archive: $archive_path"
 }
 
-case "$1" in
-  "package") package;;
-  "archive_name") archive_name;;
-  "archive_path") archive_path;;
-  *)
-    echo "avaiable commands: package, archive_name, archive_path"
-    ;;
-esac
+create_appimage() {
+    # Download the AppImage tool
+    pushd $ARCHIVE_DIR > /dev/null
+
+    echo "Downloading AppImageTool..."
+    wget -c https://github.com/$(wget -q https://github.com/probonopd/go-appimage/releases/expanded_assets/continuous -O - | grep "appimagetool-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 2)
+    appimage_file=$(ls appimagetool-*.AppImage)
+    chmod +x "$appimage_file"
+
+
+    # Create the AppImage
+    echo "Creating AppImage..."
+    ./"$appimage_file" deploy "appdir/usr/share/applications/$ID.desktop"
+    VERSION="$VERSION" ./"$appimage_file" "appdir"
+
+    if [ $? -ne 0 ]; then
+        echo "AppImage creation failed."
+
+        popd
+
+        exit 1
+    fi
+
+    # Check if the file exists and delete it
+    if [ -f "$appimage_file" ]; then
+        echo "Deleting $appimage_file..."
+        rm "$appimage_file"
+    fi
+
+    popd
+}
+
+build_flatpak() {
+    echo "Building Flatpak..."
+    flatpak-builder \
+    --force-clean \
+    --user -y \
+    --disable-rofiles-fuse \
+    --state-dir /var/tmp/mannager-source-flatpak-builder \
+    "$ARCHIVE_DIR/$TARGET-build-flatpak" \
+    "$FLATPAK_MANIFEST_PATH"
+    
+    if [ $? -ne 0 ]; then
+        echo "Flatpak build failed."
+        exit 1
+    fi
+}
+
+# Main script execution
+main() {
+    # set -x
+    build
+    setup_folder
+    generate_icons
+    package
+    # build_flatpak
+    create_appimage
+
+    echo "Done!"
+}
+
+main

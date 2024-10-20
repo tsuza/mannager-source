@@ -2593,7 +2593,7 @@ dependencies = [
 
 [[package]]
 name = "mannager"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "directories",
  "dragking",

@@ -1,6 +1,7 @@
 [package]
 name = "mannager"
 edition = "2021"
+version = "0.1.0"
 
 [dependencies]
 directories = "5.0.1"
