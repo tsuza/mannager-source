@@ -92,14 +92,28 @@ create_appimage() {
 }
 
 build_flatpak() {
-    echo "Building Flatpak..."
+    flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+    flatpak install --noninteractive --user flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.freedesktop.Sdk.Extension.rust-stable//23.08
+
+    flatpak install --noninteractive --user org.freedesktop.appstream-glib
+    flatpak run --env=G_DEBUG=fatal-criticals org.freedesktop.appstream-glib validate assets/linux/$ID.appdata.xml
+
+    python3 -m pip install toml aiohttp
+    curl -L 'https://github.com/flatpak/flatpak-builder-tools/raw/master/cargo/flatpak-cargo-generator.py' > /tmp/flatpak-cargo-generator.py
+    python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o $ASSETS_DIR/flatpak/generated-sources.json
+
     flatpak-builder \
-    --force-clean \
-    --user -y \
-    --disable-rofiles-fuse \
-    --state-dir /var/tmp/mannager-source-flatpak-builder \
-    "$ARCHIVE_DIR/$TARGET-build-flatpak" \
-    "$FLATPAK_MANIFEST_PATH"
+        --force-clean \
+        --user -y \
+        --disable-rofiles-fuse \
+        --state-dir "$ARCHIVE_DIR/$TARGET-flatpak-builder" \
+        "$ARCHIVE_DIR/$TARGET-build-flatpak" \
+        "$FLATPAK_MANIFEST_PATH"
+
+    flatpak build-bundle \
+        "$ARCHIVE_DIR/$TARGET-build-flatpak" \
+        $TARGET.flatpak \
+        $ID
     
     if [ $? -ne 0 ]; then
         echo "Flatpak build failed."
@@ -114,7 +128,7 @@ main() {
     setup_folder
     generate_icons
     package
-    # build_flatpak
+    build_flatpak
     create_appimage
 
     echo "Done!"
