@@ -109,10 +109,14 @@ build_flatpak() {
         --state-dir "$ARCHIVE_DIR/$TARGET-flatpak-builder" \
         "$ARCHIVE_DIR/$TARGET-build-flatpak" \
         "$FLATPAK_MANIFEST_PATH"
+    
+    flatpak build-export \
+        $ARCHIVE_DIR/$TARGET-build-flatpak-repo \
+        $ARCHIVE_DIR/$TARGET-build-flatpak
 
     flatpak build-bundle \
         "$ARCHIVE_DIR/$TARGET-build-flatpak" \
-        $TARGET.flatpak \
+        .temp/$TARGET-$VERSION-$ARCH.flatpak \
         $ID
     
     if [ $? -ne 0 ]; then
