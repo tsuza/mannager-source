@@ -63,6 +63,8 @@ create_appimage() {
     # Download the AppImage tool
     pushd $ARCHIVE_DIR > /dev/null
 
+    pwd
+
     echo "Downloading AppImageTool..."
     wget -c https://github.com/$(wget -q https://github.com/probonopd/go-appimage/releases/expanded_assets/continuous -O - | grep "appimagetool-.*-x86_64.AppImage" | head -n 1 | cut -d '"' -f 2)
     appimage_file=$(ls appimagetool-*.AppImage)
@@ -134,7 +136,7 @@ main() {
     setup_folder
     generate_icons
     package
-    build_flatpak
+    # build_flatpak
     create_appimage
 
     echo "Done!"
