@@ -111,12 +111,12 @@ build_flatpak() {
         "$FLATPAK_MANIFEST_PATH"
     
     flatpak build-export \
-        $ARCHIVE_DIR/$TARGET-build-flatpak-repo \
-        $ARCHIVE_DIR/$TARGET-build-flatpak
+        "$ARCHIVE_DIR/$TARGET-build-flatpak-repo" \
+        "$ARCHIVE_DIR/$TARGET-build-flatpak"
 
     flatpak build-bundle \
-        "$ARCHIVE_DIR/$TARGET-build-flatpak" \
-        .temp/$TARGET-$VERSION-$ARCH.flatpak \
+        "$ARCHIVE_DIR/$TARGET-build-flatpak-repo" \
+        "$ARCHIVE_DIR/$TARGET-$VERSION-$ARCH.flatpak" \
         $ID
     
     if [ $? -ne 0 ]; then
