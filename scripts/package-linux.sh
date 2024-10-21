@@ -71,6 +71,7 @@ create_appimage() {
     appimage_file=$(ls appimagetool-*.AppImage)
     chmod +x "$appimage_file"
 
+    tree "appdir/usr/share/icons"
 
     # Create the AppImage
     echo "Creating AppImage..."
