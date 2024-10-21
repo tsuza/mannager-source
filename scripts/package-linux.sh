@@ -46,7 +46,7 @@ generate_icons() {
     for size in "16" "24" "32" "48" "64" "96" "128" "256" "512"; do
       path="$appdir/usr/share/icons/hicolor/${size}x${size}/apps"
       mkdir -p "$path"
-      magick "$ICON_PATH" $conv_opts -resize "!${size}x${size}" "$path/$ID.png"
+      convert $conv_opts -resize "!${size}x${size}" "$ICON_PATH" "$path/$ID.png"
       chmod 777 "$path/$ID.png"
     done
 }
