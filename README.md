@@ -25,16 +25,26 @@
       />
   </p>
   
-  <a href="#features">Features</a> •
-  <a href="#to-do">To-Do list</a> •
   <a href="#installation">Installation</a> •
   <a href="#configuration">Configuration</a> •
+  <a href="#features">Features</a> •
+  <a href="#to-do">To-Do list</a> •
   <a href="#contributors">Contributors</a> •
   <a href="https://google.com">Website</a>
 
 </div>
 
 ![server_terminal](https://github.com/user-attachments/assets/e5f2b996-5a7f-4da2-aecf-9d6892027f70)
+
+## Installation
+Not yet.
+
+## Configuration
+Everything server-related that can be edited, can be done through the server creation / editing buttons in-app. If you wish to customize something more, just press the menu ( the gear icon ) on the server entry, press "Open Folder", and do whatever you want.
+
+The server list file, a file that contains all of the servers being tracked by the app, is called `servers_list.toml`, and can reside in one of the paths, based on priority:
+- In the same folder of the executable.
+- ( DEFAULT ) `$HOME/.config/mannager-source` on Linux & `%APPDATA%/Roaming/mannager-source` on Windows
 
 ## Features
 - Easily download, update & setup a Source game's dedicated server from a wide range of selections.
@@ -53,16 +63,6 @@ The top priority for now is:
 - [ ] Add support for configuring convars and admins within the app.
 
 For the full list, check out [the issue](https://github.com/tsuza/mannager-source/issues/1).
-
-## Installation
-Not yet.
-
-## Configuration
-Everything server-related that can be edited, can be done through the server creation / editing buttons in-app. If you wish to customize something more, just press the menu ( the gear icon ) on the server entry, press "Open Folder", and do whatever you want.
-
-The server list file, a file that contains all of the servers being tracked by the app, is called `servers_list.toml`, and can reside in one of the paths, based on priority:
-- In the same folder of the executable.
-- ( DEFAULT ) `$HOME/.config/mannager-source` on Linux & `%APPDATA%/Roaming/mannager-source` on Windows
 
 ## Contributors
 <a href="https://github.com/tsuza/mannager-source/graphs/contributors">
