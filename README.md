@@ -29,7 +29,7 @@
   <a href="#to-do">To-Do list</a> •
   <a href="#installation">Installation</a> •
   <a href="#configuration">Configuration</a> •
-  <a href="#contributors">Related</a> •
+  <a href="#contributors">Contributors</a> •
   <a href="https://google.com">Website</a>
 
 </div>
@@ -54,11 +54,6 @@ The top priority for now is:
 
 For the full list, check out [the issue](https://github.com/tsuza/mannager-source/issues/1).
 
-## Contributors
-<a href="https://github.com/tsuza/mannager-source/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=tsuza/mannager-source" alt="contrib.rocks image" />
-</a>
-
 ## Installation
 Not yet.
 
@@ -68,3 +63,8 @@ Everything server-related that can be edited, can be done through the server cre
 The server list file, a file that contains all of the servers being tracked by the app, is called `servers_list.toml`, and can reside in one of the paths, based on priority:
 - In the same folder of the executable.
 - ( DEFAULT ) `$HOME/.config/mannager-source` on Linux & `%APPDATA%/Roaming/mannager-source` on Windows
+
+## Contributors
+<a href="https://github.com/tsuza/mannager-source/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=tsuza/mannager-source" alt="contrib.rocks image" />
+</a>
