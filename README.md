@@ -36,6 +36,15 @@
 
 ![server_terminal](https://github.com/user-attachments/assets/e5f2b996-5a7f-4da2-aecf-9d6892027f70)
 
+## Features
+- Easily download, update & setup a Source game's dedicated server from a wide range of selections.
+  - Team Fortress 2
+  - Half Life 2: Deathmatch
+  - No More Room In Hell
+  - Left 4 Dead 1
+  - Left 4 Dead 2
+- Easily download either the stable or dev branch of Sourcemod ( and Metamod ).
+
 ## Installation
 Not yet.
 
@@ -45,15 +54,6 @@ Everything server-related that can be edited, can be done through the server cre
 The server list file, a file that contains all of the servers being tracked by the app, is called `servers_list.toml`, and can reside in one of the paths, based on priority:
 - In the same folder of the executable.
 - ( DEFAULT ) `$HOME/.config/mannager-source` on Linux & `%APPDATA%/Roaming/mannager-source` on Windows
-
-## Features
-- Easily download, update & setup a Source game's dedicated server from a wide range of selections.
-  - Team Fortress 2
-  - Half Life 2: Deathmatch
-  - No More Room In Hell
-  - Left 4 Dead 1
-  - Left 4 Dead 2
-- Easily download either the stable or dev branch of Sourcemod ( and Metamod ).
 
 ## To-Do
 The top priority for now is:
