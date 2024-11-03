@@ -47,7 +47,9 @@ jobs:
 
       - name: Install Pandoc with Chocolatey
         if: matrix.target.target == 'windows'
-        run: choco install pandoc -y
+        run: |
+          choco install pandoc -y
+          choco install imagemagick -y
 
       - name: Cache cargo registry
         uses: actions/cache@v3
