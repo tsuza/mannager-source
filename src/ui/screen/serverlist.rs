@@ -24,7 +24,6 @@ use iced_aw::{
     style::colors,
     Menu, MenuBar,
 };
-use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 
 use dragking::{self, DropPosition};
@@ -36,7 +35,7 @@ use crate::{
         SourceEngineVersion,
     },
     ui::{
-        components::modal::modal,
+        components::{modal::modal, notification::notification},
         style::{self, icon},
     },
 };
@@ -190,14 +189,11 @@ impl State {
 
         let servers = Self::get_server_list().unwrap_or_else(|_| {
             task = Task::future(async move {
-                Notification::new()
-                    .appname("MANNager")
-                    .summary("[ MANNager ] Server List")
-                    .body("The server list file was not found.")
-                    .timeout(5)
-                    .show_async()
-                    .await
-                    .and_then(|notification| Ok(notification.on_close(|_| ())))
+                notification(
+                    "[ MANNager ] Server List",
+                    "The server list file was not found.",
+                    5,
+                )
             })
             .discard();
 
@@ -381,14 +377,11 @@ impl State {
                 Task::future(async move {
                     let _ = Self::save_server_list_to_file(servers.into_iter()).await;
 
-                    Notification::new()
-                        .appname("MANNager")
-                        .summary("[ MANNager ] Server Deletion")
-                        .body(&format!("{server_name} has been successfully deleted."))
-                        .timeout(5)
-                        .show_async()
-                        .await
-                        .and_then(|notification| Ok(notification.on_close(|_| ())))
+                    notification(
+                        "[ MANNager ] Server Deletion",
+                        format!("{server_name} has been successfully deleted."),
+                        5,
+                    )
                 })
                 .discard()
             }
@@ -482,16 +475,11 @@ impl State {
                 let server_name = server.info.name.clone();
 
                 Task::future(async move {
-                    let _ = Notification::new()
-                        .appname("MANNager")
-                        .summary("[ MANNager ] Sourcemod Download")
-                        .body(&format!(
-                            "Sourcemod has been successfully downloaded for {server_name}."
-                        ))
-                        .timeout(5)
-                        .show_async()
-                        .await
-                        .and_then(|notification| Ok(notification.on_close(|_| ())));
+                    notification(
+                        "[ MANNager ] Sourcemod Download",
+                        format!("Sourcemod has been successfully downloaded for {server_name}."),
+                        5,
+                    )
                 })
                 .discard()
             }
