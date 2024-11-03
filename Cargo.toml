@@ -13,7 +13,6 @@ iced_aw = { version = "0.11.0", features = ["number_input", "menu"] }
 notify-rust = "4.11.3"
 open = "5.3.0"
 portforwarder-rs = "0.1.1"
-pty-process = {version = "0.4.0", features = ["async"]}
 reqwest = "0.12.7"
 rfd = "0.15.0"
 scraper = "0.20.0"
@@ -25,6 +24,9 @@ toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
 dragking = { git = "https://github.com/airstrike/dragking", branch = "on_drag_maybe"}
+
+[target.'cfg(linux)'.dependencies]
+pty-process = {version = "0.4.0", features = ["async"]}
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "2.1.1"
