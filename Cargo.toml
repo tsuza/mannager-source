@@ -16,7 +16,7 @@ portforwarder-rs = "0.1.1"
 reqwest = "0.12.7"
 rfd = "0.15.0"
 scraper = "0.20.0"
-serde = "1.0.210"
+serde = { version = "1.0.210", features = ["derive"] }
 tar = "0.4.42"
 thiserror = "1.0.64"
 tokio = {version = "1.40.0", features = ["full"]}
