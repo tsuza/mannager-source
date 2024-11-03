@@ -12,7 +12,7 @@ BINARY_PATH="target/release"
 
 # Generate an ICO
 conv_opts="-colors 256 -background none -density 300"
-convert $conv_opts -define icon:auto-resize=256,64,48,32,16 "assets/app_icon.png" "$ICON_PATH/$APP_NAME.ico"
+magick convert $conv_opts -define icon:auto-resize=256,64,48,32,16 "assets/app_icon.png" "$ICON_PATH/$APP_NAME.ico"
 chmod 777 "$ICON_PATH/$APP_NAME.ico"
 
 # build the binary
