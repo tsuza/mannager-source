@@ -19,6 +19,7 @@ chmod 777 "$ICON_PATH/$APP_NAME.ico"
 scripts/build-windows.sh
 
 # Automatically generate a license.rtf from the repo's license, to avoid unnecessary duplication
+sudo apt install pandoc
 pandoc -f markdown -s LICENSE -o wix/LICENSE.rtf
 
 # install latest wix

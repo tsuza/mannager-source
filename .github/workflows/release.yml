@@ -43,8 +43,7 @@ jobs:
             libxkbcommon-dev \
             libfontconfig1-dev \
             libasound2-dev \
-            flatpak-builder \
-            pandoc
+            flatpak-builder
 
       - name: Cache cargo registry
         uses: actions/cache@v3
