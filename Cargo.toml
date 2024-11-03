@@ -25,7 +25,7 @@ unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
 dragking = { git = "https://github.com/airstrike/dragking", branch = "on_drag_maybe"}
 
-[target.'cfg(linux)'.dependencies]
+[target.'cfg(unix)'.dependencies]
 pty-process = {version = "0.4.0", features = ["async"]}
 
 [target.'cfg(windows)'.build-dependencies]
