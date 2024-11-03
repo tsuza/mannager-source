@@ -13,11 +13,11 @@ jobs:
     strategy:
       matrix:
         target:
-          #- target: windows
-          #  os: windows-latest
-          #  make: bash scripts/build-windows-installer.sh
-          #  artifact_path: |
-          #    echo "ARTIFACT_PATH=.temp/mannager-installer.msi" >> $env:GITHUB_ENV
+          - target: windows
+            os: windows-latest
+            make: bash scripts/build-windows-installer.sh
+            artifact_path: |
+              echo "ARTIFACT_PATH=target/release/mannager-installer.msi" >> $env:GITHUB_ENV
           - target: linux
             os: ubuntu-latest
             make: bash scripts/package-linux.sh
@@ -43,7 +43,8 @@ jobs:
             libxkbcommon-dev \
             libfontconfig1-dev \
             libasound2-dev \
-            flatpak-builder
+            flatpak-builder \
+            pandoc
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -97,11 +98,11 @@ jobs:
     strategy:
       matrix:
         target:
-    #      - artifact: windows
-    #        os: windows
-    #        artifact_name: |
-    #          echo "ARTIFACT_NAME=mannager-installer.msi" >> "$GITHUB_ENV"
-    #        asset_type: application/x-dosexec
+          - artifact: windows
+            os: windows
+            artifact_name: |
+              echo "ARTIFACT_NAME=mannager-installer.msi" >> "$GITHUB_ENV"
+            asset_type: application/x-dosexec
           - artifact: linux_tar
             os: linux
             artifact_name: |

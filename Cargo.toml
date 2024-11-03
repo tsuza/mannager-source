@@ -1,7 +1,9 @@
 [package]
 name = "mannager"
-edition = "2021"
 version = "0.1.0"
+license = "MIT"
+build = "build.rs"
+edition = "2021"
 
 [dependencies]
 directories = "5.0.1"
@@ -23,3 +25,7 @@ toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
 dragking = { git = "https://github.com/airstrike/dragking", branch = "on_drag_maybe"}
+
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "2.1.1"
+windows_exe_info = "0.4"
