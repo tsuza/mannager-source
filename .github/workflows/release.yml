@@ -45,7 +45,7 @@ jobs:
             libasound2-dev \
             flatpak-builder
 
-      - name: Install Pandoc with Chocolatey
+      - name: Install deps with Chocolatey
         if: matrix.target.target == 'windows'
         run: |
           choco install pandoc -y

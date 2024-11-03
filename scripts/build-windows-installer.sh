@@ -31,15 +31,15 @@ wix extension add WixToolset.UI.wixext
 wix build \
     -pdbtype none \
     -arch x64 \
-    -d id=$ID \
-    -d app_name=$APP_NAME \
-    -d app_creator=$APP_CREATOR \
-    -d version=$VERSION \
-    -d description=$DESCRIPTION \
-    -d upgrade_guid=$UPGRADE_GUID \
-    -d path_to_icon=$ICON_PATH \
-    -d website_url=$WEBSITE_URL \
-    -d binary_path=$BINARY_PATH$ \
+    -d id="$ID" \
+    -d app_name="$APP_NAME" \
+    -d app_creator="$APP_CREATOR" \
+    -d version="$VERSION" \
+    -d description="$DESCRIPTION" \
+    -d upgrade_guid="$UPGRADE_GUID" \
+    -d path_to_icon="$ICON_PATH" \
+    -d website_url="$WEBSITE_URL" \
+    -d binary_path="$BINARY_PATH" \
     $WXS_FILE \ 
     -o target/release/mannager-installer.msi \
     -ext WixToolset.UI.wixext
