@@ -40,6 +40,6 @@ wix build \
     -d path_to_icon="$ICON_PATH" \
     -d website_url="$WEBSITE_URL" \
     -d binary_path="$BINARY_PATH" \
-    $WXS_FILE \ 
-    -o target/release/mannager-installer.msi \
+    "$WXS_FILE" \
+    -o "target/release/mannager-installer.msi" \
     -ext WixToolset.UI.wixext
