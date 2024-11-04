@@ -32,7 +32,7 @@ use crate::{
     core::{
         metamod::{MetamodBranch, MetamodDownloader},
         sourcemod::{SourcemodBranch, SourcemodDownloader},
-        SourceEngineVersion,
+        SourceAppIDs, SourceEngineVersion,
     },
     ui::{
         components::{modal::modal, notification::notification},
@@ -143,44 +143,6 @@ pub enum Message {
     ServerCreation(servercreation::Message),
     OnClickOutsidePopup,
     DummyButtonEffectMsg,
-}
-
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
-pub enum SourceAppIDs {
-    #[default]
-    TeamFortress2,
-    CounterStrikeSource,
-    CounterStrike2,
-    LeftForDead1,
-    LeftForDead2,
-    HalfLife2DM,
-    NoMoreRoomInHell,
-}
-
-impl From<SourceAppIDs> for u32 {
-    fn from(value: SourceAppIDs) -> Self {
-        match value {
-            SourceAppIDs::TeamFortress2 => 232250,
-            SourceAppIDs::CounterStrikeSource => 232330,
-            SourceAppIDs::CounterStrike2 => 730,
-            SourceAppIDs::LeftForDead1 => 222840,
-            SourceAppIDs::LeftForDead2 => 222860,
-            SourceAppIDs::HalfLife2DM => 232370,
-            SourceAppIDs::NoMoreRoomInHell => 317670,
-        }
-    }
-}
-
-pub fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
-    match game {
-        SourceAppIDs::TeamFortress2 => "tf",
-        SourceAppIDs::CounterStrikeSource => "cstrike",
-        SourceAppIDs::CounterStrike2 => "cs",
-        SourceAppIDs::LeftForDead1 => "left4dead",
-        SourceAppIDs::LeftForDead2 => "left4dead2",
-        SourceAppIDs::HalfLife2DM => "hl2mp",
-        SourceAppIDs::NoMoreRoomInHell => "nmrih",
-    }
 }
 
 impl State {
@@ -454,14 +416,15 @@ impl State {
                 }
 
                 let path = server.info.path.clone();
-
+                let game = server.info.game.clone();
                 let branch = sourcemod_branch.clone();
 
                 server.is_downloading_sourcemod = true;
 
                 Task::perform(
                     async move {
-                        let _ = setup_sourcemod(path, branch, SourceEngineVersion::Source1).await;
+                        let _ =
+                            setup_sourcemod(path, game, branch, SourceEngineVersion::Source1).await;
                     },
                     move |_| Message::FinishedSourcemodDownload(id),
                 )
@@ -1099,11 +1062,12 @@ fn show_update_contianer<'a>(progress: f32) -> Element<'a, Message> {
 
 pub async fn setup_sourcemod(
     path: impl AsRef<Path>,
+    game: SourceAppIDs,
     branch: SourcemodBranch,
     engine: SourceEngineVersion,
 ) -> Result<(), Error> {
-    MetamodDownloader::download(&path, &MetamodBranch::Stable, &engine).await?;
-    SourcemodDownloader::download(&path, &branch, &engine).await?;
+    MetamodDownloader::download(&path, &game, &MetamodBranch::Stable, &engine).await?;
+    SourcemodDownloader::download(&path, &game, &branch, &engine).await?;
 
     Ok(())
 }

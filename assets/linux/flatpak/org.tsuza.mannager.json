@@ -1,5 +1,5 @@
 {
-    "app-id": "com.github.tsuza.mannager-source",
+    "app-id": "org.tsuza.mannager",
     "runtime": "org.freedesktop.Platform",
     "runtime-version": "23.08",
     "sdk": "org.freedesktop.Sdk",
@@ -37,8 +37,8 @@
                 "cargo --offline build --release --verbose",
                 "mkdir -p /app/share/icons/",
                 "cp -R ./.temp/appdir/usr/share/icons/. /app/share/icons/",
-                "install -Dm644 ./assets/linux/com.github.tsuza.mannager-source.appdata.xml /app/share/metainfo/com.github.tsuza.mannager-source.appdata.xml",
-                "install -Dm644 ./assets/linux/com.github.tsuza.mannager-source.desktop /app/share/applications/com.github.tsuza.mannager-source.desktop",
+                "install -Dm644 ./assets/linux/org.tsuza.mannager.appdata.xml /app/share/metainfo/org.tsuza.mannager.appdata.xml",
+                "install -Dm644 ./assets/linux/org.tsuza.mannager.desktop /app/share/applications/org.tsuza.mannager.desktop",
                 "install -Dm755 ./target/release/mannager -t /app/bin/"
             ],
             "sources": [

@@ -17,14 +17,18 @@ use tokio::{
 };
 
 use crate::{
-    core::portforwarder::{self, PortForwarderIP},
+    core::{
+        get_arg_game_name,
+        portforwarder::{self, PortForwarderIP},
+        SourceAppIDs,
+    },
     ui::{
         components::{notification::notification, textinput_terminal},
         style,
     },
 };
 
-use super::serverlist::{get_arg_game_name, ServerInfo, SourceAppIDs};
+use super::serverlist::ServerInfo;
 
 pub struct State {
     running_servers_output: Vec<TerminalText>,
@@ -72,7 +76,7 @@ impl State {
         let args = {
             let mut temp = format!(
                 "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
-                get_arg_game_name(server.game.clone()),
+                get_arg_game_name(&server.game),
                 server.name,
                 server.map,
                 server.max_players,

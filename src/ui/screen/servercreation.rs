@@ -16,11 +16,11 @@ use iced_aw::number_input;
 use rfd::FileHandle;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-use crate::core;
 use crate::core::depotdownloader::DepotDownloader;
+use crate::core::{self, get_arg_game_name, SourceAppIDs};
 use crate::ui::style::{self, icon};
 
-use super::serverlist::{self, get_arg_game_name, SourceAppIDs};
+use super::serverlist;
 
 #[derive(Default)]
 pub struct State {
@@ -160,7 +160,7 @@ impl State {
                     .set_directory(format!(
                         "{}/{}/maps",
                         self.form_info.server_path.to_str().unwrap(),
-                        get_arg_game_name(self.form_info.source_game.clone())
+                        get_arg_game_name(&self.form_info.source_game.clone())
                     ))
                     .add_filter("Source Map", &["bsp"])
                     .pick_file(),

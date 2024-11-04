@@ -3,7 +3,7 @@ use std::{fs, io::Cursor, path::Path};
 use flate2::read::GzDecoder;
 use scraper::{Html, Selector};
 
-use super::{Error, ExtractError, SourceEngineVersion};
+use super::{get_arg_game_name, Error, ExtractError, SourceAppIDs, SourceEngineVersion};
 
 pub struct SourcemodDownloader;
 
@@ -15,9 +15,16 @@ pub enum SourcemodBranch {
 
 const SOURCEMOD_VERSIONS_URL: &str = "https://sm.alliedmods.net/smdrop";
 
+#[cfg(target_os = "windows")]
+const TARGET_OS: &str = "windows";
+
+#[cfg(target_os = "linux")]
+const TARGET_OS: &str = "linux";
+
 impl SourcemodDownloader {
     pub async fn download(
         path: impl AsRef<Path>,
+        game: &SourceAppIDs,
         branch: &SourcemodBranch,
         source_version: &SourceEngineVersion,
     ) -> Result<(), Error> {
@@ -27,10 +34,8 @@ impl SourcemodDownloader {
 
         fs::create_dir_all(path)?;
 
-        let latest_sourcemod_archive_name_url = format!(
-            "{}/{version}/sourcemod-latest-linux",
-            SOURCEMOD_VERSIONS_URL
-        );
+        let latest_sourcemod_archive_name_url =
+            format!("{SOURCEMOD_VERSIONS_URL}/{version}/sourcemod-latest-{TARGET_OS}",);
 
         let sourcemod_version_name = reqwest::get(latest_sourcemod_archive_name_url)
             .await?
@@ -47,13 +52,28 @@ impl SourcemodDownloader {
 
         let cursor = Cursor::new(sourcemod_archive_contents);
 
-        let tar = GzDecoder::new(cursor);
+        #[cfg(target_os = "linux")]
+        {
+            let tar = GzDecoder::new(cursor);
 
-        let mut archive = tar::Archive::new(tar);
+            let mut archive = tar::Archive::new(tar);
 
-        archive
-            .unpack(path.to_path_buf().join("tf/"))
-            .map_err(|err| ExtractError::TarError(err))?;
+            archive
+                .unpack(
+                    path.to_path_buf()
+                        .join(format!("{}/", get_arg_game_name(game))),
+                ) // get_arg_game_name
+                .map_err(|err| ExtractError::TarError(err))?;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let mut zip =
+                zip::ZipArchive::new(cursor).map_err(|err| ExtractError::ZipError(err))?;
+
+            zip.extract(path)
+                .map_err(|err| ExtractError::ZipError(err))?;
+        }
 
         Ok(())
     }
