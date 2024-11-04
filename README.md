@@ -34,7 +34,7 @@
 
 </div>
 
-![server_terminal](https://github.com/user-attachments/assets/e5f2b996-5a7f-4da2-aecf-9d6892027f70)
+![overview](https://github.com/user-attachments/assets/a1ea7ce7-4d97-4457-97d4-6e59258af498)
 
 ## Features
 - Easily download, update & setup a Source game's dedicated server from a wide range of selections.
@@ -44,6 +44,8 @@
   - Left 4 Dead 1
   - Left 4 Dead 2
 - Easily download either the stable or dev branch of Sourcemod ( and Metamod ).
+- Automatically port forward your server.
+- Native terminal built into the app for server management.
 
 ## Installation
 Not yet.
