@@ -24,7 +24,6 @@ use iced_aw::{
     style::colors,
     Menu, MenuBar,
 };
-use notify_rust::Notification;
 use serde::{Deserialize, Serialize};
 
 use dragking::{self, DropPosition};
@@ -33,10 +32,10 @@ use crate::{
     core::{
         metamod::{MetamodBranch, MetamodDownloader},
         sourcemod::{SourcemodBranch, SourcemodDownloader},
-        SourceEngineVersion,
+        SourceAppIDs, SourceEngineVersion,
     },
     ui::{
-        components::modal::modal,
+        components::{modal::modal, notification::notification},
         style::{self, icon},
     },
 };
@@ -146,58 +145,17 @@ pub enum Message {
     DummyButtonEffectMsg,
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
-pub enum SourceAppIDs {
-    #[default]
-    TeamFortress2,
-    CounterStrikeSource,
-    CounterStrike2,
-    LeftForDead1,
-    LeftForDead2,
-    HalfLife2DM,
-    NoMoreRoomInHell,
-}
-
-impl From<SourceAppIDs> for u32 {
-    fn from(value: SourceAppIDs) -> Self {
-        match value {
-            SourceAppIDs::TeamFortress2 => 232250,
-            SourceAppIDs::CounterStrikeSource => 232330,
-            SourceAppIDs::CounterStrike2 => 730,
-            SourceAppIDs::LeftForDead1 => 222840,
-            SourceAppIDs::LeftForDead2 => 222860,
-            SourceAppIDs::HalfLife2DM => 232370,
-            SourceAppIDs::NoMoreRoomInHell => 317670,
-        }
-    }
-}
-
-pub fn get_arg_game_name(game: SourceAppIDs) -> &'static str {
-    match game {
-        SourceAppIDs::TeamFortress2 => "tf",
-        SourceAppIDs::CounterStrikeSource => "cstrike",
-        SourceAppIDs::CounterStrike2 => "cs",
-        SourceAppIDs::LeftForDead1 => "left4dead",
-        SourceAppIDs::LeftForDead2 => "left4dead2",
-        SourceAppIDs::HalfLife2DM => "hl2mp",
-        SourceAppIDs::NoMoreRoomInHell => "nmrih",
-    }
-}
-
 impl State {
     pub fn new() -> (Self, Task<Message>) {
         let mut task: Task<Message> = Task::none();
 
         let servers = Self::get_server_list().unwrap_or_else(|_| {
             task = Task::future(async move {
-                Notification::new()
-                    .appname("MANNager")
-                    .summary("[ MANNager ] Server List")
-                    .body("The server list file was not found.")
-                    .timeout(5)
-                    .show_async()
-                    .await
-                    .and_then(|notification| Ok(notification.on_close(|_| ())))
+                notification(
+                    "[ MANNager ] Server List",
+                    "The server list file was not found.",
+                    5,
+                )
             })
             .discard();
 
@@ -381,14 +339,11 @@ impl State {
                 Task::future(async move {
                     let _ = Self::save_server_list_to_file(servers.into_iter()).await;
 
-                    Notification::new()
-                        .appname("MANNager")
-                        .summary("[ MANNager ] Server Deletion")
-                        .body(&format!("{server_name} has been successfully deleted."))
-                        .timeout(5)
-                        .show_async()
-                        .await
-                        .and_then(|notification| Ok(notification.on_close(|_| ())))
+                    notification(
+                        "[ MANNager ] Server Deletion",
+                        format!("{server_name} has been successfully deleted."),
+                        5,
+                    )
                 })
                 .discard()
             }
@@ -461,14 +416,15 @@ impl State {
                 }
 
                 let path = server.info.path.clone();
-
+                let game = server.info.game.clone();
                 let branch = sourcemod_branch.clone();
 
                 server.is_downloading_sourcemod = true;
 
                 Task::perform(
                     async move {
-                        let _ = setup_sourcemod(path, branch, SourceEngineVersion::Source1).await;
+                        let _ =
+                            setup_sourcemod(path, game, branch, SourceEngineVersion::Source1).await;
                     },
                     move |_| Message::FinishedSourcemodDownload(id),
                 )
@@ -482,16 +438,11 @@ impl State {
                 let server_name = server.info.name.clone();
 
                 Task::future(async move {
-                    let _ = Notification::new()
-                        .appname("MANNager")
-                        .summary("[ MANNager ] Sourcemod Download")
-                        .body(&format!(
-                            "Sourcemod has been successfully downloaded for {server_name}."
-                        ))
-                        .timeout(5)
-                        .show_async()
-                        .await
-                        .and_then(|notification| Ok(notification.on_close(|_| ())));
+                    notification(
+                        "[ MANNager ] Sourcemod Download",
+                        format!("Sourcemod has been successfully downloaded for {server_name}."),
+                        5,
+                    )
                 })
                 .discard()
             }
@@ -1111,11 +1062,12 @@ fn show_update_contianer<'a>(progress: f32) -> Element<'a, Message> {
 
 pub async fn setup_sourcemod(
     path: impl AsRef<Path>,
+    game: SourceAppIDs,
     branch: SourcemodBranch,
     engine: SourceEngineVersion,
 ) -> Result<(), Error> {
-    MetamodDownloader::download(&path, &MetamodBranch::Stable, &engine).await?;
-    SourcemodDownloader::download(&path, &branch, &engine).await?;
+    MetamodDownloader::download(&path, &game, &MetamodBranch::Stable, &engine).await?;
+    SourcemodDownloader::download(&path, &game, &branch, &engine).await?;
 
     Ok(())
 }

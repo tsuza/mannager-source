@@ -10,7 +10,6 @@ use iced::{
     Color, Element, Length, Subscription, Task,
 };
 use iced_aw::style::colors;
-use notify_rust::Notification;
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -18,11 +17,18 @@ use tokio::{
 };
 
 use crate::{
-    core::portforwarder::{self, PortForwarderIP},
-    ui::{components::textinput_terminal, style},
+    core::{
+        get_arg_game_name,
+        portforwarder::{self, PortForwarderIP},
+        SourceAppIDs,
+    },
+    ui::{
+        components::{notification::notification, textinput_terminal},
+        style,
+    },
 };
 
-use super::serverlist::{get_arg_game_name, ServerInfo, SourceAppIDs};
+use super::serverlist::ServerInfo;
 
 pub struct State {
     running_servers_output: Vec<TerminalText>,
@@ -57,14 +63,20 @@ pub enum TerminalText {
 pub const DEFAULT_PORT: u16 = 27015;
 pub const PORT_OFFSET: u16 = 10;
 
+#[cfg(target_os = "linux")]
+const SRCDS_EXEC_NAME: &str = "srcds_run";
+
+#[cfg(target_os = "windows")]
+const SRCDS_EXEC_NAME: &str = "srcds-fix.exe";
+
 impl State {
     pub fn new(server: &ServerInfo, port: u16) -> (Self, Task<Message>) {
-        let binary_path = server.path.join("srcds_run");
+        let binary_path = server.path.join(SRCDS_EXEC_NAME);
 
         let args = {
             let mut temp = format!(
                 "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
-                get_arg_game_name(server.game.clone()),
+                get_arg_game_name(&server.game),
                 server.name,
                 server.map,
                 server.max_players,
@@ -259,18 +271,53 @@ fn start_server(
             .send(ServerCommunicationTwoWay::Input(sender))
             .await?;
 
-        let mut pty =
-            pty_process::Pty::new().map_err(|err| Error::SpawnProcessError(err.to_string()))?;
+        #[cfg(target_os = "linux")]
+        let mut pty = {
+            let test =
+                pty_process::Pty::new().map_err(|err| Error::SpawnProcessError(err.to_string()))?;
 
-        let _ = pty.resize(pty_process::Size::new(24, 80));
+            let _ = test.resize(pty_process::Size::new(24, 80));
 
-        let mut _process = pty_process::Command::new(executable_path)
-            .args(args.split_whitespace())
-            .spawn(
-                &pty.pts()
-                    .map_err(|err| Error::SpawnProcessError(err.to_string()))?,
-            )
-            .map_err(|err| Error::SpawnProcessError(err.to_string()))?;
+            test
+        };
+
+        let mut _process = {
+            #[cfg(target_os = "linux")]
+            {
+                pty_process::Command::new(executable_path)
+                    .args(args.split_whitespace())
+                    .spawn(
+                        &pty.pts()
+                            .map_err(|err| Error::SpawnProcessError(err.to_string()))?,
+                    )
+                    .map_err(|err| Error::SpawnProcessError(err.to_string()))?
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                use std::process::Stdio;
+
+                tokio::process::Command::new(executable_path)
+                    .args(args.split_whitespace())
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .creation_flags(0x08000000)
+                    .spawn()
+                    .map_err(|err| Error::SpawnProcessError(err.to_string()))?
+            }
+        };
+
+        let (mut process_reader, mut process_writer) = {
+            #[cfg(target_os = "linux")]
+            {
+                pty.split()
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                (_process.stdout.take().unwrap(), _process.stdin.unwrap())
+            }
+        };
 
         let forwarder = portforwarder::PortForwarder::open(
             PortForwarderIP::Any,
@@ -281,16 +328,12 @@ fn start_server(
         );
 
         if let Err(_) = forwarder {
-            let _ = Notification::new()
-                .appname("MANNager")
-                .summary("[ MANNager ] Server running...")
-                .body("Port forwarding failed.")
-                .timeout(5)
-                .show_async()
-                .await;
+            let _ = notification(
+                "[ MANNager ] Server running...",
+                "Port forwarding failed.",
+                5,
+            );
         }
-
-        let (mut process_reader, mut process_writer) = pty.split();
 
         let mut buffer: Vec<u8> = vec![];
 
@@ -310,11 +353,17 @@ fn start_server(
                         continue;
                     }
 
-                    let Some(last_byte) = buffer.get(buffer.len() - 2) else {
+                    let Some(_last_byte) = buffer.get(buffer.len() - 2) else {
                         continue;
                     };
 
-                    if last_byte == &13u8 && byte == 10u8 {
+                    #[cfg(target_os = "windows")]
+                    let line_break = byte == 10u8;
+
+                    #[cfg(target_os = "linux")]
+                    let line_break = _last_byte == &13u8 && byte == 10u8;
+
+                    if line_break {
                         let Ok(string) = String::from_utf8(buffer.clone()) else {
                             buffer.clear();
 
@@ -337,7 +386,11 @@ fn start_server(
                 },
 
                 input = input_future => {
+                    #[cfg(target_os = "linux")]
                     let formatted_string = format!("{}\n\0", input);
+
+                    #[cfg(target_os = "windows")]
+                    let formatted_string = format!("{}", input);
 
                     let _ = process_writer.write_all(formatted_string.as_bytes()).await;
                     let _ = process_writer.flush().await;

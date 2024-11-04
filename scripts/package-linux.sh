@@ -2,7 +2,7 @@
 
 ARCH="x86_64"
 TARGET="mannager"
-ID="com.github.tsuza.mannager-source"
+ID="org.tsuza.mannager"
 VERSION=$(cargo pkgid | cut -d '@' -f 2)
 PROFILE="release"
 ASSETS_DIR="assets/linux"
@@ -110,7 +110,7 @@ build_flatpak() {
         "$ARCHIVE_DIR/$TARGET-build-flatpak" \
         "$FLATPAK_MANIFEST_PATH"
 
-    flatpak build-finish "$ARCHIVE_DIR/$TARGET-build-flatpak"
+    # flatpak build-finish "$ARCHIVE_DIR/$TARGET-build-flatpak"
     
     flatpak build-export \
         "$ARCHIVE_DIR/$TARGET-build-flatpak-repo" \

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+    <content_rating type="oars-1.1" />
+    <id>org.tsuza.mannager</id>
+    <metadata_license>MIT</metadata_license>
+    <project_license>MIT</project_license>
+    <name>MANNager</name>
+    <summary>Source Engine Dedicated Server Manager written in Rust</summary>
+    <description>
+        <p>            
+            MANNager is an open-source Source Engine Dedicated Server Manager written in Rust, with the Iced GUI library.
+            It aims to provide a simple, functional and straight forward way to download, update and manage server for Windows, and Linux platforms.
+            It's mainly meant to be use for local usage, such as testing and the development of Sourcemod plugins, though
+            automatic port forwarding is implemented to allow outside people to join your server, in case you want it.
+        </p>
+    </description>
+    <launchable type="desktop-id">org.tsuza.mannager.desktop</launchable>
+    <url type="homepage">https://github.com/tsuza/mannager-source</url>
+    <url type="bugtracker">https://github.com/tsuza/mannager-source/issues</url>
+    <screenshots>
+        <screenshot type="default">
+            <caption>Main page of the application</caption>
+            <image>https://cdn.prod.website-files.com/651affc8093903bc3e5eff2b/6615838459f415264e67ccea_5843577306_06fd6132f7_b.jpg</image>
+        </screenshot>
+    </screenshots>
+    <developer_name>tsuza</developer_name>
+    <releases>
+        <release version="2024.12"
+                 date="2024-09-17" />
+    </releases>
+</component>

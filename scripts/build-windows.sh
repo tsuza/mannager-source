@@ -1,11 +1,7 @@
 #!/bin/bash
 EXE_NAME="mannager.exe"
 TARGET="x86_64-pc-windows-msvc"
-APP_VERSION=$(cat VERSION).0
-
-# update package version on Cargo.toml
-cargo install cargo-edit
-cargo set-version $APP_VERSION
+VERSION=$(cargo pkgid | cut -d '@' -f 2)
 
 # build binary
 rustup target add $TARGET

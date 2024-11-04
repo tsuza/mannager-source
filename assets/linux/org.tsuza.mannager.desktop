@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MANNager
+Comment=Source Engine Dedicated Server Manager written in Rust
+Type=Application
+Keywords=TF2;CSGO;CS2;L4D1;Server Manager;Server;SourceEngine;
+Categories=Development;Network;Utility;
+Exec=mannager
+Icon=org.tsuza.mannager
+StartupWMClass=org.tsuza.mannager
+Terminal=false

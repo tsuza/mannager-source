@@ -2,11 +2,12 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
-    <Package Name="MANNager"
-             Version="$(PackageVersion)"
-             Manufacturer="tsuza"
+    <Package
+             Manufacturer="$(app_creator)"
+             Name="$(app_name)"
+             Version="$(version)"
              Language="1033"
-             UpgradeCode="3ed18662-fb43-4803-a4f9-89bbbc0b6d01"
+             UpgradeCode="$(upgrade_guid)"
              UpgradeStrategy="majorUpgrade"
              Scope="perMachine">
 
@@ -22,38 +23,44 @@
         <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
 
             <Component>
-                <File Id="Application" DiskId="1" Source="target/release/mannager.exe" KeyPath="yes">
+                <File Id="Application" DiskId="1" Source="$(binary_path)/$(app_name).exe" KeyPath="yes">
                     <Shortcut Id="ApplicationStartMenuShortcutInFile"
-                              Name="MANNager"
-                              Icon="MannagerIcon.exe"
+                              Name="$(app_name)"
+                              Icon="$(app_name)Icon"
                               Directory="ProgramMenuFolder"
-                              Description="Source Engine Dedicated Server Manager"
+                              Description="$(description)"
                               Advertise="yes"
                               WorkingDirectory="INSTALLFOLDER">
-                        <ShortcutProperty Key="System.AppUserModel.ID" Value="org.tsuza.mannager-source" />
+                        <ShortcutProperty Key="System.AppUserModel.ID" Value="$(id)" />
                     </Shortcut>
                 </File>
             </Component>
 
             <Component>
-                <RegistryKey Root="HKLM" Key="SOFTWARE\MANNager" ForceDeleteOnUninstall="yes" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\MANNager\Capabilities" Name="ApplicationDescription" Value="MANNager - Source Engine Dedicated Server Manager" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\MANNager\Capabilities" Name="ApplicationIcon" Value="[INSTALLFOLDER]mannager.exe,0" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\MANNager\Capabilities" Name="ApplicationName" Value="Mannager" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\MANNager\Capabilities\URLAssociations" Name="mannager" Value="mannager" Type="string" />
-                <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="MANNager" Value="SOFTWARE\MANNager\Capabilities" Type="string" />
+                <RegistryKey Root="HKLM" Key="SOFTWARE\$(app_name)" ForceDeleteOnUninstall="yes" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\$(app_name)\Capabilities" Name="ApplicationDescription" Value="$(app_name) - $(description)" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\$(app_name)\Capabilities" Name="ApplicationIcon" Value="[INSTALLFOLDER]$(app_name),0" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\$(app_name)\Capabilities" Name="ApplicationName" Value="$(app_name)" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\$(app_name)\Capabilities\URLAssociations" Name="$(app_name)" Value="$(app_name)" Type="string" />
+                <RegistryValue Root="HKLM" Key="SOFTWARE\RegisteredApplications" Name="$(app_name)" Value="SOFTWARE\$(app_name)\Capabilities" Type="string" />
             </Component>
 
         </ComponentGroup>
 
-        <Icon Id="MannagerIcon.exe" SourceFile="assets/windows/mannager.ico" />
-        <Property Id="ARPPRODUCTICON" Value="MannagerIcon.exe"/>
-        <Property Id="APPHELPLINK" Value="https://github.com/tsuza/mannager-source/"/>
+        <Icon Id="$(app_name)Icon" SourceFile="$(path_to_icon)/$(app_name).ico" />
+
+        <Property Id="ARPPRODUCTICON" Value="$(app_name)Icon"/>
+        <Property Id="APPHELPLINK" Value="$(website_url)"/>
 
         <CustomAction Id="LaunchApp" Impersonate="yes" Execute="deferred" FileRef="Application" ExeCommand="" Return="asyncNoWait" />
+
         <InstallExecuteSequence>
             <Custom Action="LaunchApp" Before="InstallFinalize"/>
         </InstallExecuteSequence>
+
+        <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf"/>
+        <WixVariable Id="WixUIDialogBmp" Value="wix/dialog.png"/>
+        <WixVariable Id="WixUIBannerBmp" Value="wix/banner.png"/>
 
         <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     </Package>

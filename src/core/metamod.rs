@@ -3,11 +3,17 @@ use std::{fs, io::Cursor, path::Path};
 use flate2::read::GzDecoder;
 use scraper::{Html, Selector};
 
-use super::{Error, ExtractError, SourceEngineVersion};
+use super::{get_arg_game_name, Error, ExtractError, SourceAppIDs, SourceEngineVersion};
 
 pub struct MetamodDownloader;
 
 const METAMOD_VERSIONS_URL: &str = "https://mms.alliedmods.net/mmsdrop";
+
+#[cfg(target_os = "windows")]
+const TARGET_OS: &str = "windows";
+
+#[cfg(target_os = "linux")]
+const TARGET_OS: &str = "linux";
 
 #[derive(Debug, Clone)]
 pub enum MetamodBranch {
@@ -18,6 +24,7 @@ pub enum MetamodBranch {
 impl MetamodDownloader {
     pub async fn download(
         path: impl AsRef<Path>,
+        game: &SourceAppIDs,
         branch: &MetamodBranch,
         source_version: &SourceEngineVersion,
     ) -> Result<(), Error> {
@@ -28,7 +35,7 @@ impl MetamodDownloader {
         fs::create_dir_all(path)?;
 
         let latest_metamod_archive_name_url =
-            format!("{}/{version}/mmsource-latest-linux", METAMOD_VERSIONS_URL);
+            format!("{METAMOD_VERSIONS_URL}/{version}/mmsource-latest-{TARGET_OS}");
 
         let metamod_version_name = reqwest::get(latest_metamod_archive_name_url)
             .await?
@@ -42,13 +49,28 @@ impl MetamodDownloader {
 
         let cursor = Cursor::new(metamod_archive_contents);
 
-        let tar = GzDecoder::new(cursor);
+        #[cfg(target_os = "linux")]
+        {
+            let tar = GzDecoder::new(cursor);
 
-        let mut archive = tar::Archive::new(tar);
+            let mut archive = tar::Archive::new(tar);
 
-        archive
-            .unpack(path.to_path_buf().join("tf/"))
-            .map_err(|err| ExtractError::TarError(err))?;
+            archive
+                .unpack(
+                    path.to_path_buf()
+                        .join(format!("{}/", get_arg_game_name(game))),
+                ) // get_arg_game_name
+                .map_err(|err| ExtractError::TarError(err))?;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            let mut zip =
+                zip::ZipArchive::new(cursor).map_err(|err| ExtractError::ZipError(err))?;
+
+            zip.extract(path)
+                .map_err(|err| ExtractError::ZipError(err))?;
+        }
 
         Ok(())
     }
