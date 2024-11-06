@@ -30,7 +30,7 @@
   <a href="#features">Features</a> •
   <a href="#to-do">To-Do list</a> •
   <a href="#contributors">Contributors</a> •
-  <a href="https://google.com">Website</a>
+  <a href="https://tsuza.github.io/mannager-source/">Website</a>
 
 </div>
 
