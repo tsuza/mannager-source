@@ -72,6 +72,7 @@ jobs:
         run: ${{ matrix.target.artifact_path }}
 
       - name: Upload artifact
+        if: matrix.target.target == 'linux'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target.target }}
@@ -79,6 +80,15 @@ jobs:
             .temp/mannager-*linux.tar.gz
             .temp/MANNager*.AppImage
             .temp/mannager.flatpak
+          if-no-files-found: error
+          include-hidden-files: true
+
+      - name: Upload artifact
+        if: matrix.target.target == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target.target }}
+          path: ${{ env.ARTIFACT_PATH }}
           if-no-files-found: error
           include-hidden-files: true
 
