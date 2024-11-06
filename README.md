@@ -48,7 +48,9 @@
 - Native terminal built into the app for server management.
 
 ## Installation
-Not yet.
+1. Go to the [latest release](https://github.com/tsuza/mannager-source/releases/latest).
+2. If you're on Windows, pick the msi installer. If you're on Linux, feel free to pick between: flatpak, a tar and an appimage.
+3. Enjoy!
 
 ## Configuration
 Everything server-related that can be edited, can be done through the server creation / editing buttons in-app. If you wish to customize something more, just press the menu ( the gear icon ) on the server entry, press "Open Folder", and do whatever you want.
