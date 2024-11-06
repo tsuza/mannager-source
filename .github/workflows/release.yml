@@ -82,7 +82,7 @@ jobs:
           path: |
             .temp/mannager-*linux.tar.gz
             .temp/MANNager*.AppImage
-            .temp/mannager.flatpak
+            .temp/mannager*.flatpak
           if-no-files-found: error
           include-hidden-files: true
 
