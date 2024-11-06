@@ -61,7 +61,7 @@ The server list file, a file that contains all of the servers being tracked by t
 The top priority for now is:
 - [ ] Finalize the custom title bar for the terminal.
 - [ ] Finalize the support for Source 2 games ( CS2, Deadlock ).
-- [ ] Finalize Windows support ( and its Workflow ).
+- [x] Finalize Windows support ( and its Workflow ).
 - [ ] Add support for configuring convars and admins within the app.
 
 For the full list, check out [the issue](https://github.com/tsuza/mannager-source/issues/1).
