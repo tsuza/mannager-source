@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>MANNager</title>
+   <script src="https://cdn.tailwindcss.com"></script>
+   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+   <script>
+      tailwind.config = {
+         theme: {
+            extend: {
+               colors: {
+                  'warm-black-light': 'rgb(43, 42, 39)',
+                  'warm-black-dark': 'rgb(33, 32, 29)',
+                  'custom-orange': '#ff6600',
+               }
+            }
+         }
+      }
+   </script>
+   <style>
+      body {
+         font-family: 'Poppins', sans-serif;
+      }
+
+      img {
+         max-width: 100%;
+         object-fit: contain;
+      }
+
+      .perspective-container {
+         perspective: 1000px;
+      }
+
+      .image-3d {
+         transform: rotateY(-20deg) rotateX(5deg);
+         transition: transform 0.3s ease, box-shadow 0.3s ease;
+         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+      }
+
+      .image-3d:hover {
+         transform: rotateY(-15deg) rotateX(3deg) scale(1.05) translateZ(20px);
+         box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
+      }
+
+      /* Make sure the swiper-container is relative */
+      .swiper-container {
+         width: 100%;
+         overflow: hidden;
+         position: relative;
+         /* Added to make pagination positioning possible */
+      }
+
+      .swiper-wrapper {
+         display: flex;
+         align-items: center;
+      }
+
+      .swiper-slide {
+         text-align: center;
+         height: 500px;
+         min-height: 500px;
+         max-height: 500px;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         padding: 20px;
+      }
+
+      /* Ensure pagination is positioned correctly */
+      .swiper-pagination {
+         position: absolute;
+         top: 40px;
+         /* This positions it at the bottom */
+         left: 0;
+         right: 0;
+         text-align: center;
+         z-index: 10;
+         /* Ensure it's above other elements */
+      }
+
+      /* Custom bullet style */
+      .swiper-pagination-bullet {
+         background-color: #ff6600 !important;
+         height: 15px !important;
+         width: 15px !important;
+         opacity: 1;
+      }
+
+      .swiper-pagination-bullet-active {
+         background-color: #ffa500 !important;
+      }
+   </style>
+   <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+</head>
+
+<body class="bg-gradient-to-br from-warm-black-light to-warm-black-dark text-gray-200 min-h-screen">
+   <div class="container mx-auto px-4 py-12">
+      <header class="flex justify-between items-center mb-12">
+         <div class="text-3xl font-bold text-custom-orange">MANNager</div>
+         <nav>
+            <a href="https://github.com/tsuza/mannager-source" target="_blank"
+               class="ml-4 border-2 border-custom-orange text-custom-orange px-3 py-2 rounded hover:bg-custom-orange hover:text-white transition duration-300 flex items-center">
+               <!-- GitHub Icon from Heroicons -->
+               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                  <path
+                     d="M12 2C6.477 2 2 6.484 2 12.008c0 4.42 2.865 8.166 6.839 9.487.5.091.682-.216.682-.482 0-.237-.008-.868-.012-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.464-1.11-1.464-.908-.621.068-.608.068-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.529 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.22-.253-4.555-1.115-4.555-4.959 0-1.094.39-1.988 1.029-2.688-.104-.253-.447-1.272.097-2.65 0 0 .84-.269 2.75 1.025A9.548 9.548 0 0112 6.844c.85.004 1.704.115 2.503.338 1.909-1.294 2.748-1.025 2.748-1.025.546 1.378.203 2.397.1 2.65.64.7 1.028 1.594 1.028 2.688 0 3.853-2.338 4.702-4.566 4.949.36.311.679.92.679 1.854 0 1.338-.012 2.419-.012 2.747 0 .267.18.576.688.479C19.138 20.168 22 16.422 22 12.008 22 6.484 17.523 2 12 2z" />
+               </svg>
+               GitHub
+            </a>
+         </nav>
+      </header>
+      <main class="flex flex-col md:flex-row items-center justify-between">
+         <div class="md:w-1/2 mb-8 md:mb-0">
+            <h1 class="text-5xl font-bold mb-4">Host Your <span class="text-custom-orange">Source Engine Dedicated
+                  Server</span> With Ease</h1>
+            <p class="text-xl mb-6">Easily create, download, manage, port forward, and test your server.</p>
+            <button onclick="window.location.href='https://github.com/tsuza/mannager-source/releases/latest'"
+               class="bg-custom-orange hover:bg-orange-700 text-white font-bold py-2 px-4 rounded flex items-center space-x-2">
+               <span>Download Now</span>
+            </button>
+         </div>
+         <div class="md:w-1/2 perspective-container">
+            <img src="overview.png" alt="FPS Server Launcher Screenshot" class="rounded-lg image-3d w-full">
+         </div>
+      </main>
+      <section class="mt-20">
+         <h2 class="text-3xl font-bold mb-8 text-center">Why Choose <span class="text-custom-orange">MANNager</span>?
+         </h2>
+         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
+               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Setup</h3>
+               <p>Quickly download & setup your server.</p>
+            </div>
+            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
+               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Automatic Port Forwarding</h3>
+               <p>Pain-free port forwarding to allow outside people join your server.</p>
+            </div>
+            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
+               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Sourcemod</h3>
+               <p>Integrated Sourcemod download that is one click away.</p>
+            </div>
+            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
+               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Cross-Platform</h3>
+               <p>Use it both on Linux & Windows.</p>
+            </div>
+         </div>
+      </section>
+   </div>
+   <section class="mt-20">
+      <h2 class="text-3xl font-bold mb-8 text-center">Screenshots</h2>
+      <div class="swiper-container">
+         <div class="swiper-wrapper">
+            <!-- Slide 1 -->
+            <div class="swiper-slide flex items-center justify-center bg-warm-black-light p-8 rounded-lg">
+               <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:w-1/2">
+                     <img
+                        src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/overview.png"
+                        class="rounded-lg w-[600px] image-3d" alt="Image 1">
+                  </div>
+                  <div class="md:w-1/2 md:ml-8 text-gray-200 text-left">
+                     <h3 class="text-2xl font-semibold text-custom-orange mb-4">Overview</h3>
+                     <p>Overview of the main app page with a few servers being showcased, including a server that is
+                        currently running and the context menu</p>
+                  </div>
+               </div>
+            </div>
+            <!-- Slide 2 -->
+            <div class="swiper-slide flex items-center justify-center bg-warm-black-light p-8 rounded-lg">
+               <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:w-1/2">
+                     <img
+                        src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_creation.png"
+                        class="rounded-lg w-[600px] image-3d" alt="Image 2">
+                  </div>
+                  <div class="md:w-1/2 md:ml-8 text-gray-200 text-left">
+                     <h3 class="text-2xl font-semibold text-custom-orange mb-4">Server Creation</h3>
+                     <p>Showcase of ( a portion of ) the server creation.</p>
+                  </div>
+               </div>
+            </div>
+            <!-- Slide 3 -->
+            <div class="swiper-slide flex items-center justify-center bg-warm-black-light p-8 rounded-lg">
+               <div class="flex flex-col md:flex-row items-center">
+                  <div class="md:w-1/2">
+                     <img
+                        src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_terminal.png"
+                        class="rounded-lg w-[600px] image-3d" alt="Image 3">
+                  </div>
+                  <div class="md:w-1/2 md:ml-8 text-gray-200 text-left">
+                     <h3 class="text-2xl font-semibold text-custom-orange mb-4">Server Terminal</h3>
+                     <p>Built-in native server terminal.</p>
+                  </div>
+               </div>
+            </div>
+         </div>
+         <!-- Add Pagination -->
+         <div class="swiper-pagination mt-4"></div>
+      </div>
+   </section>
+   <div style="height: 200px"></div>
+   <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+   <script>
+      const swiper = new Swiper('.swiper-container', {
+         grabCursor: true,
+         centeredSlides: true,
+         pagination: {
+            el: '.swiper-pagination',
+            bulletActiveClass: 'swiper-pagination-bullet-active',
+            dynamicBullets: true,
+            clickable: true,
+         },
+      });
+   </script>
+</body>
+
+</html>

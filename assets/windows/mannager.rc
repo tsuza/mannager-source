@@ -1,7 +1,0 @@
-#define IDI_ICON 0x101
-
-IDI_ICON ICON "MANNager.ico"
-
-#define RT_MANIFEST 24
-
-1 RT_MANIFEST "mannager.manifest"
