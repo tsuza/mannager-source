@@ -67,13 +67,13 @@ pub struct State {
 }
 
 pub struct Images {
-    tf2: svg::Handle,
-    css: svg::Handle,
-    cs2: svg::Handle,
-    l4d1: svg::Handle,
-    l4d2: svg::Handle,
-    nmrih: svg::Handle,
-    hl2mp: svg::Handle,
+    pub tf2: svg::Handle,
+    pub css: svg::Handle,
+    pub cs2: svg::Handle,
+    pub l4d1: svg::Handle,
+    pub l4d2: svg::Handle,
+    pub nmrih: svg::Handle,
+    pub hl2mp: svg::Handle,
 }
 
 pub struct Server {
@@ -760,7 +760,7 @@ impl State {
                 modal(
                     base,
                     server_edit_state
-                        .view()
+                        .view(&self.images)
                         .map(move |x| Message::ServerEdit(*server_id, x)),
                     Message::OnClickOutsidePopup,
                 )
@@ -774,7 +774,7 @@ impl State {
                 modal(
                     base,
                     self.server_creation_screen
-                        .view()
+                        .view(&self.images)
                         .map(Message::ServerCreation),
                     Message::OnClickOutsidePopup,
                 )
