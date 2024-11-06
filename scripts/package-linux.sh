@@ -112,7 +112,7 @@ build_flatpak() {
         "$ARCHIVE_DIR/$TARGET-build-flatpak" \
         "$FLATPAK_MANIFEST_PATH"
 
-    flatpak build-finish "$ARCHIVE_DIR/$TARGET-build-flatpak"
+    # flatpak build-finish "$ARCHIVE_DIR/$TARGET-build-flatpak"
     
     flatpak build-export \
         "$ARCHIVE_DIR/$TARGET-build-flatpak-repo" \
@@ -122,6 +122,8 @@ build_flatpak() {
         "$ARCHIVE_DIR/$TARGET-build-flatpak-repo" \
         "$ARCHIVE_DIR/$TARGET-$VERSION-$ARCH.flatpak" \
         "$ID"
+
+    ls -a .temp/
     
     if [ $? -ne 0 ]; then
         echo "Flatpak build failed."
