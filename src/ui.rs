@@ -1,6 +1,15 @@
 use iced::{window, Element, Subscription, Task};
 use screen::{serverlist, Screen, ScreenKind};
 
+#[cfg(target_os = "windows")]
+use iced::advanced::graphics::image::image_rs::ImageFormat;
+
+#[cfg(target_os = "linux")]
+use crate::APPLICATION_ID;
+
+#[cfg(target_os = "windows")]
+use crate::APP_ICON_BYTES;
+
 pub mod components;
 pub mod screen;
 pub mod style;
@@ -16,8 +25,6 @@ pub enum Message {
     ServerList(window::Id, serverlist::Message),
 }
 
-pub const APPLICATION_ID: &str = "org.tsuza.mannager";
-
 impl State {
     pub fn new() -> (Self, Task<Message>) {
         let (id, open) = window::open(window::Settings {
@@ -26,6 +33,8 @@ impl State {
                 application_id: APPLICATION_ID.to_string(),
                 override_redirect: false,
             },
+            #[cfg(target_os = "windows")]
+            icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png)).ok(),
             ..Default::default()
         });
 

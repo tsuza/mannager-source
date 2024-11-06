@@ -6,6 +6,9 @@ use ui::{style::icon, State};
 pub mod core;
 pub mod ui;
 
+pub const APPLICATION_ID: &str = "org.tsuza.mannager";
+pub const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/app_icon.png");
+
 const TF2_BUILD_FONT_BYTES: &[u8] = include_bytes!("../fonts/tf2build.ttf");
 const TF2_SECONDARY_FONT_BYTES: &[u8] = include_bytes!("../fonts/TF2secondary.ttf");
 

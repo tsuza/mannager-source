@@ -20,7 +20,7 @@ use crate::core::depotdownloader::DepotDownloader;
 use crate::core::{self, get_arg_game_name, SourceAppIDs};
 use crate::ui::style::{self, icon};
 
-use super::serverlist;
+use super::serverlist::{self, Images};
 
 #[derive(Default)]
 pub struct State {
@@ -129,23 +129,27 @@ impl State {
                 )
             }
             Message::DownloadProgress(progress) => {
-                if let Ok(progress) = progress {
-                    match progress {
-                        Progress::Downloading(string) => {
-                            if let Some(percent) = string.split("%").next() {
-                                if let Ok(percent) = percent.trim().parse::<f32>() {
-                                    self.form_info.progress_percent = percent;
-                                }
+                let Ok(progress) = progress else {
+                    return Task::none();
+                };
+
+                match progress {
+                    Progress::Downloading(string) => {
+                        if let Some(percent) = string.split("%").next() {
+                            if let Ok(percent) = percent.trim().parse::<f32>() {
+                                self.form_info.progress_percent = percent;
                             }
                         }
-                        Progress::Finished => {
-                            self.form_info.is_downloading = false;
-                            self.form_page = FormPage::ServerInfo;
-                        }
+
+                        Task::none()
+                    }
+                    Progress::Finished => {
+                        self.form_info.is_downloading = false;
+                        self.form_page = FormPage::ServerInfo;
+
+                        Task::none()
                     }
                 }
-
-                Task::none()
             }
             Message::GameChosen(source_app_id) => {
                 self.form_info.source_game = source_app_id;
@@ -212,9 +216,9 @@ impl State {
         Subscription::none()
     }
 
-    pub fn view<'a>(&self) -> Element<'a, Message> {
+    pub fn view<'a>(&self, images: &Images) -> Element<'a, Message> {
         match self.form_page {
-            FormPage::GameSelection => choose_game_container(),
+            FormPage::GameSelection => choose_game_container(images),
             FormPage::ServerPath => server_creation_form_container(&self.form_info),
             FormPage::Downloading => downloading_container(&self.form_info),
             FormPage::ServerInfo => server_creation_info(&self.form_info),
@@ -223,7 +227,7 @@ impl State {
     }
 }
 
-fn choose_game_container<'a>() -> Element<'a, Message>
+fn choose_game_container<'a>(images: &Images) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
@@ -254,37 +258,39 @@ where
             row![
                 game_entry(
                     "Team Fortress 2",
-                    svg::Handle::from_path("images/tf2-logo.svg"),
+                    images.tf2.clone(),
                     Message::GameChosen(SourceAppIDs::TeamFortress2)
                 ),
                 game_entry(
                     "Counter Strike: Source",
-                    svg::Handle::from_path("images/css-logo.svg"),
+                    images.css.clone(),
                     Message::GameChosen(SourceAppIDs::CounterStrikeSource)
                 ),
+                /*
                 game_entry(
                     "Counter Strike 2",
-                    svg::Handle::from_path("images/cs2-logo.svg"),
+                    images.cs2.clone(),
                     Message::GameChosen(SourceAppIDs::CounterStrike2)
                 ),
+                */
                 game_entry(
                     "Left For Dead 1",
-                    svg::Handle::from_path("images/l4d1-logo.svg"),
+                    images.l4d1.clone(),
                     Message::GameChosen(SourceAppIDs::LeftForDead1)
                 ),
                 game_entry(
                     "Left For Dead 2",
-                    svg::Handle::from_path("images/l4d2-logo.svg"),
+                    images.l4d2.clone(),
                     Message::GameChosen(SourceAppIDs::LeftForDead2)
                 ),
                 game_entry(
                     "Half Life 2: Deathmatch",
-                    svg::Handle::from_path("images/hl2mp-logo.svg"),
+                    images.hl2mp.clone(),
                     Message::GameChosen(SourceAppIDs::HalfLife2DM)
                 ),
                 game_entry(
                     "No More Room In Hell",
-                    svg::Handle::from_path("images/nmrih-logo.svg"),
+                    images.nmrih.clone(),
                     Message::GameChosen(SourceAppIDs::NoMoreRoomInHell)
                 ),
             ]
@@ -615,6 +621,22 @@ pub fn download_server(
     let appid = appid.clone();
 
     try_channel(1, move |mut output| async move {
+        #[cfg(target_os = "windows")]
+        {
+            // It was quicker to implement it here. I should move this in its own thingy down the line.
+
+            const SRCDS_FIX_LINK: &str = "https://github.com/tsuza/srcds-pipe-passthrough-fix/releases/latest/download/srcds-fix-x86.exe";
+
+            let srcds_fix_contents = reqwest::get(SRCDS_FIX_LINK)
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+
+            let _ = std::fs::write(format!("{}/srcds-fix.exe", testun), srcds_fix_contents);
+        }
+
         let mut depot = DepotDownloader::new("./depotdownloader").await?;
 
         let stdout = depot.download_app(&testun, appid.into()).await?;

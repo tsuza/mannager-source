@@ -19,6 +19,10 @@ use iced::{
     window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Subscription,
     Task, Vector,
 };
+
+#[cfg(target_os = "windows")]
+use iced::advanced::graphics::image::image_rs::ImageFormat;
+
 use iced_aw::{
     menu::{self, Item},
     style::colors,
@@ -37,9 +41,14 @@ use crate::{
     ui::{
         components::{modal::modal, notification::notification},
         style::{self, icon},
-        APPLICATION_ID,
     },
 };
+
+#[cfg(target_os = "linux")]
+use crate::APPLICATION_ID;
+
+#[cfg(target_os = "windows")]
+use crate::APP_ICON_BYTES;
 
 use super::{
     serverboot::{self, find_available_port, DEFAULT_PORT},
@@ -58,13 +67,13 @@ pub struct State {
 }
 
 pub struct Images {
-    tf2: svg::Handle,
-    css: svg::Handle,
-    cs2: svg::Handle,
-    l4d1: svg::Handle,
-    l4d2: svg::Handle,
-    nmrih: svg::Handle,
-    hl2mp: svg::Handle,
+    pub tf2: svg::Handle,
+    pub css: svg::Handle,
+    pub cs2: svg::Handle,
+    pub l4d1: svg::Handle,
+    pub l4d2: svg::Handle,
+    pub nmrih: svg::Handle,
+    pub hl2mp: svg::Handle,
 }
 
 pub struct Server {
@@ -371,6 +380,8 @@ impl State {
                         application_id: APPLICATION_ID.to_string(),
                         override_redirect: false,
                     },
+                    #[cfg(target_os = "windows")]
+                    icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png)).ok(),
                     ..Default::default()
                 });
 
@@ -527,6 +538,9 @@ impl State {
                             application_id: APPLICATION_ID.to_string(),
                             override_redirect: false,
                         },
+                        #[cfg(target_os = "windows")]
+                        icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png))
+                            .ok(),
                         ..Default::default()
                     });
 
@@ -746,7 +760,7 @@ impl State {
                 modal(
                     base,
                     server_edit_state
-                        .view()
+                        .view(&self.images)
                         .map(move |x| Message::ServerEdit(*server_id, x)),
                     Message::OnClickOutsidePopup,
                 )
@@ -760,7 +774,7 @@ impl State {
                 modal(
                     base,
                     self.server_creation_screen
-                        .view()
+                        .view(&self.images)
                         .map(Message::ServerCreation),
                     Message::OnClickOutsidePopup,
                 )

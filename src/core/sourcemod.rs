@@ -1,6 +1,5 @@
 use std::{fs, io::Cursor, path::Path};
 
-use flate2::read::GzDecoder;
 use scraper::{Html, Selector};
 
 use super::{get_arg_game_name, Error, ExtractError, SourceAppIDs, SourceEngineVersion};
@@ -54,6 +53,8 @@ impl SourcemodDownloader {
 
         #[cfg(target_os = "linux")]
         {
+            use flate2::read::GzDecoder;
+
             let tar = GzDecoder::new(cursor);
 
             let mut archive = tar::Archive::new(tar);
@@ -71,8 +72,11 @@ impl SourcemodDownloader {
             let mut zip =
                 zip::ZipArchive::new(cursor).map_err(|err| ExtractError::ZipError(err))?;
 
-            zip.extract(path)
-                .map_err(|err| ExtractError::ZipError(err))?;
+            zip.extract(
+                path.to_path_buf()
+                    .join(format!("{}/", get_arg_game_name(game))),
+            )
+            .map_err(|err| ExtractError::ZipError(err))?;
         }
 
         Ok(())
