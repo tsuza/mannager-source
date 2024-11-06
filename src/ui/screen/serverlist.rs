@@ -41,9 +41,14 @@ use crate::{
     ui::{
         components::{modal::modal, notification::notification},
         style::{self, icon},
-        APPLICATION_ID,
     },
 };
+
+#[cfg(target_os = "linux")]
+use crate::APPLICATION_ID;
+
+#[cfg(target_os = "windows")]
+use crate::APP_ICON_BYTES;
 
 use super::{
     serverboot::{self, find_available_port, DEFAULT_PORT},
@@ -376,11 +381,7 @@ impl State {
                         override_redirect: false,
                     },
                     #[cfg(target_os = "windows")]
-                    icon: window::icon::from_file_data(
-                        include_bytes!("../../../assets/app_icon.png"),
-                        Some(ImageFormat::Png),
-                    )
-                    .ok(),
+                    icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png)).ok(),
                     ..Default::default()
                 });
 
@@ -538,11 +539,8 @@ impl State {
                             override_redirect: false,
                         },
                         #[cfg(target_os = "windows")]
-                        icon: window::icon::from_file_data(
-                            include_bytes!("../../../assets/app_icon.png"),
-                            Some(ImageFormat::Png),
-                        )
-                        .ok(),
+                        icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png))
+                            .ok(),
                         ..Default::default()
                     });
 
