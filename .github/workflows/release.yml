@@ -1,5 +1,8 @@
 name: "Release"
 
+permissions:
+  contents: write
+  
 on:
   workflow_dispatch:
     inputs:
@@ -120,23 +123,19 @@ jobs:
         target:
           - artifact: windows
             os: windows
-            artifact_name: |
-              echo "ARTIFACT_NAME=mannager-installer.msi" >> "$GITHUB_ENV"
+            artifact_name: "mannager-installer.msi" 
             asset_type: application/x-dosexec
           - artifact: linux_tar
             os: linux
-            artifact_name: |
-              echo "ARTIFACT_NAME=$(ls .temp/mannager-*linux.tar.gz | head -n 1)" >> "$GITHUB_ENV"
+            artifact_name: "mannager-*linux.tar.gz"  
             asset_type: application/gzip
           - artifact: linux_appimage
             os: linux
-            artifact_name: |
-              echo "ARTIFACT_NAME=$(ls .temp/MANNager*.AppImage | head -n 1)" >> "$GITHUB_ENV"
+            artifact_name: "MANNager*.AppImage" 
             asset_type: application/octet-stream
           - artifact: linux_flatpak
             os: linux
-            artifact_name: |
-              echo "ARTIFACT_NAME=mannager.flatpak" >> "$GITHUB_ENV" # Replace with the actual Flatpak file name
+            artifact_name: "mannager*.flatpak"  
             asset_type: application/octet-stream
 
     runs-on: ubuntu-latest
@@ -152,8 +151,15 @@ jobs:
           name: ${{ matrix.target.os }}
           path: ${{ matrix.target.os }}
 
-      - name: Set artifact name
-        run: ${{ matrix.target.artifact_name }}
+      - name: Set artifact name for linux
+        if: matrix.target.os == 'linux'
+        run: |
+          echo "ARTIFACT_NAME=$(ls ./linux/${{ matrix.target.os }} | head -n 1)" >> "$GITHUB_ENV"
+
+      - name: Set artifact name for windows
+        if: matrix.target.artifact == 'windows'
+        run: |
+          echo "ARTIFACT_NAME=mannager-installer.msi" >> "$GITHUB_ENV"
 
       - name: Upload asset
         uses: actions/upload-release-asset@v1
