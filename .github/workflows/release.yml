@@ -22,7 +22,7 @@ jobs:
             os: ubuntu-latest
             make: bash scripts/package-linux.sh
             artifact_path: |
-              echo "ARTIFACT_PATH=.temp/" >> "$GITHUB_ENV"
+              echo "ARTIFACT_PATH=.temp" >> "$GITHUB_ENV"
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v3
