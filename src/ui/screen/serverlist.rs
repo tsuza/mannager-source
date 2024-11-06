@@ -19,6 +19,10 @@ use iced::{
     window, Alignment, Background, Color, ContentFit, Element, Font, Length, Shadow, Subscription,
     Task, Vector,
 };
+
+#[cfg(target_os = "windows")]
+use iced::advanced::graphics::image::image_rs::ImageFormat;
+
 use iced_aw::{
     menu::{self, Item},
     style::colors,
@@ -371,6 +375,12 @@ impl State {
                         application_id: APPLICATION_ID.to_string(),
                         override_redirect: false,
                     },
+                    #[cfg(target_os = "windows")]
+                    icon: window::icon::from_file_data(
+                        include_bytes!("../../../assets/app_icon.png"),
+                        Some(ImageFormat::Png),
+                    )
+                    .ok(),
                     ..Default::default()
                 });
 
@@ -527,6 +537,12 @@ impl State {
                             application_id: APPLICATION_ID.to_string(),
                             override_redirect: false,
                         },
+                        #[cfg(target_os = "windows")]
+                        icon: window::icon::from_file_data(
+                            include_bytes!("../../../assets/app_icon.png"),
+                            Some(ImageFormat::Png),
+                        )
+                        .ok(),
                         ..Default::default()
                     });
 
