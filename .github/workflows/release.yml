@@ -76,12 +76,12 @@ jobs:
         with:
           name: ${{ matrix.target.target }}
           path: |
-            $(ls .temp/mannager-*linux.tar.gz | head -n 1)
-            $(ls .temp/MANNager*.AppImage | head -n 1)
+            .temp/mannager-*linux.tar.gz
+            .temp/MANNager*.AppImage
             .temp/mannager.flatpak
           if-no-files-found: error
           include-hidden-files: true
-          
+
   create-release:
     needs: build
     name: Create Release
