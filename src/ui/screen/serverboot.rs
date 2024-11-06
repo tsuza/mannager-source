@@ -301,6 +301,7 @@ fn start_server(
                     .args(args.split_whitespace())
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
+                    .kill_on_drop(true)
                     .creation_flags(0x08000000)
                     .spawn()
                     .map_err(|err| Error::SpawnProcessError(err.to_string()))?
