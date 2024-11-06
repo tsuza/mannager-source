@@ -92,6 +92,8 @@ create_appimage() {
 }
 
 build_flatpak() {
+    echo "Building a flatpak"
+
     flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
     flatpak install --noninteractive --user flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08 org.freedesktop.Sdk.Extension.rust-stable//23.08
 
