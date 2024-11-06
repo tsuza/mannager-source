@@ -16,9 +16,18 @@ pub enum Message {
     ServerList(window::Id, serverlist::Message),
 }
 
+pub const APPLICATION_ID: &str = "org.tsuza.mannager";
+
 impl State {
     pub fn new() -> (Self, Task<Message>) {
-        let (id, open) = window::open(window::Settings::default());
+        let (id, open) = window::open(window::Settings {
+            #[cfg(target_os = "linux")]
+            platform_specific: window::settings::PlatformSpecific {
+                application_id: APPLICATION_ID.to_string(),
+                override_redirect: false,
+            },
+            ..Default::default()
+        });
 
         let (main_screen_state, main_screen_task) = serverlist::State::new();
 

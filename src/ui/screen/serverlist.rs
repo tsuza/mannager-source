@@ -37,6 +37,7 @@ use crate::{
     ui::{
         components::{modal::modal, notification::notification},
         style::{self, icon},
+        APPLICATION_ID,
     },
 };
 
@@ -364,7 +365,15 @@ impl State {
 
                 server.server_port = Some(port);
 
-                let (_terminal_window_id, _window_task) = window::open(window::Settings::default());
+                let (_terminal_window_id, _window_task) = window::open(window::Settings {
+                    #[cfg(target_os = "linux")]
+                    platform_specific: window::settings::PlatformSpecific {
+                        application_id: APPLICATION_ID.to_string(),
+                        override_redirect: false,
+                    },
+                    ..Default::default()
+                });
+
                 let (_terminal_state, _terminal_task) = serverboot::State::new(&server.info, port);
 
                 server.terminal_window = Some(TerminalWindow {
@@ -512,7 +521,14 @@ impl State {
 
                     window::close(window_id)
                 } else {
-                    let (window_id, window_task) = window::open(window::Settings::default());
+                    let (window_id, window_task) = window::open(window::Settings {
+                        #[cfg(target_os = "linux")]
+                        platform_specific: window::settings::PlatformSpecific {
+                            application_id: APPLICATION_ID.to_string(),
+                            override_redirect: false,
+                        },
+                        ..Default::default()
+                    });
 
                     terminal_window.window_id = Some(window_id);
 
