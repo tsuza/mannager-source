@@ -166,7 +166,7 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.ARTIFACT_NAME }}
+          asset_path: ./${{ matrix.target.os }}/${{ env.ARTIFACT_NAME }}
           asset_name: ${{ env.ARTIFACT_NAME }}
           asset_content_type: ${{ matrix.target.asset_type }}
 
@@ -175,6 +175,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.ARTIFACT_NAME }}
-          asset_name: ./${{ matrix.target.os }}/${{ env.ARTIFACT_NAME }}
+          asset_path: ./${{ matrix.target.os }}/${{ env.ARTIFACT_NAME }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
           asset_content_type: ${{ matrix.target.asset_type }}
