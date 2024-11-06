@@ -129,23 +129,27 @@ impl State {
                 )
             }
             Message::DownloadProgress(progress) => {
-                if let Ok(progress) = progress {
-                    match progress {
-                        Progress::Downloading(string) => {
-                            if let Some(percent) = string.split("%").next() {
-                                if let Ok(percent) = percent.trim().parse::<f32>() {
-                                    self.form_info.progress_percent = percent;
-                                }
+                let Ok(progress) = progress else {
+                    return Task::none();
+                };
+
+                match progress {
+                    Progress::Downloading(string) => {
+                        if let Some(percent) = string.split("%").next() {
+                            if let Ok(percent) = percent.trim().parse::<f32>() {
+                                self.form_info.progress_percent = percent;
                             }
                         }
-                        Progress::Finished => {
-                            self.form_info.is_downloading = false;
-                            self.form_page = FormPage::ServerInfo;
-                        }
+
+                        Task::none()
+                    }
+                    Progress::Finished => {
+                        self.form_info.is_downloading = false;
+                        self.form_page = FormPage::ServerInfo;
+
+                        Task::none()
                     }
                 }
-
-                Task::none()
             }
             Message::GameChosen(source_app_id) => {
                 self.form_info.source_game = source_app_id;
@@ -615,6 +619,22 @@ pub fn download_server(
     let appid = appid.clone();
 
     try_channel(1, move |mut output| async move {
+        #[cfg(target_os = "windows")]
+        {
+            // It was quicker to implement it here. I should move this in its own thingy down the line.
+
+            const SRCDS_FIX_LINK: &str = "https://github.com/tsuza/srcds-pipe-passthrough-fix/releases/latest/download/srcds-fix-x86.exe";
+
+            let srcds_fix_contents = reqwest::get(SRCDS_FIX_LINK)
+                .await
+                .unwrap()
+                .bytes()
+                .await
+                .unwrap();
+
+            let _ = std::fs::write(format!("{}/srcds-fix.exe", testun), srcds_fix_contents);
+        }
+
         let mut depot = DepotDownloader::new("./depotdownloader").await?;
 
         let stdout = depot.download_app(&testun, appid.into()).await?;
