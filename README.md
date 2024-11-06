@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>MANNager ( STILL IN DEVELOPMENT )</h1>
+  <h1>MANNager</h1>
   <img style="width: 256px" 
     src="https://github.com/user-attachments/assets/561f1a01-9f2a-4bf3-bc10-18ebd21db2da"
     />
