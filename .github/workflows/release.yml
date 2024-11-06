@@ -154,7 +154,7 @@ jobs:
       - name: Set artifact name for linux
         if: matrix.target.os == 'linux'
         run: |
-          echo "ARTIFACT_NAME=$(ls ./linux/${{ matrix.target.os }} | head -n 1)" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=$(ls ./linux/${{ matrix.target.artifact_name }} | head -n 1)" >> "$GITHUB_ENV"
 
       - name: Set artifact name for windows
         if: matrix.target.artifact == 'windows'
