@@ -29,9 +29,11 @@ let _ = portforwarder_rs::query_interfaces::get_network_interfaces()
     });
 */
 
-use std::net::Ipv4Addr;
+use std::{io, net::Ipv4Addr};
 
+use igd::{AddPortError, RemovePortError, SearchError};
 use portforwarder_rs::port_forwarder::{Forwarder, PortMappingProtocol};
+use snafu::{ResultExt, Snafu};
 
 pub struct PortForwarder {
     forwarder: Forwarder,
@@ -55,20 +57,22 @@ impl PortForwarder {
         let mut forwarder = match ip {
             PortForwarderIP::Any => {
                 let interfaces = portforwarder_rs::query_interfaces::get_network_interfaces()
-                    .map_err(|_| Error::NoInterfacesError)?;
+                    .context(NoInterfacesSnafu)?;
 
                 portforwarder_rs::port_forwarder::create_forwarder_from_any(
                     interfaces.into_iter().map(|interface| interface.addr),
                 )
-                .map_err(|_| Error::NoGatewayFoundError)?
+                .map_err(|errs| errs.into_iter().next().unwrap())
+                .context(NoGatewayFoundSnafu)?
             }
             PortForwarderIP::Ip(_ip) => portforwarder_rs::port_forwarder::create_forwarder(_ip)
-                .map_err(|_| Error::NoGatewayFoundError)?,
+                .context(NoGatewayFoundSnafu)?,
         };
 
         forwarder
             .forward_port(local_port, remote_port, proto, name)
-            .map_err(|_| Error::PortForwardingFailed)?;
+            .context(AddPortSnafu)
+            .context(PortForwardingFailedSnafu)?;
 
         Ok(Self {
             forwarder,
@@ -80,16 +84,28 @@ impl PortForwarder {
     pub fn close(&mut self) -> Result<(), Error> {
         self.forwarder
             .remove_port(self.remote_port, self.proto)
-            .map_err(|_| Error::PortForwardingFailed)
+            .context(RemovePortSnafu)
+            .context(PortForwardingFailedSnafu)
     }
 }
-
-#[derive(thiserror::Error, Debug)]
+// TODO improve display errors
+#[derive(Snafu, Debug)]
 pub enum Error {
-    #[error("")]
-    NoInterfacesError,
-    #[error("")]
-    NoGatewayFoundError,
-    #[error("")]
-    PortForwardingFailed,
+    #[snafu(display(""))]
+    NoInterfacesError { source: io::Error },
+    #[snafu(display(""))]
+    NoGatewayFoundError { source: SearchError },
+    #[snafu(display(""))]
+    PortForwardingFailed { source: PortForwardingError },
+}
+
+#[derive(Snafu, Debug)]
+pub enum PortForwardingError {
+    #[snafu(display(""))]
+    AddPortError {
+        source: AddPortError,
+    },
+    RemovePortError {
+        source: RemovePortError,
+    },
 }

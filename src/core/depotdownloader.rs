@@ -1,4 +1,5 @@
 use reqwest::{self};
+use snafu::ResultExt;
 use std::{
     fs,
     io::Cursor,
@@ -7,7 +8,10 @@ use std::{
 };
 use tokio::process::{Child, ChildStdout, Command};
 
-use super::{Error, ExtractError};
+use super::{
+    ArchiveExtractionSnafu, DirectoryCreationSnafu, DownloadRequestSnafu, Error, SpawnProcessSnafu,
+    ZipSnafu,
+};
 
 pub struct DepotDownloader {
     pub depotdownloader_path: PathBuf,
@@ -48,7 +52,7 @@ impl DepotDownloader {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|err| Error::SpawnProcessError(err.to_string()))?;
+            .context(SpawnProcessSnafu)?;
 
         let stdout = process.stdout.take();
 
@@ -59,16 +63,24 @@ impl DepotDownloader {
 }
 
 async fn download_file(path: &PathBuf) -> Result<(), Error> {
-    fs::create_dir_all(path).map_err(|err| Error::DirectoryCreationError(err.to_string()))?;
+    fs::create_dir_all(path).context(DirectoryCreationSnafu)?;
 
-    let steamcmd_contents = reqwest::get(DEPOTDOWNLOADER_URL).await?.bytes().await?;
+    let steamcmd_contents = reqwest::get(DEPOTDOWNLOADER_URL)
+        .await
+        .context(DownloadRequestSnafu)?
+        .bytes()
+        .await
+        .context(DownloadRequestSnafu)?;
 
     let cursor = Cursor::new(steamcmd_contents);
 
-    let mut zip = zip::ZipArchive::new(cursor).map_err(|err| ExtractError::ZipError(err))?;
+    let mut zip = zip::ZipArchive::new(cursor)
+        .context(ZipSnafu)
+        .context(ArchiveExtractionSnafu)?;
 
     zip.extract(path)
-        .map_err(|err| ExtractError::ZipError(err))?;
+        .context(ZipSnafu)
+        .context(ArchiveExtractionSnafu)?;
 
     Ok(())
 }

@@ -1,9 +1,8 @@
 use iced::{
-    border, color, gradient, padding,
+    Background, Color, Shadow, Theme, Vector, border, color, gradient, padding,
     widget::{self, button, container, scrollable, text_input},
-    Background, Color, Shadow, Theme, Vector,
 };
-use iced_aw::{menu, style::colors};
+use iced_aw::menu;
 
 pub struct Style;
 
@@ -33,10 +32,12 @@ impl Style {
                 border: border::rounded(7).width(2).color(color!(0x645e51)),
                 ..widget::text_input::default(_theme, _status)
             },
-            text_input::Status::Focused => text_input::Style {
+            text_input::Status::Focused { .. } => text_input::Style {
                 background: iced::Background::Color(color!(0xFBECCB)),
                 value: color!(0x524a42),
-                border: border::rounded(0).width(2).color(colors::SKY_BLUE),
+                border: border::rounded(0)
+                    .width(2)
+                    .color(Color::from_rgb(0.529, 0.808, 0.922)),
                 ..widget::text_input::default(_theme, _status)
             },
         }

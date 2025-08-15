@@ -1,6 +1,6 @@
 use iced::{
-    widget::{center, container, mouse_area, opaque, stack},
     Color, Element,
+    widget::{center, container, mouse_area, opaque, stack},
 };
 
 pub fn modal<'a, Message>(

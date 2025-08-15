@@ -1,8 +1,13 @@
 use std::{fs, io::Cursor, path::Path};
 
 use scraper::{Html, Selector};
+use snafu::ResultExt;
 
-use super::{get_arg_game_name, Error, ExtractError, SourceAppIDs, SourceEngineVersion};
+use crate::core::{ArchiveExtractionSnafu, TarSnafu, ZipSnafu};
+
+use super::{
+    DirectoryCreationSnafu, Error, ExtractError, Game, SourceEngineVersion, get_arg_game_name,
+};
 
 pub struct SourcemodDownloader;
 
@@ -23,7 +28,7 @@ const TARGET_OS: &str = "linux";
 impl SourcemodDownloader {
     pub async fn download(
         path: impl AsRef<Path>,
-        game: &SourceAppIDs,
+        game: &Game,
         branch: &SourcemodBranch,
         source_version: &SourceEngineVersion,
     ) -> Result<(), Error> {
@@ -31,23 +36,29 @@ impl SourcemodDownloader {
 
         let path = path.as_ref();
 
-        fs::create_dir_all(path)?;
+        fs::create_dir_all(path).context(DirectoryCreationSnafu)?;
 
         let latest_sourcemod_archive_name_url =
             format!("{SOURCEMOD_VERSIONS_URL}/{version}/sourcemod-latest-{TARGET_OS}",);
 
         let sourcemod_version_name = reqwest::get(latest_sourcemod_archive_name_url)
-            .await?
+            .await
+            .map_err(|_| Error::UnableToFindLatestVersionError)?
             .text()
-            .await?;
+            .await
+            .map_err(|_| Error::UnableToFindLatestVersionError)?;
 
         let sourcemod_download_url = format!(
             "{}/{version}/{sourcemod_version_name}",
             SOURCEMOD_VERSIONS_URL
         );
 
-        let sourcemod_archive_contents =
-            reqwest::get(sourcemod_download_url).await?.bytes().await?;
+        let sourcemod_archive_contents = reqwest::get(sourcemod_download_url)
+            .await
+            .map_err(|_| Error::UnableToFindLatestVersionError)?
+            .bytes()
+            .await
+            .map_err(|_| Error::UnableToFindLatestVersionError)?;
 
         let cursor = Cursor::new(sourcemod_archive_contents);
 
@@ -64,19 +75,20 @@ impl SourcemodDownloader {
                     path.to_path_buf()
                         .join(format!("{}/", get_arg_game_name(game))),
                 ) // get_arg_game_name
-                .map_err(|err| ExtractError::TarError(err))?;
+                .context(TarSnafu)
+                .context(ArchiveExtractionSnafu)?;
         }
 
         #[cfg(target_os = "windows")]
         {
-            let mut zip =
-                zip::ZipArchive::new(cursor).map_err(|err| ExtractError::ZipError(err))?;
+            let mut zip = zip::ZipArchive::new(cursor).context(ZipSnafu)?;
 
             zip.extract(
                 path.to_path_buf()
                     .join(format!("{}/", get_arg_game_name(game))),
             )
-            .map_err(|err| ExtractError::ZipError(err))?;
+            .context(ZipSnafu)
+            .context(ArchiveExtractionSnafu)?;
         }
 
         Ok(())
@@ -88,7 +100,12 @@ async fn get_latest_sourcemod_version(
     branch: &SourcemodBranch,
     source_version: &SourceEngineVersion,
 ) -> Result<String, Error> {
-    let page_contents = reqwest::get(SOURCEMOD_VERSIONS_URL).await?.text().await?;
+    let page_contents = reqwest::get(SOURCEMOD_VERSIONS_URL)
+        .await
+        .map_err(|_| Error::UnableToFindLatestVersionError)?
+        .text()
+        .await
+        .map_err(|_| Error::UnableToFindLatestVersionError)?;
 
     let html = Html::parse_fragment(&page_contents);
 
