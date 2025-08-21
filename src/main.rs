@@ -15,6 +15,7 @@ const TF2_SECONDARY_FONT_BYTES: &[u8] = include_bytes!("../fonts/TF2secondary.tt
 fn main() -> iced::Result {
     iced::application(State::new, State::update, State::view)
         .title(State::title)
+        .subscription(State::subscription)
         .centered()
         .window_size(Size::new(900.0, 900.0))
         .font(icon::FONT_BYTES)

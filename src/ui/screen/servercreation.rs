@@ -3,12 +3,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::ui::style::icon::close;
+use crate::ui::themes::tf2;
 use crate::ui::{
-    CS2_IMAGE, CSS_IMAGE, HL2MP_IMAGE, L4D1_IMAGE, L4D2_IMAGE, NMRIH_IMAGE, TF2_IMAGE,
+    CS2_IMAGE, CSS_IMAGE, Element, HL2MP_IMAGE, L4D1_IMAGE, L4D2_IMAGE, NMRIH_IMAGE, TF2_IMAGE,
 };
 use iced::widget::{float, horizontal_space, tooltip};
 use iced::{
-    Alignment, ContentFit, Element, Length, Task, padding,
+    Alignment, ContentFit, Length, Task, padding,
     task::{Straw, sipper},
     widget::{
         button, center, column, container, horizontal_rule, progress_bar, row, svg, text,
@@ -117,7 +118,7 @@ impl State {
                 )
             }
             Message::Downloading(progress) => match progress {
-                Update::Downloading(Progress { percent }) => {
+                Update::Downloading(percent) => {
                     self.progress = percent;
 
                     Action::None
@@ -183,11 +184,11 @@ impl State {
                 Action::ServerCreated(server)
             }
             Message::PortUpdate(port) => {
-                if port.is_empty() {
-                    self.server.port = None;
-                } else if let Ok(port) = port.parse::<u16>() {
-                    self.server.port = Some(port);
-                }
+                self.server.port = if port.is_empty() {
+                    None
+                } else {
+                    port.parse::<u16>().ok()
+                };
 
                 Action::None
             }
@@ -208,7 +209,7 @@ fn choose_game_container<'a>(server: &ServerInfo) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    let game_entry = |game: Game, button_event: Message| {
+    let game_entry = |game: Game, button_event: Message| -> Element<'a, Message> {
         let (game_name, game_image) = match game {
             Game::TeamFortress2 => ("Team Fortress 2", TF2_IMAGE.clone()),
             Game::CounterStrikeSource => ("Counter Strike: Source", CSS_IMAGE.clone()),
@@ -225,10 +226,7 @@ where
                     button(svg(game_image).content_fit(ContentFit::Contain))
                         .on_press(button_event)
                         .padding(0)
-                        .style(|_theme, _status| button::Style {
-                            background: None,
-                            ..button::Style::default()
-                        }),
+                        .style(|_theme, _status| tf2::button::text(_theme, _status)),
                 )
                 .scale(1.2),
             )
@@ -242,16 +240,13 @@ where
                     )
                     .on_press(button_event)
                     .padding(0)
-                    .style(|_theme, _status| button::Style {
-                        background: None,
-                        ..button::Style::default()
-                    }),
+                    .style(|_theme, _status| tf2::button::text(_theme, _status)),
                     container(game_name).padding(10),
                     tooltip::Position::Bottom,
                 )
                 .gap(10)
                 .padding(10)
-                .style(|_theme| style::tf2::Style::tooltip_container(_theme)),
+                .style(|theme| tf2::container::tooltip(theme)),
             )
         }
     };
@@ -263,8 +258,7 @@ where
                     horizontal_space(),
                     text!("Server creation")
                         .font(Font::with_name("TF2 Build"))
-                        .size(32)
-                        .color(Color::WHITE),
+                        .size(32),
                     horizontal_space(),
                     button(
                         close()
@@ -276,13 +270,10 @@ where
                     .on_press(Message::CloseServerCreation)
                     .width(32)
                     .height(32)
-                    .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
                 ]
                 .align_y(Alignment::Center),
                 container(horizontal_rule(3)).width(200),
-                text!("Select the game server")
-                    .size(25)
-                    .color(Color::from_rgb8(220, 220, 220)),
+                text!("Select the game server").size(25)
             ]
             .width(Length::Fill)
             .align_x(Alignment::Center)
@@ -290,40 +281,30 @@ where
             container(
                 column![
                     column![
-                        text!("Server Name").color(Color::WHITE),
+                        text!("Server Name"),
                         text_input("server name", &server.name)
                             .on_input(Message::ServerNameInput)
                             .width(300)
-                            .style(|_theme, _status| style::tf2::Style::text_input(
-                                _theme, _status
-                            ))
                     ],
                     column![
-                        text!("Server Path").color(Color::WHITE),
+                        text!("Server Path"),
                         row![
-                            button("Click to pick a directory")
-                                .on_press(Message::ChooseServerPath)
-                                .style(|_theme, _status| style::tf2::Style::form_button(
-                                    _theme, _status
-                                )),
+                            button("Click to pick a directory").on_press(Message::ChooseServerPath),
                             {
                                 let path = server.path.display().to_string();
 
-                                if !path.is_empty() {
-                                    container(text(path)).padding(6).style(|_theme| {
-                                        container::background(Color::BLACK.scale_alpha(0.3))
-                                            .border(border::rounded(5))
-                                    })
-                                } else {
-                                    container("")
-                                }
+                                (!path.is_empty()).then_some(
+                                    container(text(path)).padding(6).style(|theme| {
+                                        tf2::container::surface_container_low(theme)
+                                    }),
+                                )
                             }
                         ]
                         .align_y(Alignment::Center)
                         .spacing(10)
                     ],
                     container(column![
-                        text!("Server Game").color(Color::WHITE),
+                        text!("Server Game"),
                         row![
                             game_entry(
                                 Game::TeamFortress2,
@@ -344,11 +325,7 @@ where
                         .spacing(20)
                         .align_y(Alignment::Center),
                         container(
-                            button(text!("Create").size(20))
-                                .on_press(Message::DownloadServer)
-                                .style(|_theme, _status| style::tf2::Style::button(
-                                    _theme, _status
-                                ))
+                            button(text!("Create").size(20)).on_press(Message::DownloadServer)
                         )
                         .width(Length::Fill)
                         .align_x(Alignment::Center)
@@ -362,16 +339,13 @@ where
         .width(1000)
         .padding(padding::all(10))
         .height(Length::Fill)
-        .style(|_theme| {
-            style::tf2::Style::primary_container(_theme)
-                .border(border::rounded(3).width(8).color(color!(0x363230)))
-        }),
+        .style(|_theme| tf2::container::main(_theme)),
     )
     .align_x(Alignment::Center)
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(|_theme| container::background(color!(0x1c1a19)))
+    .style(|theme| tf2::container::surface(theme))
     .into()
 }
 
@@ -384,7 +358,6 @@ where
             text!("Downloading the server...")
                 .font(Font::with_name("TF2 Build"))
                 .size(32)
-                .color(Color::WHITE)
                 .width(Length::Fill)
                 .align_x(Alignment::Center),
             horizontal_rule(0),
@@ -395,16 +368,13 @@ where
         .width(1000)
         .padding(padding::all(50).top(10))
         .height(Length::Fill)
-        .style(|_theme| {
-            style::tf2::Style::primary_container(_theme)
-                .border(border::rounded(3).width(8).color(color!(0x363230)))
-        }),
+        .style(|_theme| tf2::container::main(_theme)),
     )
     .align_x(Alignment::Center)
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(|_theme| container::background(color!(0x1c1a19)))
+    .style(|theme| tf2::container::surface(theme))
     .into()
 }
 
@@ -412,50 +382,37 @@ fn server_creation_info<'a>(server: &ServerInfo) -> Element<'a, Message>
 where
     Message: Clone + 'a,
 {
-    container(container(
-        column![
+    container(
+        container(column![
             text!("Server creation")
                 .font(Font::with_name("TF2 Build"))
                 .size(32)
-                .color(Color::WHITE)
                 .width(Length::Fill)
                 .align_x(Alignment::Center),
             horizontal_rule(0),
             column![
                 column![
-                    text!("Server Description")
-                        .color(Color::WHITE)
-                        .width(Length::FillPortion(1)),
-                    text_input("Server Description", &server.description.as_deref().unwrap_or_default())
-                        .on_input(Message::MessageDescriptionUpdate)
-                        .width(Length::FillPortion(2))
-                        .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
+                    text!("Server Description").width(Length::FillPortion(1)),
+                    text_input(
+                        "Server Description",
+                        &server.description.as_deref().unwrap_or_default()
+                    )
+                    .on_input(Message::MessageDescriptionUpdate)
                 ]
                 .align_x(Alignment::Center),
                 column![
-                    text!("Map")
-                        .color(Color::WHITE),
-                        row![
-                            container(
-                                button("Select Map").on_press(Message::SelectMap).style(
-                                    |_theme, _status| style::tf2::Style::form_button(_theme, _status)
-                                )
-                            ),
-                            if !server.map.is_empty() {
-                                container(text(server.map.clone())).padding(6).style(|_theme| {
-                                    container::background(Color::BLACK.scale_alpha(0.3))
-                                        .border(border::rounded(5))
-                                })
-                            } else {
-                                container("")
-                            }
-                        ]
-                        .spacing(10)
-                        .align_y(Alignment::Center)
+                    text!("Map"),
+                    row![
+                        container(button("Select Map").on_press(Message::SelectMap)),
+                        (!server.map.is_empty()).then_some(
+                            container(text(server.map.clone())).padding(6).style(|theme| tf2::container::surface_container_low(theme))
+                        )
+                    ]
+                    .spacing(10)
+                    .align_y(Alignment::Center)
                 ],
                 column![
-                    text!("Max Players")
-                        .color(Color::WHITE),
+                    text!("Max Players"),
                     container(number_input(
                         &server.max_players,
                         0..=100,
@@ -464,31 +421,28 @@ where
                 ],
                 row![
                     column![
-                        text!("Server Password")
-                            .color(Color::WHITE),
+                        text!("Server Password"),
                         text_input("Server Password", &server.password.as_deref().unwrap_or_default())
                             .on_input(Message::PasswordUpdate)
                             .secure(true)
                             .width(250)
-                            .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
                     ],
                     column![
                         row![
-                            text!("Port").color(Color::WHITE),
+                            text!("Port"),
                             tooltip(
-                                icon::warning().color(color!(0xeee5cf)),
+                                icon::warning(),
                                 text!("If it's left empty, the app will automatically find an available port.").width(350),
                                 tooltip::Position::Top
                             )
                             .gap(10)
                             .padding(20)
-                            .style(|_theme| style::tf2::Style::tooltip_container(_theme))
+                            .style(|_theme| tf2::container::tooltip(_theme))
                         ]
                         .spacing(10),
                         text_input("Port", &server.port.map(|port| port.to_string()).unwrap_or_default())
                             .on_input(Message::PortUpdate)
                             .width(70)
-                            .style(|_theme, _status| style::tf2::Style::text_input(_theme, _status))
                     ]
                 ]
                 .align_y(Alignment::Center)
@@ -496,7 +450,6 @@ where
                 container(
                     button(text!("Finish").size(20))
                         .on_press(Message::FinishServerCreation)
-                        .style(|_theme, _status| style::tf2::Style::button(_theme, _status))
                 )
                 .width(Length::Fill)
                 .align_x(Alignment::Center)
@@ -507,20 +460,17 @@ where
         .width(1000)
         .padding(padding::all(10))
         .height(Length::Fill)
-                    .style(|_theme| {
-            style::tf2::Style::primary_container(_theme)
-                .border(border::rounded(3).width(8).color(color!(0x363230)))
-        })
+        .style(|_theme| tf2::container::main(_theme))
     )
     .align_x(Alignment::Center)
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(|_theme| container::background(color!(0x1c1a19)))
+    .style(|theme| tf2::container::surface(theme))
     .into()
 }
 
-pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), Progress, Error> {
+pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), f32, Error> {
     let testun = path
         .to_str()
         .and_then(|string| Some(string.to_string()))
@@ -560,7 +510,7 @@ pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), Progress, E
             while let Some(line) = reader.next_line().await.context(IoSnafu)? {
                 if let Some(percent) = line.split("%").next() {
                     if let Ok(percent) = percent.trim().parse::<f32>() {
-                        let _ = progress.send(Progress { percent }).await;
+                        let _ = progress.send(percent).await;
                     }
                 }
             }
@@ -572,13 +522,8 @@ pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), Progress, E
 
 #[derive(Debug, Clone)]
 pub enum Update {
-    Downloading(Progress),
+    Downloading(f32),
     Finished(Result<(), Error>),
-}
-
-#[derive(Debug, Clone)]
-pub struct Progress {
-    pub percent: f32,
 }
 
 impl Default for State {

@@ -1,5 +1,5 @@
 use iced::widget::button::{Catalog, Status, Style, StyleFn};
-use iced::{Background, Border, Color, border};
+use iced::{Background, Border, Color, border, color};
 
 use super::super::Theme;
 use super::super::{
@@ -94,7 +94,32 @@ pub fn secondary(theme: &Theme, status: Status) -> Style {
     let disabled = theme.colors().surface.on_surface;
     let shadow_color = theme.colors().shadow;
 
-    styled(background, foreground, disabled, shadow_color, 0, status)
+    let active = Style {
+        background: Some(Background::Color(background)),
+        text_color: foreground,
+        border: border::rounded(3),
+        shadow: shadow_from_elevation(elevation(0), shadow_color),
+        ..Default::default()
+    };
+
+    match status {
+        Status::Active => active,
+        Status::Pressed => Style {
+            background: Some(Background::Color(color!(0x994f3f))),
+            ..active
+        },
+        Status::Hovered => Style {
+            background: Some(Background::Color(color!(0x994f3f))),
+            shadow: shadow_from_elevation(elevation(1), shadow_color),
+            ..active
+        },
+        Status::Disabled => Style {
+            background: Some(Background::Color(disabled_container(disabled))),
+            text_color: disabled_text(disabled),
+            border: border::rounded(3),
+            ..Default::default()
+        },
+    }
 }
 
 pub fn tertiary(theme: &Theme, status: Status) -> Style {
@@ -141,7 +166,7 @@ pub fn outlined(theme: &Theme, status: Status) -> Style {
 }
 
 pub fn text(theme: &Theme, status: Status) -> Style {
-    let foreground = theme.colors().primary.color;
+    let foreground = theme.colors().surface.on_surface;
     let background = Color::TRANSPARENT;
     let disabled = theme.colors().surface.on_surface;
 

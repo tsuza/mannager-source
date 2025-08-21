@@ -20,7 +20,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let primary = theme.colors().primary;
 
     let active = Style {
-        background: Background::Color(surface.surface_container.highest),
+        background: Background::Color(surface.surface_container.low),
         border: Border {
             color: theme.colors().outline.color,
             width: 1.0,
@@ -52,10 +52,9 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         Status::Focused { .. } => Style {
             border: Border {
                 color: primary.color,
-                width: 2.0,
+                width: 3.0,
                 ..active.border
             },
-            placeholder: primary.color,
             ..active
         },
     }

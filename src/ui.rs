@@ -1,6 +1,6 @@
 use std::{net::Ipv4Addr, sync::LazyLock};
 
-use iced::{Task, advanced::svg, futures::channel::mpsc};
+use iced::{Color, Subscription, Task, advanced::svg, clipboard, keyboard};
 use screen::{
     Screen,
     serverboot::{
@@ -15,10 +15,9 @@ use screen::{
 use iced::advanced::graphics::image::image_rs::ImageFormat;
 
 #[cfg(target_os = "linux")]
-use crate::APPLICATION_ID;
 use crate::{
     core::{Game, get_arg_game_name},
-    ui::themes::Theme,
+    ui::{components::selectable_text, screen::servercreation::download_server, themes::Theme},
 };
 
 #[cfg(target_os = "windows")]
@@ -65,10 +64,19 @@ pub enum Message {
     ServerList(serverlist::Message),
     ServerCreation(servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
+    UpdateServer(usize, Update),
     ServerCommunication(
         usize,
         Result<ServerCommunicationTwoWay, screen::serverboot::Error>,
     ),
+    Copy,
+    SelectedText(Vec<(f32, String)>),
+}
+
+#[derive(Debug, Clone)]
+pub enum Update {
+    Downloading(f32),
+    Finished(Result<(), servercreation::Error>),
 }
 
 impl State {
@@ -84,7 +92,7 @@ impl State {
                         let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
 
                         if config_path.try_exists().unwrap_or(false) {
-                            return Servers::load(&config_path).await;
+                            return Servers::fetch(&config_path).await;
                         }
                     }
 
@@ -95,7 +103,7 @@ impl State {
                     let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
 
                     match config_path.try_exists() {
-                        Ok(true) => Servers::load(&config_path).await,
+                        Ok(true) => Servers::fetch(&config_path).await,
                         Ok(false) | Err(_) => Err(serverlist::Error::NoServerListFile),
                     }
                 },
@@ -116,6 +124,17 @@ impl State {
                 }
             }
         }
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        fn handle_hotkey(key: keyboard::Key, _modifiers: keyboard::Modifiers) -> Option<Message> {
+            match key.as_ref() {
+                keyboard::Key::Character("c") if _modifiers.command() => Some(Message::Copy),
+                _ => None,
+            }
+        }
+
+        keyboard::on_key_press(handle_hotkey)
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -140,11 +159,7 @@ impl State {
                         Task::none()
                     }
                     servercreation::Action::ServerCreated(server) => {
-                        self.servers.push(Server {
-                            info: server,
-                            console: None,
-                            is_downloading_sourcemod: false,
-                        });
+                        self.servers.push(Server::with_info(server));
 
                         self.screen = Screen::ServerList;
 
@@ -158,13 +173,78 @@ impl State {
 
                 match action {
                     serverlist::Action::None => Task::none(),
+                    serverlist::Action::SaveServers => {
+                        println!("Saving...");
+                        if let Ok(executable_directory) = std::env::current_dir() {
+                            let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
+
+                            let servers = self.servers.clone();
+
+                            if config_path.try_exists().unwrap_or(false) {
+                                return Task::future(async move {
+                                    servers.save(&config_path).await.unwrap()
+                                })
+                                .discard();
+                            }
+                        }
+
+                        let project_path =
+                            directories::ProjectDirs::from("", "MANNager", "mannager-source")
+                                .ok_or(screen::serverlist::Error::NoServerListFile)
+                                .unwrap();
+
+                        let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
+
+                        let servers = self.servers.clone();
+
+                        Task::future(async move { servers.save(&config_path).await.unwrap() })
+                            .discard()
+                    }
                     serverlist::Action::CreateServer => {
                         self.screen = Screen::ServerCreation(servercreation::State::new());
 
                         Task::none()
                     }
-                    serverlist::Action::UpdateServer(_) => todo!(),
-                    serverlist::Action::EditServer(_) => todo!(),
+                    serverlist::Action::UpdateServer(id) => {
+                        let Some(Server {
+                            info,
+                            updating_percent,
+                            ..
+                        }) = self.servers.get_mut(id)
+                        else {
+                            return Task::none();
+                        };
+
+                        *updating_percent = Some(0.0);
+
+                        let server_path = info.path.clone();
+                        let source_game = info.game.clone();
+
+                        Task::sip(
+                            download_server(server_path, source_game),
+                            Update::Downloading,
+                            Update::Finished,
+                        )
+                        .map(move |msg| Message::UpdateServer(id, msg))
+                    }
+                    serverlist::Action::EditServer(id) => {
+                        let Some(server) = self.servers.get_mut(id) else {
+                            return Task::none();
+                        };
+
+                        server.is_editing = true;
+
+                        Task::none()
+                    }
+                    serverlist::Action::StopEditServer(id) => {
+                        let Some(server) = self.servers.get_mut(id) else {
+                            return Task::none();
+                        };
+
+                        server.is_editing = false;
+
+                        Task::none()
+                    }
                     serverlist::Action::RunServer(id) => {
                         let Some(Server { info, console, .. }) = self.servers.get_mut(id) else {
                             return Task::none();
@@ -254,9 +334,23 @@ impl State {
                     }
                 }
             }
-            Message::ServerCommunication(id, msg) => {
-                println!("TALKING TO ME!!!");
+            Message::UpdateServer(id, update) => {
+                let Some(Server {
+                    updating_percent: percent,
+                    ..
+                }) = self.servers.get_mut(id)
+                else {
+                    return Task::none();
+                };
 
+                *percent = match update {
+                    Update::Downloading(_percent) => Some(_percent),
+                    Update::Finished(_) => None,
+                };
+
+                Task::none()
+            }
+            Message::ServerCommunication(id, msg) => {
                 let Ok(communication) = msg else {
                     return Task::none();
                 };
@@ -280,6 +374,30 @@ impl State {
 
                 Task::none()
             }
+            Message::Copy => selectable_text::selected(Message::SelectedText),
+            Message::SelectedText(contents) => {
+                let mut last_y = None;
+                let contents = contents
+                    .into_iter()
+                    .fold(String::new(), |acc, (y, content)| {
+                        if let Some(_y) = last_y {
+                            let new_line = if y == _y { "" } else { "\n" };
+                            last_y = Some(y);
+
+                            format!("{acc}{new_line}{content}")
+                        } else {
+                            last_y = Some(y);
+
+                            content
+                        }
+                    });
+
+                if contents.is_empty() {
+                    return Task::none();
+                }
+
+                clipboard::write(contents)
+            }
         }
     }
 
@@ -291,9 +409,9 @@ impl State {
             Screen::ServerTerminal(index) => {
                 let index = index.clone();
 
-                let Server { console, .. } = &self.servers[index];
+                let Server { info, console, .. } = &self.servers[index];
 
-                ServerTerminal::view(console.as_ref().unwrap())
+                ServerTerminal::view(&info.name, console.as_ref().unwrap())
                     .map(move |msg| Message::ServerTerminal(index, msg))
             }
         }

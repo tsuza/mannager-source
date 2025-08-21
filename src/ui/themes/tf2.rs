@@ -7,15 +7,24 @@ use super::{
 
 pub mod button;
 pub mod container;
+pub mod dragking;
+pub mod float;
+pub mod menu;
+pub mod number_input;
+pub mod progress_bar;
+pub mod rule;
 pub mod scrollable;
+pub mod selectable_text;
+pub mod svg;
+pub mod text;
 pub mod text_input;
 
 pub const fn color_scheme() -> ColorScheme {
     ColorScheme {
         primary: Primary {
-            color: color!(0xc49a6c),
+            color: color!(0x994f3f),
             on_primary: color!(0x1c1a19),
-            primary_container: color!(0x9c7a55),
+            primary_container: color!(0x994f3f),
             on_primary_container: color!(0xFFFFFF),
         },
         secondary: Secondary {
@@ -39,7 +48,7 @@ pub const fn color_scheme() -> ColorScheme {
         surface: Surface {
             color: color!(0x1c1a19),
             on_surface: color!(0xeae9e9),
-            on_surface_variant: color!(0xFFFFFF),
+            on_surface_variant: color!(0x9E9E9E),
             surface_container: SurfaceContainer {
                 lowest: color!(0x2A2725),
                 low: color!(0x3f3d3b),

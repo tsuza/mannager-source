@@ -1,5 +1,9 @@
 use iced::Font;
-use iced::widget::{Text, text};
+use iced::widget::text;
+
+use crate::ui::themes::Theme;
+
+type Text<'a> = iced::widget::Text<'a, Theme>;
 
 pub const FONT_BYTES: &[u8] = include_bytes!("../../../fonts/mannagericons.ttf");
 
@@ -85,6 +89,18 @@ pub fn close<'a>() -> Text<'a> {
 
 pub fn people<'a>() -> Text<'a> {
     with_codepoint('\u{E814}')
+}
+
+pub fn port<'a>() -> Text<'a> {
+    with_codepoint('\u{E815}')
+}
+
+pub fn book<'a>() -> Text<'a> {
+    with_codepoint('\u{E816}')
+}
+
+pub fn check<'a>() -> Text<'a> {
+    with_codepoint('\u{E817}')
 }
 
 fn with_codepoint<'a>(codepoint: char) -> Text<'a> {

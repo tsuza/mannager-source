@@ -1,5 +1,5 @@
 use iced::widget::container::{Catalog, Style, StyleFn};
-use iced::{Background, Border, border};
+use iced::{Background, Border, Color, Shadow, Vector, border, color, gradient};
 
 use super::super::Theme;
 
@@ -15,11 +15,12 @@ impl Catalog for Theme {
     }
 }
 
+pub fn default(_theme: &Theme) -> Style {
+    transparent(_theme)
+}
+
 pub fn transparent(_theme: &Theme) -> Style {
-    Style {
-        border: border::rounded(3),
-        ..Style::default()
-    }
+    Style::default()
 }
 
 pub fn primary(theme: &Theme) -> Style {
@@ -176,6 +177,30 @@ pub fn surface_container_highest(theme: &Theme) -> Style {
     }
 }
 
+pub fn tooltip(theme: &Theme) -> Style {
+    let surface = theme.colors().surface;
+
+    Style {
+        background: Some(Background::Gradient(iced::Gradient::Linear(
+            gradient::Linear::new(0)
+                .add_stop(0.0, color!(0x28231f))
+                .add_stop(0.6, color!(0x3f3a33)),
+        ))),
+        text_color: Some(surface.on_surface),
+        border: Border {
+            color: color!(0x373330),
+            width: 2.0,
+            radius: 5.into(),
+        },
+        shadow: Shadow {
+            color: color!(0, 0, 0, 0.24),
+            offset: Vector::new(3.0, 3.0),
+            blur_radius: 8.0,
+        },
+        ..Style::default()
+    }
+}
+
 pub fn inverse_surface(theme: &Theme) -> Style {
     let inverse = theme.colors().inverse;
 
@@ -192,10 +217,21 @@ pub fn outlined(theme: &Theme) -> Style {
 
     Style {
         border: Border {
-            color: theme.colors().outline.color,
+            color: color!(0x363230),
             width: 2.0,
             ..base.border
         },
         ..base
+    }
+}
+
+pub fn main(theme: &Theme) -> Style {
+    let surface = theme.colors().surface;
+
+    Style {
+        background: Some(Background::Color(surface.surface_container.lowest)),
+        text_color: Some(surface.on_surface),
+        border: border::rounded(3).width(8).color(color!(0x363230)),
+        ..Style::default()
     }
 }

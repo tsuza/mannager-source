@@ -1,12 +1,12 @@
 use std::{io, net::Ipv4Addr, path::PathBuf, sync::Arc};
 
 use iced::{
-    Color, Length, Subscription, Task, border, color,
+    Alignment, Color, Font, Length, Subscription, Task, border, color,
     futures::{SinkExt, Stream, StreamExt, channel::mpsc},
-    keyboard,
+    keyboard, padding,
     stream::try_channel,
     task,
-    widget::{button, column, container, scrollable, text},
+    widget::{button, center, column, container, horizontal_space, row, scrollable, text},
 };
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use snafu::{ResultExt, Snafu};
@@ -15,21 +15,26 @@ use tokio::{
     select,
 };
 
+use iced::widget::text::LineHeight;
+
 use crate::{
     core::{
         Game, get_arg_game_name,
         portforwarder::{self, PortForwarderIP},
     },
     ui::{
-        components::{notification::notification, textinput_terminal},
-        style,
-        themes::Theme,
+        Element,
+        components::{
+            notification::notification,
+            selectable_text::{self, selectable_text},
+            textinput_terminal,
+        },
+        style::{self, icon::left_arrow},
+        themes::{Theme, elevation, shadow_from_elevation, tf2},
     },
 };
 
 use super::serverlist::ServerInfo;
-
-type Element<'a, Message> = iced::Element<'a, Message, Theme>;
 
 pub struct ServerTerminal;
 
@@ -72,8 +77,6 @@ impl Console {
                     .send(ServerCommunicationTwoWay::Input(sender))
                     .await
                     .context(ChannelSendSnafu)?;
-
-                println!("Test");
 
                 #[cfg(target_os = "linux")]
                 let mut pty = {
@@ -134,16 +137,13 @@ impl Console {
                     &server_name,
                 );
 
-                if let Err(src) = forwarder {
+                if let Err(_) = forwarder {
                     let _ = notification(
                         "[ MANNager ] Server running...",
                         "Port forwarding failed.",
                         5,
-                    );
-
-                    println!("{}", src.to_string());
-
-                    println!("test4");
+                    )
+                    .await;
                 }
 
                 let mut buffer: Vec<u8> = vec![];
@@ -328,22 +328,37 @@ impl ServerTerminal {
         }
     }
 
-    pub fn view(console: &Console) -> Element<'_, Message> {
+    pub fn view<'a>(title: &String, console: &Console) -> Element<'a, Message> {
         let console_output_text = {
-            column(console.output.iter().map(|text| {
-                match text {
-                    TextType::Input(string) => text!("{}", string)
-                        .color(Color::from_rgb(0.753, 0.753, 0.753))
-                        .into(),
-                    TextType::Output(string) => text!("{}", string).color(Color::WHITE).into(),
-                }
+            column(console.output.iter().map(|text| match text {
+                TextType::Input(string) => selectable_text(format!("{}", string)).into(),
+                TextType::Output(string) => selectable_text(format!("{}", string)).into(),
             }))
             .padding(5)
         };
 
         container(
             column![
-                button("Go back").on_press(Message::GoBack),
+                container(
+                    row![
+                        button(left_arrow().size(20).center()).on_press(Message::GoBack),
+                        horizontal_space(),
+                        text!("{}", title)
+                            .font(Font::with_name("TF2 Build"))
+                            .size(40)
+                            .line_height(1.0)
+                            .align_x(Alignment::Center)
+                            .align_y(Alignment::Center),
+                        horizontal_space()
+                    ]
+                    .width(Length::Fill)
+                    .align_y(Alignment::Center)
+                    .padding(padding::all(10))
+                )
+                .width(Length::Fill)
+                .style(|theme| tf2::container::outlined(theme)
+                    .background(theme.colors().surface.surface_container.lowest)
+                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))),
                 container(
                     scrollable(console_output_text)
                         .direction(scrollable::Direction::Vertical(
@@ -352,24 +367,26 @@ impl ServerTerminal {
                         .anchor_bottom()
                         .width(Length::Fill)
                         .height(Length::Fill)
-                        .style(|_theme, _status| style::tf2::Style::scrollable(_theme, _status)),
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .style(|_theme| container::background(color!(0x2a2421)).border(border::rounded(5))),
+                .padding(padding::left(10))
+                .style(|theme| tf2::container::outlined(theme)
+                    .background(theme.colors().surface.surface_container.lowest)
+                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))),
                 textinput_terminal::TextInput::new("Type your command...", &console.input)
                     .on_input(Message::ServerTerminalInput)
                     .on_submit(Message::SubmitServerTerminalInput)
                     .on_key_press(Message::OnKeyPress)
                     .width(Length::Fill)
-                    .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
+                    .line_height(LineHeight::Relative(1.4))
             ]
             .spacing(20),
         )
         .width(Length::Fill)
         .height(Length::Fill)
         .padding(20)
-        .style(|_theme| container::background(color!(0x3a3430)))
+        .style(|theme| tf2::container::surface(theme))
         .into()
     }
 }
