@@ -12,7 +12,7 @@ iced = { git = "https://github.com/iced-rs/iced", features = ["svg", "tokio", "d
 iced_aw = { git = "https://github.com/iced-rs/iced_aw", features = ["number_input", "menu"] }
 iced_runtime = { git = "https://github.com/iced-rs/iced" }
 iced_core = { git = "https://github.com/iced-rs/iced.git" }
-notify-rust = "4.11.3"
+notify-rust = { version = "4.11.3", features = ["async"] }
 open = "5.3.0"
 portforwarder-rs = "0.1.1"
 reqwest = "0.12.7"
@@ -23,7 +23,7 @@ tokio = {version = "1.40.0", features = ["full"]}
 toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
-dragking = { path = "/home/suza/Coding/github/dragking"  }
+dragking = { git = "https://github.com/tsuza/dragking", branch = "feature/on_drag_maybe"  }
 num-traits = {version = "0.2.19" }
 decoder = "0.0.3"
 snafu = "0.8.6"

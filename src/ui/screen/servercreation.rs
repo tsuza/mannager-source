@@ -144,7 +144,7 @@ impl State {
                 rfd::AsyncFileDialog::new()
                     .set_title("Choose a default map")
                     .set_directory(format!(
-                        "{}/{}/maps",
+                        "{}\\{}\\maps",
                         self.server.path.display().to_string(),
                         get_arg_game_name(&self.server.game.clone())
                     ))

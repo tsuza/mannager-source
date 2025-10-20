@@ -51,6 +51,8 @@ impl DepotDownloader {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .creation_flags(0x08000000)
             .spawn()
             .context(SpawnProcessSnafu)?;
 

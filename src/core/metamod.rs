@@ -3,7 +3,7 @@ use std::{fs, io::Cursor, path::Path};
 use scraper::{Html, Selector};
 use snafu::ResultExt;
 
-use crate::core::{ArchiveExtractionSnafu, TarSnafu};
+use crate::core::ArchiveExtractionSnafu;
 
 use super::{DirectoryCreationSnafu, Error, Game, SourceEngineVersion, get_arg_game_name};
 
@@ -61,6 +61,7 @@ impl MetamodDownloader {
         #[cfg(target_os = "linux")]
         {
             use flate2::read::GzDecoder;
+            use crate::core::TarSnafu;
 
             let tar = GzDecoder::new(cursor);
 
@@ -77,7 +78,9 @@ impl MetamodDownloader {
 
         #[cfg(target_os = "windows")]
         {
-            let mut zip = zip::ZipArchive::new(cursor).context(ZipSnafu)?;
+            use crate::core::ZipSnafu;
+
+            let mut zip = zip::ZipArchive::new(cursor).context(ZipSnafu).context(ArchiveExtractionSnafu)?;
 
             zip.extract(
                 path.to_path_buf()

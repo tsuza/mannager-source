@@ -1113,6 +1113,7 @@ source = "git+https://github.com/iced-rs/winit.git?rev=05b8ff17a06562f0a10bb46e6
 [[package]]
 name = "dragking"
 version = "0.2.0"
+source = "git+https://github.com/tsuza/dragking?branch=feature%2Fon_drag_maybe#f2b0abc08ff1d859542547a34a1e164d598d9acb"
 dependencies = [
  "iced",
 ]
