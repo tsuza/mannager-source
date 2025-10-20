@@ -3,11 +3,9 @@ use std::{fs, io::Cursor, path::Path};
 use scraper::{Html, Selector};
 use snafu::ResultExt;
 
-use crate::core::{ArchiveExtractionSnafu, TarSnafu, ZipSnafu};
+use crate::core::{ArchiveExtractionSnafu, TarSnafu};
 
-use super::{
-    DirectoryCreationSnafu, Error, ExtractError, Game, SourceEngineVersion, get_arg_game_name,
-};
+use super::{DirectoryCreationSnafu, Error, Game, SourceEngineVersion, get_arg_game_name};
 
 pub struct SourcemodDownloader;
 

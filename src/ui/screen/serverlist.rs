@@ -1,22 +1,14 @@
 use core::str;
-use std::{
-    f32, fs, io,
-    net::Ipv4Addr,
-    ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
-    str::FromStr,
-    sync::Arc,
-};
+use std::{io, net::Ipv4Addr, path::Path, str::FromStr, sync::Arc, time::Duration};
 
-use decoder::Value;
 use iced::{
-    Alignment, Color, ContentFit, Font, Length, Task, clipboard,
+    Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard,
     font::Weight,
     futures::TryFutureExt,
     padding,
     widget::{
-        Button, Text, button, center, column, container, horizontal_rule, horizontal_space, hover,
-        opaque, progress_bar, row, scrollable, stack, svg, text, text_input, vertical_rule,
+        Button, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
+        space, stack, svg, text, text_input,
     },
 };
 use rfd::FileHandle;
@@ -24,7 +16,13 @@ use rfd::FileHandle;
 use crate::{
     core::get_arg_game_name,
     ui::{
-        style::icon::{left_arrow, port},
+        components::{metered_progress_bar, tooltip},
+        games::SOURCE_GAMES,
+        icons::{
+            self, left_arrow, link, location, menu, password, people, plus, port, right_arrow,
+            start, stop, terminal,
+        },
+        server::{Server, Servers},
         themes::{Theme, elevation, shadow_from_elevation, tf2},
     },
 };
@@ -38,10 +36,7 @@ use iced_palace::widget::ellipsized_text;
 
 use snafu::prelude::*;
 
-use crate::ui::{
-    CS2_IMAGE, CSS_IMAGE, Element, HL2MP_IMAGE, L4D1_IMAGE, L4D2_IMAGE, NMRIH_IMAGE, TF2_IMAGE,
-    style::icon::{location, password, people, plus},
-};
+use crate::ui::Element;
 
 use dragking;
 
@@ -51,191 +46,10 @@ use crate::{
         metamod::{MetamodBranch, MetamodDownloader},
         sourcemod::{SourcemodBranch, SourcemodDownloader},
     },
-    ui::{components::notification::notification, style::icon},
+    ui::components::notification::notification,
 };
 
-use super::serverboot::Console;
-
-const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
-
-#[derive(Debug, Clone)]
-pub struct Servers(pub Vec<Server>);
-
-impl Default for Servers {
-    fn default() -> Self {
-        Self(vec![])
-    }
-}
-
-impl Deref for Servers {
-    type Target = Vec<Server>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Servers {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Server {
-    pub info: ServerInfo,
-    pub console: Option<Console>,
-    pub is_downloading_sourcemod: bool,
-    pub updating_percent: Option<f32>,
-    pub is_editing: bool,
-}
-
-impl Server {
-    pub fn new() -> Self {
-        Self {
-            info: ServerInfo::default(),
-            console: None,
-            is_downloading_sourcemod: false,
-            updating_percent: None,
-            is_editing: false,
-        }
-    }
-
-    pub fn with_info(info: ServerInfo) -> Self {
-        Self {
-            info,
-            console: None,
-            is_downloading_sourcemod: false,
-            updating_percent: None,
-            is_editing: false,
-        }
-    }
-
-    pub fn is_running(&self) -> bool {
-        self.console.is_some()
-    }
-
-    pub fn is_updating(&self) -> bool {
-        self.updating_percent.is_some()
-    }
-}
-
-impl Servers {
-    pub async fn fetch(path: &Path) -> Result<Self, Error> {
-        match path.try_exists() {
-            Ok(true) => {
-                let file_contents = fs::read_to_string(path).unwrap();
-                decoder::run(toml::from_str, Servers::decode, &file_contents)
-                    .map_err(|_| Error::NoServerListFile)
-            }
-            _ => Err(Error::NoServerListFile),
-        }
-    }
-
-    pub async fn save(&self, path: &Path) -> Result<(), Error> {
-        println!("{}", path.display().to_string());
-
-        let toml = toml::to_string_pretty(&self.encode()).map_err(|_| Error::ServerSaveError)?;
-
-        tokio::fs::write(path, toml)
-            .await
-            .map_err(|_| Error::ServerSaveError)?;
-
-        println!("Saving done!!");
-
-        Ok(())
-    }
-
-    pub fn decode(value: Value) -> Result<Self, decoder::Error> {
-        use decoder::decode::{map, sequence};
-
-        let servers: Vec<ServerInfo> = map(value)?
-            .optional("servers", sequence(ServerInfo::decode))?
-            .unwrap_or_default();
-
-        Ok(Servers(
-            servers
-                .into_iter()
-                .map(|info| Server::with_info(info))
-                .collect(),
-        ))
-    }
-
-    pub fn encode(&self) -> Value {
-        use decoder::encode::{map, sequence};
-
-        let servers = self.iter().map(|server| &server.info);
-
-        map([("servers", sequence(ServerInfo::encode, servers))]).into_value()
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct ServerInfo {
-    pub name: String,
-    pub game: Game,
-    pub description: Option<String>,
-    pub path: PathBuf,
-    pub map: String,
-    pub max_players: u32,
-    pub password: Option<String>,
-    pub port: Option<u16>,
-}
-
-impl ServerInfo {
-    pub fn decode(value: Value) -> Result<Self, decoder::Error> {
-        use decoder::decode::{map, string, u16, u32};
-
-        let mut server = map(value)?;
-
-        Ok(Self {
-            name: server.required("name", string)?,
-            game: server.required("game", Game::decode)?,
-            description: server.optional("description", string)?,
-            path: PathBuf::from_str(&server.required("path", string)?).expect("no bueno"),
-            map: server.required("map", string)?,
-            max_players: server.required("max_players", u32)?,
-            password: server.optional("password", string)?,
-            port: server.optional("port", u16)?,
-        })
-    }
-
-    pub fn encode(&self) -> Value {
-        use decoder::encode::{map, optional, string, u16, u32};
-
-        map([
-            ("name", string(&self.name)),
-            ("game", string(&self.game.to_string())),
-            ("description", optional(string, self.description.clone())),
-            ("path", string(self.path.to_str().unwrap_or_default())),
-            ("map", string(&self.map)),
-            ("max_players", u32(self.max_players)),
-            ("password", optional(string, self.password.clone())),
-            ("port", optional(u16, self.port)),
-        ])
-        .into()
-    }
-}
-
 pub struct ServerList;
-
-// pub struct Server {
-//     pub info: ServerInformation,
-//     pub hosted_port: Option<u16>,
-//     pub is_downloading_sourcemod: bool,
-//     pub is_running: bool,
-// }
-
-// pub struct TerminalWindow {
-//     pub window_id: Option<window::Id>,
-//     pub window_state: serverboot::State,
-// }
-
-// impl TerminalWindow {
-//     pub fn is_visible(&self) -> bool {
-//         self.window_id.is_some()
-//     }
-// }
 
 pub enum Action {
     None,
@@ -253,21 +67,26 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub enum Message {
     CreateServer,
-    UpdateServer(usize),
-    StartEditServer(usize),
-    EditServer(usize, EditServer),
-    StopEditServer(usize),
-    DeleteServer(usize),
-    StartServer(usize),
-    OpenTerminal(usize),
-    StopServer(usize),
-    ServerDeleted(usize),
-    DownloadSourcemod(usize, SourcemodBranch),
-    DownloadSourcemodFinished(usize),
-    OpenFolder(usize),
     ServerReorder(dragking::DragEvent),
-    CopyServerLinkToClipboard(usize),
-    CopyToClipboard(Option<String>),
+    ServerMessage(usize, ServerMessage),
+}
+
+#[derive(Debug, Clone)]
+pub enum ServerMessage {
+    UpdateServer,
+    StartEditServer,
+    EditServer(EditServer),
+    StopEditServer,
+    DeleteServer,
+    DeleteServerFinished,
+    StartServer,
+    OpenTerminal,
+    StopServer,
+    DownloadSourcemod(SourceEngineVersion, SourcemodBranch),
+    DownloadSourcemodFinished,
+    OpenFolder,
+    CopyLink,
+    CopyLinkFinished(Option<String>),
     DummyButtonEffectMsg,
 }
 
@@ -279,88 +98,13 @@ pub enum EditServer {
     ChangePassword(String),
     ChangePort(String),
     ChangeMaxPlayers(u32),
+    ChangeGslt(String),
 }
 
 impl ServerList {
     pub fn update(servers: &mut Servers, message: Message) -> Action {
         match message {
             Message::CreateServer => Action::CreateServer,
-            Message::UpdateServer(id) => Action::UpdateServer(id),
-            Message::DeleteServer(id) => {
-                let Some(server) = servers.get(id) else {
-                    return Action::None;
-                };
-
-                let path = server.info.path.clone();
-
-                Action::Run(Task::perform(
-                    async move {
-                        let _ = tokio::fs::remove_dir_all(path).await;
-                    },
-                    move |_| Message::ServerDeleted(id),
-                ))
-            }
-            Message::ServerDeleted(id) => {
-                servers.remove(id).info.name;
-
-                Action::SaveServers
-            }
-            Message::StartServer(id) => Action::RunServer(id),
-            Message::StopServer(id) => Action::StopServer(id),
-            Message::DownloadSourcemod(id, sourcemod_branch) => {
-                let Some(server) = servers.get_mut(id) else {
-                    return Action::None;
-                };
-
-                if server.is_downloading_sourcemod {
-                    return Action::None;
-                }
-
-                let path = server.info.path.clone();
-                let game = server.info.game.clone();
-                let branch = sourcemod_branch.clone();
-
-                server.is_downloading_sourcemod = true;
-
-                Action::Run(Task::perform(
-                    async move {
-                        let _ =
-                            setup_sourcemod(path, game, branch, SourceEngineVersion::Source1).await;
-                    },
-                    move |_| Message::DownloadSourcemodFinished(id),
-                ))
-            }
-            Message::DownloadSourcemodFinished(id) => {
-                let Some(server) = servers.get_mut(id) else {
-                    return Action::None;
-                };
-
-                server.is_downloading_sourcemod = false;
-                let server_name = server.info.name.clone();
-
-                Action::Run(
-                    Task::future(async move {
-                        notification(
-                            "[ MANNager ] Sourcemod Download",
-                            format!(
-                                "Sourcemod has been successfully downloaded for {server_name}."
-                            ),
-                            5,
-                        )
-                    })
-                    .discard(),
-                )
-            }
-            Message::OpenFolder(id) => {
-                let Some(server) = servers.get(id) else {
-                    return Action::None;
-                };
-
-                // TODO: Why are we using open::that? And not rfd? Replace
-                let _ = open::that(server.info.path.clone());
-
-                Action::None
-            }
             Message::ServerReorder(drag_event) => match drag_event {
                 dragking::DragEvent::Dropped {
                     index,
@@ -376,37 +120,129 @@ impl ServerList {
                 }
                 _ => Action::None,
             },
-            Message::CopyServerLinkToClipboard(server_id) => {
+            Message::ServerMessage(id, ServerMessage::UpdateServer) => Action::UpdateServer(id),
+            Message::ServerMessage(id, ServerMessage::DeleteServer) => {
+                let Some(server) = servers.get(id) else {
+                    return Action::None;
+                };
+
+                let path = server.info.path.clone();
+
+                servers.remove(id).info.name;
+
+                Action::Run(
+                    Task::perform(
+                        async move {
+                            let _ = tokio::fs::remove_dir_all(path).await;
+                        },
+                        |_| ServerMessage::DeleteServerFinished,
+                    )
+                    .map(Message::ServerMessage.with(id)),
+                )
+            }
+            Message::ServerMessage(_, ServerMessage::DeleteServerFinished) => Action::SaveServers,
+            Message::ServerMessage(id, ServerMessage::StartServer) => Action::RunServer(id),
+            Message::ServerMessage(id, ServerMessage::StopServer) => Action::StopServer(id),
+            Message::ServerMessage(
+                id,
+                ServerMessage::DownloadSourcemod(engine_version, sourcemod_branch),
+            ) => {
+                let Some(server) = servers.get_mut(id) else {
+                    return Action::None;
+                };
+
+                if server.is_downloading_sourcemod {
+                    return Action::None;
+                }
+
+                let path = server.info.path.clone();
+                let game = server.info.game.clone();
+                let branch = sourcemod_branch.clone();
+
+                server.is_downloading_sourcemod = true;
+
+                Action::Run(
+                    Task::perform(
+                        async move {
+                            let _ = setup_sourcemod(path, game, branch, engine_version).await;
+                        },
+                        |_| ServerMessage::DownloadSourcemodFinished,
+                    )
+                    .map(Message::ServerMessage.with(id)),
+                )
+            }
+            Message::ServerMessage(id, ServerMessage::DownloadSourcemodFinished) => {
+                let Some(server) = servers.get_mut(id) else {
+                    return Action::None;
+                };
+
+                server.is_downloading_sourcemod = false;
+                let server_name = server.info.name.clone();
+
+                Action::Run(
+                    Task::future(async move {
+                        notification(
+                            "MANNager",
+                            format!(
+                                "Sourcemod has been successfully downloaded for '{server_name}'."
+                            ),
+                            Duration::from_secs(5),
+                        )
+                    })
+                    .discard(),
+                )
+            }
+            Message::ServerMessage(id, ServerMessage::OpenFolder) => {
+                let Some(server) = servers.get(id) else {
+                    return Action::None;
+                };
+
+                let path = server.info.path.clone();
+
+                Action::Run(
+                    Task::future(async {
+                        tokio::task::spawn_blocking(|| {
+                            let _ = open::that(path);
+                        })
+                        .await
+                    })
+                    .discard(),
+                )
+            }
+            Message::ServerMessage(id, ServerMessage::CopyLink) => {
                 let Some(Server {
                     console: Some(console),
                     ..
-                }) = servers.get(server_id)
+                }) = servers.get(id)
                 else {
                     return Action::None;
                 };
 
                 let port = console.hosted_port;
 
-                Action::Run(Task::perform(
-                    async move {
-                        let Ok(ip) = get_public_ip().await else {
-                            return None;
-                        };
+                Action::Run(
+                    Task::perform(
+                        async move {
+                            let Ok(ip) = get_public_ip().await else {
+                                return None;
+                            };
 
-                        Some(format!("{ip}:{port}"))
-                    },
-                    Message::CopyToClipboard,
-                ))
+                            Some(format!("{ip}:{port}"))
+                        },
+                        ServerMessage::CopyLinkFinished,
+                    )
+                    .map(Message::ServerMessage.with(id)),
+                )
             }
-            Message::CopyToClipboard(string) => {
-                let Some(string) = string else {
+            Message::ServerMessage(_, ServerMessage::CopyLinkFinished(string_opt)) => {
+                let Some(string) = string_opt else {
                     return Action::None;
                 };
 
                 Action::Run(clipboard::write::<Message>(string).discard())
             }
-            Message::StartEditServer(id) => Action::EditServer(id),
-            Message::EditServer(id, edit) => {
+            Message::ServerMessage(id, ServerMessage::StartEditServer) => Action::EditServer(id),
+            Message::ServerMessage(id, ServerMessage::EditServer(edit)) => {
                 let Some(Server { info, .. }) = servers.get_mut(id) else {
                     return Action::None;
                 };
@@ -417,18 +253,22 @@ impl ServerList {
 
                         Action::None
                     }
-                    EditServer::ChangeMap => Action::Run(Task::perform(
-                        rfd::AsyncFileDialog::new()
-                            .set_title("Choose a default map")
-                            .set_directory(format!(
-                                "{}/{}/maps",
-                                info.path.display().to_string(),
-                                get_arg_game_name(&info.game.clone())
-                            ))
-                            .add_filter("Source Map", &["bsp"])
-                            .pick_file(),
-                        move |file| Message::EditServer(id, EditServer::ChangeMapFinished(file)),
-                    )),
+                    EditServer::ChangeMap => Action::Run(
+                        Task::perform(
+                            rfd::AsyncFileDialog::new()
+                                .set_title("Choose a default map")
+                                .set_directory(format!(
+                                    "{}/{}/maps",
+                                    info.path.display().to_string(),
+                                    get_arg_game_name(&info.game.clone())
+                                ))
+                                .add_filter("Source Map", &["bsp"])
+                                .pick_file(),
+                            EditServer::ChangeMapFinished,
+                        )
+                        .map(ServerMessage::EditServer)
+                        .map(Message::ServerMessage.with(id)),
+                    ),
                     EditServer::ChangeMapFinished(file_handle) => {
                         if let Some(file) = file_handle {
                             info.map = file
@@ -442,16 +282,14 @@ impl ServerList {
                         Action::None
                     }
                     EditServer::ChangePort(port) => {
-                        info.port = if port.is_empty() {
-                            None
-                        } else {
-                            port.parse::<u16>().ok()
-                        };
+                        info.port = (!port.is_empty())
+                            .then(|| port.parse::<u16>().ok())
+                            .flatten();
 
                         Action::None
                     }
                     EditServer::ChangePassword(password) => {
-                        info.password = (!password.is_empty()).then(|| password);
+                        info.password = (!password.is_empty()).then_some(password);
 
                         Action::None
                     }
@@ -460,30 +298,57 @@ impl ServerList {
 
                         Action::None
                     }
+                    EditServer::ChangeGslt(token) => {
+                        info.gslt = (!token.is_empty()).then_some(token);
+
+                        Action::None
+                    }
                 }
             }
-            Message::StopEditServer(id) => Action::StopEditServer(id),
-            Message::DummyButtonEffectMsg => Action::None,
-            Message::OpenTerminal(id) => Action::OpenTerminal(id),
+            Message::ServerMessage(id, ServerMessage::StopEditServer) => Action::StopEditServer(id),
+            Message::ServerMessage(id, ServerMessage::OpenTerminal) => Action::OpenTerminal(id),
+            Message::ServerMessage(_, ServerMessage::DummyButtonEffectMsg) => Action::None,
         }
     }
 
     pub fn view(servers: &Servers) -> Element<'_, Message> {
+        let servers = dragking::column(servers.iter().enumerate().map(|(id, server)| {
+            if !server.is_editing {
+                card(server).map(Message::ServerMessage.with(id))
+            } else {
+                editable_card(server).map(Message::ServerMessage.with(id))
+            }
+        }))
+        .on_drag_maybe(
+            servers
+                .iter()
+                .all(|server| {
+                    !server.is_running()
+                        && !server.is_downloading_sourcemod
+                        && !server.is_updating()
+                        && !server.is_editing
+                })
+                .then_some(Message::ServerReorder),
+        )
+        .spacing(20)
+        .align_x(Alignment::Center);
+
         container(column![
             container(
                 container(
                     column![
-                        text!("Servers")
-                            .font(Font::with_name("TF2 Build"))
-                            .size(40)
-                            .align_x(Alignment::Center)
-                            .width(Length::Fill),
-                        horizontal_rule(2),
+                        container(
+                            text!("Servers")
+                                .font(Font::with_name("TF2 Build"))
+                                .size(40)
+                                .align_x(Alignment::Center)
+                                .width(Length::Fill)
+                        )
+                        .padding(padding::bottom(4)),
+                        rule::horizontal(2),
                         container(
                             column![
-                                scrollable(show_servers(&servers))
-                                    .height(Length::Fill)
-                                    .spacing(5),
+                                scrollable(servers).height(Length::Fill).spacing(5),
                                 container(
                                     button(
                                         plus()
@@ -519,34 +384,7 @@ impl ServerList {
     }
 }
 
-fn show_servers<'a>(servers: &Servers) -> Element<'a, Message>
-where
-    Message: Clone + 'a,
-{
-    dragking::column(servers.iter().enumerate().map(|(id, server)| {
-        if !server.is_editing {
-            server_entry(id, server)
-        } else {
-            edit_server_entry(id, server)
-        }
-    }))
-    .on_drag_maybe(
-        servers
-            .iter()
-            .all(|server| {
-                !server.is_running()
-                    && !server.is_downloading_sourcemod
-                    && !server.is_updating()
-                    && !server.is_editing
-            })
-            .then_some(Message::ServerReorder),
-    )
-    .spacing(20)
-    .align_x(Alignment::Center)
-    .into()
-}
-
-fn server_entry<'a>(id: usize, server: &Server) -> Element<'a, Message>
+fn card<'a>(server: &Server) -> Element<'a, ServerMessage>
 where
     Message: Clone + 'a,
 {
@@ -556,19 +394,12 @@ where
         ..
     } = &server;
 
-    let server_game_image_handle = match info.game {
-        Game::TeamFortress2 => TF2_IMAGE.clone(),
-        Game::CounterStrikeSource => CSS_IMAGE.clone(),
-        Game::CounterStrike2 => CS2_IMAGE.clone(),
-        Game::LeftForDead1 => L4D1_IMAGE.clone(),
-        Game::LeftForDead2 => L4D2_IMAGE.clone(),
-        Game::HalfLife2DM => HL2MP_IMAGE.clone(),
-        Game::NoMoreRoomInHell => NMRIH_IMAGE.clone(),
-    };
-
     let menu_settings = {
-        fn menu_button<'a>(text: impl text::IntoFragment<'a>) -> Button<'a, Message, Theme> {
-            button(Text::new(text))
+        fn menu_button<'a>(
+            icon: Text<'a, Theme>,
+            text: impl text::IntoFragment<'a>,
+        ) -> Button<'a, ServerMessage, Theme> {
+            button(row![icon, Text::new(text)].spacing(5))
                 .width(Length::Fill)
                 .style(|theme, status| tf2::button::text(theme, status))
         }
@@ -576,10 +407,12 @@ where
         let sourcemod_label = if !is_downloading_sourcemod {
             button(row![
                 text!("Download Sourcemod"),
-                horizontal_space(),
-                icon::right_arrow()
+                space::horizontal(),
+                right_arrow()
             ])
-            .on_press_maybe((!is_downloading_sourcemod).then_some(Message::DummyButtonEffectMsg))
+            .on_press_maybe(
+                (!is_downloading_sourcemod).then_some(ServerMessage::DummyButtonEffectMsg),
+            )
             .width(Length::Fill)
             .style(|theme, status| tf2::button::text(theme, status))
         } else {
@@ -587,12 +420,14 @@ where
                 row![
                     text!("Download Sourcemod"),
                     text!("loading"),
-                    horizontal_space(),
-                    icon::right_arrow()
+                    space::horizontal(),
+                    right_arrow()
                 ]
                 .spacing(10),
             )
-            .on_press_maybe((!is_downloading_sourcemod).then_some(Message::DummyButtonEffectMsg))
+            .on_press_maybe(
+                (!is_downloading_sourcemod).then_some(ServerMessage::DummyButtonEffectMsg),
+            )
             .width(Length::Fill)
             .style(|theme, status| tf2::button::text(theme, status))
         };
@@ -602,17 +437,21 @@ where
             Menu::new(
                 [
                     Item::new(
-                        menu_button("Stable branch")
-                            .on_press_maybe((!is_downloading_sourcemod).then_some(
-                                Message::DownloadSourcemod(id, SourcemodBranch::Stable),
-                            )),
-                    ),
-                    Item::new(
-                        menu_button("Dev branch").on_press_maybe(
-                            (!is_downloading_sourcemod)
-                                .then_some(Message::DownloadSourcemod(id, SourcemodBranch::Dev)),
+                        menu_button(icons::download(), "Stable branch").on_press_maybe(
+                            (!is_downloading_sourcemod).then_some(
+                                ServerMessage::DownloadSourcemod(
+                                    SourceEngineVersion::Source1,
+                                    SourcemodBranch::Stable,
+                                ),
+                            ),
                         ),
                     ),
+                    Item::new(menu_button(icons::download(), "Dev branch").on_press_maybe(
+                        (!is_downloading_sourcemod).then_some(ServerMessage::DownloadSourcemod(
+                            SourceEngineVersion::Source1,
+                            SourcemodBranch::Dev,
+                        )),
+                    )),
                 ]
                 .into(),
             )
@@ -622,16 +461,28 @@ where
 
         MenuBar::new(
             [Item::with_menu(
-                button(icon::menu().size(20).center()).on_press(Message::DummyButtonEffectMsg),
+                button(menu().size(20).center()).on_press(ServerMessage::DummyButtonEffectMsg),
                 Menu::new(
                     [
-                        Item::new(menu_button("Edit").on_press(Message::StartEditServer(id))),
-                        Item::new(menu_button("Update Server").on_press(Message::UpdateServer(id))),
-                        Item::new(container(horizontal_rule(1)).padding([5, 10])),
+                        Item::new(
+                            menu_button(icons::edit(), "Edit")
+                                .on_press(ServerMessage::StartEditServer),
+                        ),
+                        Item::new(
+                            menu_button(icons::download(), "Update Server")
+                                .on_press(ServerMessage::UpdateServer),
+                        ),
+                        Item::new(container(rule::horizontal(1)).padding([5, 10])),
                         sourcemod_sub,
-                        Item::new(container(horizontal_rule(1)).padding([5, 10])),
-                        Item::new(menu_button("Open folder").on_press(Message::OpenFolder(id))),
-                        Item::new(menu_button("Delete server").on_press(Message::DeleteServer(id))),
+                        Item::new(container(rule::horizontal(1)).padding([5, 10])),
+                        Item::new(
+                            menu_button(icons::folder(), "Open folder")
+                                .on_press(ServerMessage::OpenFolder),
+                        ),
+                        Item::new(
+                            menu_button(icons::trash(), "Delete server")
+                                .on_press(ServerMessage::DeleteServer),
+                        ),
                     ]
                     .into(),
                 )
@@ -644,27 +495,53 @@ where
         .padding(0)
     };
 
-    let console_button = server
-        .is_running()
-        .then_some(button(icon::terminal().size(20).center()).on_press(Message::OpenTerminal(id)));
+    let console_button = server.is_running().then_some(
+        tooltip(
+            button(terminal().size(20).center()).on_press(ServerMessage::OpenTerminal),
+            "Open the terminal",
+            tooltip::Position::Top,
+        )
+        .delay(Duration::from_millis(500)),
+    );
 
     let join_link_button = server.is_running().then_some(
-        button(icon::link().size(20).center()).on_press(Message::CopyServerLinkToClipboard(id)),
+        tooltip(
+            button(link().size(20).center()).on_press(ServerMessage::CopyLink),
+            "Copy the server link",
+            tooltip::Position::Top,
+        )
+        .delay(Duration::from_millis(500)),
     );
 
     let running_button = if !server.is_running() {
-        button(icon::start().size(20).center()).on_press(Message::StartServer(id))
+        tooltip(
+            button(start().size(20).center())
+                .on_press(ServerMessage::StartServer)
+                .style(|theme, status| tf2::button::success(theme, status)),
+            "Start the server",
+            tooltip::Position::Top,
+        )
+        .delay(Duration::from_millis(500))
     } else {
-        button(icon::stop().size(20).center()).on_press(Message::StopServer(id))
+        tooltip(
+            button(stop().size(20).center())
+                .on_press(ServerMessage::StopServer)
+                .style(|theme, status| tf2::button::error(theme, status)),
+            "Stop the server",
+            tooltip::Position::Top,
+        )
+        .delay(Duration::from_millis(500))
     };
+
+    let server_image = get_game_image(info.game).unwrap();
 
     let card = container(
         row![
-            svg(server_game_image_handle)
+            svg(server_image)
                 .content_fit(ContentFit::Contain)
                 .width(94)
                 .height(94),
-            vertical_rule(2),
+            rule::vertical(2),
             column![
                 row![
                     ellipsized_text(format!("{}", &info.name))
@@ -674,7 +551,7 @@ where
                             weight: Weight::Bold,
                             ..Font::DEFAULT
                         }),
-                    horizontal_space(),
+                    space::horizontal(),
                     console_button,
                     join_link_button,
                     running_button,
@@ -683,7 +560,7 @@ where
                 .spacing(10)
                 .padding(padding::bottom(5))
                 .align_y(Alignment::Center),
-                horizontal_rule(0),
+                rule::horizontal(0),
                 row![
                     column![
                         row![people(), text!("{}", info.max_players)]
@@ -743,11 +620,17 @@ where
         stack![
             card,
             opaque(
-                center(progress_bar(0.0..=100.0, percent).length(500))
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(padding::left(50).right(50))
-                    .style(|_theme| container::background(Color::BLACK.scale_alpha(0.8)))
+                center(
+                    metered_progress_bar(0.0..=100.0, percent)
+                        .bars(20)
+                        .spacing(4)
+                        .length(Length::Fill)
+                        .girth(Length::Fill)
+                )
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(50)
+                .style(|_theme| container::background(Color::BLACK.scale_alpha(0.8)))
             ),
         ]
         .into()
@@ -756,96 +639,102 @@ where
     }
 }
 
-fn edit_server_entry<'a>(id: usize, server: &Server) -> Element<'a, Message>
+fn editable_card<'a>(server: &Server) -> Element<'a, ServerMessage>
 where
     Message: Clone + 'a,
 {
     let Server { info, .. } = &server;
 
-    let server_game_image_handle = match info.game {
-        Game::TeamFortress2 => TF2_IMAGE.clone(),
-        Game::CounterStrikeSource => CSS_IMAGE.clone(),
-        Game::CounterStrike2 => CS2_IMAGE.clone(),
-        Game::LeftForDead1 => L4D1_IMAGE.clone(),
-        Game::LeftForDead2 => L4D2_IMAGE.clone(),
-        Game::HalfLife2DM => HL2MP_IMAGE.clone(),
-        Game::NoMoreRoomInHell => NMRIH_IMAGE.clone(),
-    };
+    let game_image = get_game_image(info.game).unwrap();
 
     let card = container(
         row![
             stack![
-                svg(server_game_image_handle)
+                svg(game_image)
                     .content_fit(ContentFit::Contain)
                     .width(94)
                     .height(94),
-                button(left_arrow()).on_press(Message::StopEditServer(id)),
+                button(left_arrow()).on_press(ServerMessage::StopEditServer),
             ],
-            vertical_rule(2),
+            rule::vertical(2),
             column![
-                row![
-                    text_input("Server Name", &info.name).on_input(move |string| {
-                        Message::EditServer(id, EditServer::ChangeName(string))
-                    })
-                ]
+                row![text_input("Server Name", &info.name).on_input(|string| {
+                    ServerMessage::EditServer(EditServer::ChangeName(string))
+                })]
                 .spacing(10)
                 .padding(padding::bottom(5))
                 .align_y(Alignment::Center),
-                horizontal_rule(0),
-                row![
-                    column![
-                        row![
-                            people(),
-                            number_input(&info.max_players, 0..100, move |num| {
-                                Message::EditServer(id, EditServer::ChangeMaxPlayers(num))
-                            })
-                            .width(Length::Fill)
+                rule::horizontal(0),
+                column![
+                    row![
+                        column![
+                            row![
+                                people(),
+                                number_input(&info.max_players, 0..100, |num| {
+                                    ServerMessage::EditServer(EditServer::ChangeMaxPlayers(num))
+                                })
+                                .width(Length::Fill)
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(5),
+                            row![
+                                port(),
+                                text_input(
+                                    "Port",
+                                    &info.port.map_or_else(String::new, |port| port.to_string())
+                                )
+                                .on_input(|port| {
+                                    ServerMessage::EditServer(EditServer::ChangePort(port))
+                                })
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(5)
                         ]
-                        .align_y(Alignment::Center)
+                        .width(Length::FillPortion(1))
                         .spacing(5),
-                        row![
-                            port(),
-                            text_input(
-                                "Port",
-                                &info.port.map_or_else(String::new, |port| port.to_string())
-                            )
-                            .on_input(move |port| Message::EditServer(
-                                id,
-                                EditServer::ChangePort(port)
-                            ))
-                        ]
-                        .align_y(Alignment::Center)
-                        .spacing(5)
-                    ]
-                    .width(Length::FillPortion(1))
-                    .spacing(5),
-                    column![
-                        row![
-                            location(),
-                            button(text!("{}", info.map))
-                                .on_press(Message::EditServer(id, EditServer::ChangeMap))
-                                .style(|theme, status| tf2::button::outlined(theme, status))
-                        ]
-                        .align_y(Alignment::Center)
-                        .spacing(5),
-                        row![
-                            password(),
-                            text_input("Password", info.password.as_deref().unwrap_or_default())
-                                .on_input(move |string| Message::EditServer(
-                                    id,
-                                    EditServer::ChangePassword(string)
+                        column![
+                            row![
+                                location(),
+                                button(text!("{}", info.map))
+                                    .on_press(ServerMessage::EditServer(EditServer::ChangeMap))
+                                    .style(|theme, status| tf2::button::outlined(theme, status))
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(5),
+                            row![
+                                password(),
+                                text_input(
+                                    "Password",
+                                    info.password.as_deref().unwrap_or_default()
+                                )
+                                .on_input(|password| ServerMessage::EditServer(
+                                    EditServer::ChangePassword(password)
                                 ))
                                 .secure(true)
                                 .width(200)
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(5)
                         ]
-                        .align_y(Alignment::Center)
-                        .spacing(5)
+                        .width(Length::FillPortion(4))
+                        .spacing(5),
                     ]
-                    .width(Length::FillPortion(4))
+                    .width(Length::Fill)
+                    .spacing(20),
+                    row![
+                        text("GSLT"),
+                        text_input("GSLT", info.gslt.as_deref().unwrap_or_default())
+                            .on_input(|token| ServerMessage::EditServer(EditServer::ChangeGslt(
+                                token
+                            )))
+                            .secure(true)
+                            .width(320)
+                    ]
+                    .align_y(Alignment::Center)
                     .spacing(5)
                 ]
                 .width(Length::Fill)
-                .spacing(20)
+                .spacing(5)
             ]
             .padding(padding::left(10))
         ]
@@ -879,11 +768,16 @@ pub async fn setup_sourcemod(
     Ok(())
 }
 
+pub fn get_game_image(game: Game) -> Option<svg::Handle> {
+    SOURCE_GAMES
+        .iter()
+        .find(|game_info| game_info.game == game)
+        .map(|game_info| game_info.image.clone())
+}
+
 pub async fn get_public_ip() -> Result<Ipv4Addr, Error> {
-    // The URL of a service that returns the public IP
     let url = "https://api.ipify.org";
 
-    // Send a blocking GET request to fetch the public IP
     let public_ip = reqwest::get(url)
         .map_err(|_| Error::NoPublicIp)
         .await?

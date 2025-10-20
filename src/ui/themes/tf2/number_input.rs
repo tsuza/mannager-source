@@ -1,5 +1,5 @@
 use super::super::{Theme, disabled_text};
-use iced::{Background, Color, widget};
+use iced::{Background, Color};
 use iced_aw::style::number_input::{Catalog, ExtendedCatalog, Style};
 use iced_aw::style::{Status, StyleFn};
 
@@ -26,7 +26,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
 
     let active = Style {
         button_background: Some(Background::Color(surface.surface_container.highest)),
-        icon_color: surface.on_surface_variant,
+        icon_color: surface.on_surface,
     };
 
     match status {

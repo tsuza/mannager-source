@@ -1,7 +1,10 @@
-use iced::widget::horizontal_space;
+use iced::{Length, widget::center};
 
 use crate::ui::Element;
 
 pub fn loading<'a, Message: 'a>() -> Element<'a, Message> {
-    horizontal_space().into()
+    center("Loading...")
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .into()
 }

@@ -1,5 +1,5 @@
 use iced::widget::container::{Catalog, Style, StyleFn};
-use iced::{Background, Border, Color, Shadow, Vector, border, color, gradient};
+use iced::{Background, Border, Shadow, Vector, border, color, gradient};
 
 use super::super::Theme;
 

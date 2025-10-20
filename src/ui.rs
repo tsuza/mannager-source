@@ -1,6 +1,6 @@
-use std::{net::Ipv4Addr, sync::LazyLock};
+use std::{net::Ipv4Addr, path::PathBuf};
 
-use iced::{Color, Subscription, Task, advanced::svg, clipboard, keyboard};
+use iced::{Function, Subscription, Task, clipboard, futures, keyboard};
 use screen::{
     Screen,
     serverboot::{
@@ -8,48 +8,28 @@ use screen::{
         find_available_port,
     },
     servercreation,
-    serverlist::{self, Server, ServerList, Servers},
+    serverlist::{self, ServerList},
 };
 
-#[cfg(target_os = "windows")]
-use iced::advanced::graphics::image::image_rs::ImageFormat;
-
-#[cfg(target_os = "linux")]
 use crate::{
     core::{Game, get_arg_game_name},
-    ui::{components::selectable_text, screen::servercreation::download_server, themes::Theme},
+    ui::{
+        components::selectable_text,
+        screen::servercreation::download_server,
+        server::{Server, Servers},
+        themes::Theme,
+    },
 };
-
-#[cfg(target_os = "windows")]
-use crate::APP_ICON_BYTES;
+use futures::TryFutureExt;
 
 pub mod components;
+pub mod games;
+pub mod icons;
 pub mod screen;
-pub mod style;
+pub mod server;
 pub mod themes;
 
 const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
-
-static TF2_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/tf2-logo.svg")));
-
-static CSS_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/css-logo.svg")));
-
-static CS2_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/cs2-logo.svg")));
-
-static L4D1_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/l4d1-logo.svg")));
-
-static L4D2_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/l4d2-logo.svg")));
-
-static NMRIH_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/nmrih-logo.svg")));
-
-static HL2MP_IMAGE: LazyLock<svg::Handle> =
-    LazyLock::new(|| svg::Handle::from_memory(include_bytes!("../images/hl2mp-logo.svg")));
 
 type Element<'a, Message> = iced::Element<'a, Message, Theme>;
 
@@ -61,9 +41,6 @@ pub struct State {
 #[derive(Debug, Clone)]
 pub enum Message {
     ServersLoaded(Result<Servers, screen::serverlist::Error>),
-    ServerList(serverlist::Message),
-    ServerCreation(servercreation::Message),
-    ServerTerminal(usize, serverboot::Message),
     UpdateServer(usize, Update),
     ServerCommunication(
         usize,
@@ -71,6 +48,9 @@ pub enum Message {
     ),
     Copy,
     SelectedText(Vec<(f32, String)>),
+    ServerList(serverlist::Message),
+    ServerCreation(servercreation::Message),
+    ServerTerminal(usize, serverboot::Message),
 }
 
 #[derive(Debug, Clone)]
@@ -87,25 +67,10 @@ impl State {
                 servers: Servers(vec![]),
             },
             Task::perform(
-                async move {
-                    if let Ok(executable_directory) = std::env::current_dir() {
-                        let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
-
-                        if config_path.try_exists().unwrap_or(false) {
-                            return Servers::fetch(&config_path).await;
-                        }
-                    }
-
-                    let project_path =
-                        directories::ProjectDirs::from("", "MANNager", "mannager-source")
-                            .ok_or(screen::serverlist::Error::NoServerListFile)?;
-
-                    let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
-
-                    match config_path.try_exists() {
-                        Ok(true) => Servers::fetch(&config_path).await,
-                        Ok(false) | Err(_) => Err(serverlist::Error::NoServerListFile),
-                    }
+                async {
+                    get_config_path()
+                        .and_then(|path| async move { Servers::fetch(path.as_path()).await })
+                        .await
                 },
                 Message::ServersLoaded,
             ),
@@ -116,20 +81,18 @@ impl State {
         match self.screen {
             Screen::Loading | Screen::ServerList => "MANNager".into(),
             Screen::ServerCreation(_) => "MANNager - Creating a server".into(),
-            Screen::ServerTerminal(id) => {
-                if let Some(Server { info, .. }) = self.servers.get(id) {
-                    format!("MANNager - Server Terminal [{}]", info.name)
-                } else {
-                    "MANNager".into()
-                }
-            }
+            Screen::ServerTerminal(id) => self
+                .servers
+                .get(id)
+                .map(|Server { info, .. }| format!("MANNager - Server Terminal [{}]", info.name))
+                .unwrap_or_else(|| "MANNager".to_string()),
         }
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        fn handle_hotkey(key: keyboard::Key, _modifiers: keyboard::Modifiers) -> Option<Message> {
+        fn handle_hotkey(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Message> {
             match key.as_ref() {
-                keyboard::Key::Character("c") if _modifiers.command() => Some(Message::Copy),
+                keyboard::Key::Character("c") if modifiers.command() => Some(Message::Copy),
                 _ => None,
             }
         }
@@ -146,27 +109,69 @@ impl State {
 
                 Task::none()
             }
-            Message::ServerCreation(msg) => {
-                let Screen::ServerCreation(creation) = &mut self.screen else {
+            Message::UpdateServer(id, update) => {
+                let Some(Server {
+                    updating_percent: percent,
+                    ..
+                }) = self.servers.get_mut(id)
+                else {
                     return Task::none();
                 };
 
-                match creation.update(msg) {
-                    servercreation::Action::None => Task::none(),
-                    servercreation::Action::SwitchToServerList => {
-                        self.screen = Screen::ServerList;
+                *percent = match update {
+                    Update::Downloading(_percent) => Some(_percent),
+                    Update::Finished(_) => None,
+                };
 
-                        Task::none()
+                Task::none()
+            }
+            Message::ServerCommunication(id, msg) => {
+                let Ok(communication) = msg else {
+                    return Task::none();
+                };
+
+                let Some(Server {
+                    console: Some(console),
+                    ..
+                }) = self.servers.get_mut(id)
+                else {
+                    return Task::none();
+                };
+
+                match communication {
+                    ServerCommunicationTwoWay::Input(sender) => {
+                        console.sender = Some(sender);
                     }
-                    servercreation::Action::ServerCreated(server) => {
-                        self.servers.push(Server::with_info(server));
-
-                        self.screen = Screen::ServerList;
-
-                        Task::none()
+                    ServerCommunicationTwoWay::Output(text) => {
+                        console.output.push(text);
                     }
-                    servercreation::Action::Run(task) => task.map(Message::ServerCreation),
                 }
+
+                Task::none()
+            }
+            Message::Copy => selectable_text::selected(Message::SelectedText),
+            Message::SelectedText(contents) => {
+                let mut last_y = None;
+                let contents = contents
+                    .into_iter()
+                    .fold(String::new(), |acc, (y, content)| {
+                        if let Some(_y) = last_y {
+                            let new_line = if y == _y { "" } else { "\n" };
+                            last_y = Some(y);
+
+                            format!("{acc}{new_line}{content}")
+                        } else {
+                            last_y = Some(y);
+
+                            content
+                        }
+                    });
+
+                if contents.is_empty() {
+                    return Task::none();
+                }
+
+                clipboard::write(contents)
             }
             Message::ServerList(message) => {
                 let action = ServerList::update(&mut self.servers, message);
@@ -174,32 +179,16 @@ impl State {
                 match action {
                     serverlist::Action::None => Task::none(),
                     serverlist::Action::SaveServers => {
-                        println!("Saving...");
-                        if let Ok(executable_directory) = std::env::current_dir() {
-                            let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
-
-                            let servers = self.servers.clone();
-
-                            if config_path.try_exists().unwrap_or(false) {
-                                return Task::future(async move {
-                                    servers.save(&config_path).await.unwrap()
-                                })
-                                .discard();
-                            }
-                        }
-
-                        let project_path =
-                            directories::ProjectDirs::from("", "MANNager", "mannager-source")
-                                .ok_or(screen::serverlist::Error::NoServerListFile)
-                                .unwrap();
-
-                        let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
-
                         let servers = self.servers.clone();
 
-                        Task::future(async move { servers.save(&config_path).await.unwrap() })
-                            .discard()
+                        Task::future(async {
+                            get_config_path()
+                                .and_then(|path| async move { servers.save(&path).await })
+                                .await
+                        })
+                        .discard()
                     }
+
                     serverlist::Action::CreateServer => {
                         self.screen = Screen::ServerCreation(servercreation::State::new());
 
@@ -225,7 +214,7 @@ impl State {
                             Update::Downloading,
                             Update::Finished,
                         )
-                        .map(move |msg| Message::UpdateServer(id, msg))
+                        .map(Message::UpdateServer.with(id))
                     }
                     serverlist::Action::EditServer(id) => {
                         let Some(server) = self.servers.get_mut(id) else {
@@ -262,27 +251,28 @@ impl State {
                             find_available_port(Ipv4Addr::new(0, 0, 0, 0), DEFAULT_PORT)
                         });
 
-                        let args = {
-                            let mut temp = format!(
-                                "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
-                                get_arg_game_name(&info.game),
-                                info.name,
-                                info.map,
-                                info.max_players,
-                                port,
-                                port + PORT_OFFSET
-                            );
-
+                        let args = format!(
+                            "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}{}{}",
+                            get_arg_game_name(&info.game),
+                            info.name,
+                            info.map,
+                            info.max_players,
+                            port,
+                            port + PORT_OFFSET,
                             if info.max_players > 32 && info.game == Game::TeamFortress2 {
-                                temp = format!("{temp} -unrestricted_maxplayers");
-                            }
-
-                            temp
-                        };
+                                " -unrestricted_maxplayers"
+                            } else {
+                                ""
+                            },
+                            info.gslt.as_ref().map_or(String::new(), |token| format!(
+                                "+sv_setsteamaccount {}",
+                                token
+                            ))
+                        );
 
                         let (task, handle) = Task::run(
                             Console::start(binary_path, args, info.name.clone(), port),
-                            move |msg| Message::ServerCommunication(id, msg),
+                            Message::ServerCommunication.with(id),
                         )
                         .abortable();
 
@@ -311,6 +301,28 @@ impl State {
                     serverlist::Action::Run(task) => task.map(Message::ServerList),
                 }
             }
+            Message::ServerCreation(msg) => {
+                let Screen::ServerCreation(creation) = &mut self.screen else {
+                    return Task::none();
+                };
+
+                match creation.update(msg) {
+                    servercreation::Action::None => Task::none(),
+                    servercreation::Action::SwitchToServerList => {
+                        self.screen = Screen::ServerList;
+
+                        Task::none()
+                    }
+                    servercreation::Action::ServerCreated(server) => {
+                        self.servers.push(Server::with_info(server));
+
+                        self.screen = Screen::ServerList;
+
+                        Task::none()
+                    }
+                    servercreation::Action::Run(task) => task.map(Message::ServerCreation),
+                }
+            }
             Message::ServerTerminal(id, message) => {
                 let Some(Server {
                     console: Some(console),
@@ -329,74 +341,8 @@ impl State {
 
                         Task::none()
                     }
-                    serverboot::Action::Run(task) => {
-                        task.map(move |msg| Message::ServerTerminal(id, msg))
-                    }
+                    serverboot::Action::Run(task) => task.map(Message::ServerTerminal.with(id)),
                 }
-            }
-            Message::UpdateServer(id, update) => {
-                let Some(Server {
-                    updating_percent: percent,
-                    ..
-                }) = self.servers.get_mut(id)
-                else {
-                    return Task::none();
-                };
-
-                *percent = match update {
-                    Update::Downloading(_percent) => Some(_percent),
-                    Update::Finished(_) => None,
-                };
-
-                Task::none()
-            }
-            Message::ServerCommunication(id, msg) => {
-                let Ok(communication) = msg else {
-                    return Task::none();
-                };
-
-                let Some(Server {
-                    console: Some(console),
-                    ..
-                }) = self.servers.get_mut(id)
-                else {
-                    return Task::none();
-                };
-
-                match communication {
-                    ServerCommunicationTwoWay::Input(sender) => {
-                        console.sender = Some(sender);
-                    }
-                    ServerCommunicationTwoWay::Output(string) => {
-                        console.output.push(string);
-                    }
-                }
-
-                Task::none()
-            }
-            Message::Copy => selectable_text::selected(Message::SelectedText),
-            Message::SelectedText(contents) => {
-                let mut last_y = None;
-                let contents = contents
-                    .into_iter()
-                    .fold(String::new(), |acc, (y, content)| {
-                        if let Some(_y) = last_y {
-                            let new_line = if y == _y { "" } else { "\n" };
-                            last_y = Some(y);
-
-                            format!("{acc}{new_line}{content}")
-                        } else {
-                            last_y = Some(y);
-
-                            content
-                        }
-                    });
-
-                if contents.is_empty() {
-                    return Task::none();
-                }
-
-                clipboard::write(contents)
             }
         }
     }
@@ -415,5 +361,26 @@ impl State {
                     .map(move |msg| Message::ServerTerminal(index, msg))
             }
         }
+    }
+}
+
+async fn get_config_path() -> Result<PathBuf, screen::serverlist::Error> {
+    if let Ok(executable_directory) = std::env::current_dir() {
+        let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
+
+        if config_path.try_exists().unwrap_or(false) {
+            return Ok(config_path);
+        }
+    }
+
+    let project_path = directories::ProjectDirs::from("", "MANNager", "mannager-source")
+        .ok_or(screen::serverlist::Error::NoServerListFile)?;
+
+    let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
+
+    if config_path.try_exists().unwrap_or(false) {
+        Ok(config_path)
+    } else {
+        Err(screen::serverlist::Error::NoServerListFile)
     }
 }

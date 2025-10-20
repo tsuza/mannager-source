@@ -1,6 +1,6 @@
 use std::{io, sync::Arc};
 
-use decoder::{Decoder, Value};
+use decoder::Value;
 use snafu::prelude::*;
 use zip::result::ZipError;
 
@@ -25,16 +25,17 @@ impl From<SourceEngineVersion> for u32 {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Copy)]
 pub enum Game {
     #[default]
     TeamFortress2,
     CounterStrikeSource,
-    CounterStrike2,
     LeftForDead1,
     LeftForDead2,
     HalfLife2DM,
     NoMoreRoomInHell,
+    CounterStrike2,
+    Deadlock,
 }
 
 impl Game {
@@ -58,12 +59,14 @@ impl std::str::FromStr for Game {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "TeamFortress2" => Ok(Game::TeamFortress2),
-            "CounterStrikeSource" => Ok(Game::CounterStrikeSource),
-            "CounterStrike2" => Ok(Game::CounterStrike2),
-            "LeftForDead1" => Ok(Game::LeftForDead1),
-            "LeftForDead2" => Ok(Game::LeftForDead2),
-            "NoMoreRoomInHell" => Ok(Game::NoMoreRoomInHell),
+            "Team Fortress 2" => Ok(Game::TeamFortress2),
+            "Counter-Strike: Source" => Ok(Game::CounterStrikeSource),
+            "Left For Dead 1" => Ok(Game::LeftForDead1),
+            "Left For Dead 2" => Ok(Game::LeftForDead2),
+            "Half-Life 2: DM" => Ok(Game::HalfLife2DM),
+            "No More Room In Hell" => Ok(Game::NoMoreRoomInHell),
+            "Counter-Strike: 2" => Ok(Game::CounterStrike2),
+            "Deadlock" => Ok(Game::Deadlock),
             _ => Err(format!("'{s}' is not a valid game")),
         }
     }
@@ -72,13 +75,14 @@ impl std::str::FromStr for Game {
 impl std::fmt::Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Game::TeamFortress2 => write!(f, "TeamFortress2"),
-            Game::CounterStrikeSource => write!(f, "CounterStrikeSource"),
-            Game::CounterStrike2 => write!(f, "CounterStrike2"),
-            Game::LeftForDead1 => write!(f, "LeftForDead1"),
-            Game::LeftForDead2 => write!(f, "LeftForDead2"),
-            Game::HalfLife2DM => write!(f, "HalfLife2DM"),
-            Game::NoMoreRoomInHell => write!(f, "NoMoreRoomInHell"),
+            Game::TeamFortress2 => write!(f, "Team Fortress 2"),
+            Game::CounterStrikeSource => write!(f, "Counter-Strike: Source"),
+            Game::LeftForDead1 => write!(f, "Left For Dead1"),
+            Game::LeftForDead2 => write!(f, "Left For Dead2"),
+            Game::HalfLife2DM => write!(f, "Half Life 2: DM"),
+            Game::NoMoreRoomInHell => write!(f, "No More Room In Hell"),
+            Game::CounterStrike2 => write!(f, "Counter-Strike: 2"),
+            Game::Deadlock => write!(f, "Deadlock"),
         }
     }
 }
@@ -93,6 +97,7 @@ impl From<Game> for u32 {
             Game::LeftForDead2 => 222860,
             Game::HalfLife2DM => 232370,
             Game::NoMoreRoomInHell => 317670,
+            Game::Deadlock => 1422450,
         }
     }
 }
@@ -106,6 +111,7 @@ pub fn get_arg_game_name(game: &Game) -> &'static str {
         Game::LeftForDead2 => "left4dead2",
         Game::HalfLife2DM => "hl2mp",
         Game::NoMoreRoomInHell => "nmrih",
+        Game::Deadlock => "deadlock",
     }
 }
 

@@ -1,4 +1,4 @@
-use iced::{Background, Border, Color, border, color, padding};
+use iced::{Background, Color, border};
 use iced_aw::menu::{Catalog, Style};
 use iced_aw::style::{Status, StyleFn};
 
@@ -22,7 +22,6 @@ pub fn default(theme: &Theme, _status: Status) -> Style {
     Style {
         bar_background: Background::Color(Color::TRANSPARENT),
         bar_border: border::rounded(0),
-        menu_background_expand: padding::all(5),
         menu_background: Background::Color(theme.colors().surface.surface_container.lowest),
         menu_border: container::outlined(theme).border.width(5),
         ..Default::default()

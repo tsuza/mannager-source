@@ -11,6 +11,7 @@ flate2 = "1.0.33"
 iced = { git = "https://github.com/iced-rs/iced", features = ["svg", "tokio", "debug", "image", "advanced", "sipper"]}
 iced_aw = { git = "https://github.com/iced-rs/iced_aw", features = ["number_input", "menu"] }
 iced_runtime = { git = "https://github.com/iced-rs/iced" }
+iced_core = { git = "https://github.com/iced-rs/iced.git" }
 notify-rust = "4.11.3"
 open = "5.3.0"
 portforwarder-rs = "0.1.1"
@@ -22,12 +23,12 @@ tokio = {version = "1.40.0", features = ["full"]}
 toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
-dragking = { path = "/home/suza/Coding/github/dragking"}
+dragking = { path = "/home/suza/Coding/github/dragking"  }
 num-traits = {version = "0.2.19" }
 decoder = "0.0.3"
 snafu = "0.8.6"
 igd = "0.12.1"
-iced_palace = { git = "https://github.com/hecrj/iced_palace.git" }
+iced_palace = { git = "https://github.com/hecrj/iced_palace.git", branch = "node-editor" }
 
 [target.'cfg(unix)'.dependencies]
 pty-process = {version = "0.4.0", features = ["async"]}
@@ -41,3 +42,5 @@ windows_exe_info = "0.4"
 iced.git = "https://github.com/iced-rs/iced.git"
 iced_core.git = "https://github.com/iced-rs/iced.git"
 iced_widget.git = "https://github.com/iced-rs/iced.git"
+iced_debug.git = "https://github.com/iced-rs/iced.git"
+

@@ -20,10 +20,10 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let primary = theme.colors().primary;
 
     let active = Style {
-        background: Background::Color(surface.surface_container.low),
+        background: Background::Color(surface.surface_container.lowest),
         border: Border {
-            color: theme.colors().outline.color,
-            width: 1.0,
+            color: theme.colors().outline.color.scale_alpha(0.8),
+            width: 2.0,
             radius: 3.into(),
         },
         icon: surface.on_surface_variant,
@@ -34,7 +34,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
 
     match status {
         Status::Active => active,
-        Status::Hovered => Style {
+        Status::Hovered | Status::Focused { .. } => Style {
             border: active.border.color(surface.on_surface),
             ..active
         },
@@ -48,14 +48,6 @@ pub fn default(theme: &Theme, status: Status) -> Style {
             placeholder: disabled_text(surface.on_surface),
             value: disabled_text(surface.on_surface),
             selection: disabled_text(surface.on_surface),
-        },
-        Status::Focused { .. } => Style {
-            border: Border {
-                color: primary.color,
-                width: 3.0,
-                ..active.border
-            },
-            ..active
         },
     }
 }

@@ -103,6 +103,14 @@ impl Base for Theme {
             danger: colors.error.color,
         })
     }
+
+    fn default(_preference: iced::theme::Mode) -> Self {
+        Self::TeamFortress2
+    }
+
+    fn mode(&self) -> iced::theme::Mode {
+        iced::theme::Mode::None
+    }
 }
 
 /// A custom [`Theme`].
@@ -165,6 +173,8 @@ pub struct ColorScheme {
     pub secondary: Secondary,
     /// The tertiary colors.
     pub tertiary: Tertiary,
+    // The success colors.
+    pub success: Success,
     /// The error colors.
     pub error: Error,
     /// The surface colors.
@@ -201,6 +211,14 @@ pub struct Tertiary {
     pub on_tertiary: Color,
     pub tertiary_container: Color,
     pub on_tertiary_container: Color,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Success {
+    pub color: Color,
+    pub on_success: Color,
+    pub success_container: Color,
+    pub on_success_container: Color,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

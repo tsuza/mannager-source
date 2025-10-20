@@ -14,6 +14,7 @@ use iced::{
     Event, Size,
     widget::text_input::{self, TextInput},
 };
+use iced_core::widget;
 
 use std::{fmt::Display, str::FromStr};
 
@@ -97,9 +98,9 @@ where
         }
     }
 
-    /// Sets the [Id](text_input::Id) of the internal [`TextInput`]
+    /// Sets the [Id](widget::Id) of the internal [`TextInput`]
     #[must_use]
-    pub fn id(mut self, id: text_input::Id) -> Self {
+    pub fn id(mut self, id: widget::Id) -> Self {
         self.text_input = self.text_input.id(id);
         self
     }
@@ -331,8 +332,13 @@ where
         <TextInput<_, _, _> as Widget<_, _, _>>::size(&self.text_input)
     }
 
-    fn layout(&self, state: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        <TextInput<_, _, _> as Widget<_, _, _>>::layout(&self.text_input, state, renderer, limits)
+    fn layout(&mut self, state: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
+        <TextInput<_, _, _> as Widget<_, _, _>>::layout(
+            &mut self.text_input,
+            state,
+            renderer,
+            limits,
+        )
     }
 
     fn draw(
@@ -376,14 +382,14 @@ where
     }
 
     fn operate(
-        &self,
+        &mut self,
         state: &mut Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
         <TextInput<_, _, _> as Widget<_, _, _>>::operate(
-            &self.text_input,
+            &mut self.text_input,
             state,
             layout,
             renderer,

@@ -133,7 +133,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
@@ -377,7 +377,7 @@ where
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
         _renderer: &Renderer,
@@ -480,14 +480,10 @@ pub fn selected<Message: Send + 'static>(f: fn(Vec<(f32, String)>) -> Message) -
     }
 
     impl<T> Operation<T> for Selected<T> {
-        fn container(
-            &mut self,
-            _id: Option<&widget::Id>,
-            _bounds: Rectangle,
-            operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>),
-        ) {
+        fn traverse(&mut self, operate_on_children: &mut dyn FnMut(&mut dyn Operation<T>)) {
             operate_on_children(self);
         }
+        fn container(&mut self, _id: Option<&widget::Id>, _bounds: Rectangle) {}
 
         fn custom(
             &mut self,

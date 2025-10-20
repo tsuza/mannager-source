@@ -187,3 +187,25 @@ pub fn text(theme: &Theme, status: Status) -> Style {
         },
     }
 }
+
+pub fn success(theme: &Theme, status: Status) -> Style {
+    let success = theme.colors().success;
+
+    let foreground = success.on_success_container;
+    let background = success.success_container;
+    let disabled = theme.colors().surface.on_surface;
+    let shadow_color = theme.colors().shadow;
+
+    styled(background, foreground, disabled, shadow_color, 0, status)
+}
+
+pub fn error(theme: &Theme, status: Status) -> Style {
+    let error = theme.colors().error;
+
+    let foreground = error.on_error_container;
+    let background = error.error_container;
+    let disabled = theme.colors().surface.on_surface;
+    let shadow_color = theme.colors().shadow;
+
+    styled(background, foreground, disabled, shadow_color, 0, status)
+}

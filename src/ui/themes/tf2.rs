@@ -1,8 +1,8 @@
 use iced::color;
 
 use super::{
-    ColorScheme, Error, Inverse, Outline, Primary, Secondary, Surface, SurfaceContainer, Tertiary,
-    from_argb,
+    ColorScheme, Error, Inverse, Outline, Primary, Secondary, Success, Surface, SurfaceContainer,
+    Tertiary, from_argb,
 };
 
 pub mod button;
@@ -10,6 +10,7 @@ pub mod container;
 pub mod dragking;
 pub mod float;
 pub mod menu;
+pub mod metered_progress_bar;
 pub mod number_input;
 pub mod progress_bar;
 pub mod rule;
@@ -38,6 +39,12 @@ pub const fn color_scheme() -> ColorScheme {
             on_tertiary: color!(0xFFFFFF),
             tertiary_container: color!(0x527061),
             on_tertiary_container: color!(0xeae9e9),
+        },
+        success: Success {
+            color: color!(0x537321),
+            on_success: color!(0xeee5cf),
+            success_container: color!(0x669e33),
+            on_success_container: color!(0xeee5cf),
         },
         error: Error {
             color: color!(0xa93131),

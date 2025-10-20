@@ -1,12 +1,12 @@
-use std::{io, net::Ipv4Addr, path::PathBuf, sync::Arc};
+use std::{io, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
 
 use iced::{
-    Alignment, Color, Font, Length, Subscription, Task, border, color,
+    Alignment, Color, Font, Length, Task,
     futures::{SinkExt, Stream, StreamExt, channel::mpsc},
     keyboard, padding,
     stream::try_channel,
     task,
-    widget::{button, center, column, container, horizontal_space, row, scrollable, text},
+    widget::{button, column, container, row, scrollable, space, text},
 };
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use snafu::{ResultExt, Snafu};
@@ -18,10 +18,7 @@ use tokio::{
 use iced::widget::text::LineHeight;
 
 use crate::{
-    core::{
-        Game, get_arg_game_name,
-        portforwarder::{self, PortForwarderIP},
-    },
+    core::portforwarder::{self, PortForwarderIP},
     ui::{
         Element,
         components::{
@@ -29,12 +26,13 @@ use crate::{
             selectable_text::{self, selectable_text},
             textinput_terminal,
         },
-        style::{self, icon::left_arrow},
-        themes::{Theme, elevation, shadow_from_elevation, tf2},
+        icons::left_arrow,
+        themes::{
+            elevation, shadow_from_elevation,
+            tf2::{self},
+        },
     },
 };
-
-use super::serverlist::ServerInfo;
 
 pub struct ServerTerminal;
 
@@ -139,9 +137,9 @@ impl Console {
 
                 if let Err(_) = forwarder {
                     let _ = notification(
-                        "[ MANNager ] Server running...",
+                        "MANNager",
                         "Port forwarding failed.",
-                        5,
+                        Duration::from_secs(5),
                     )
                     .await;
                 }
@@ -245,12 +243,6 @@ pub enum TextType {
 pub const DEFAULT_PORT: u16 = 27015;
 pub const PORT_OFFSET: u16 = 10;
 
-#[cfg(target_os = "linux")]
-const SRCDS_EXEC_NAME: &str = "srcds_run";
-
-#[cfg(target_os = "windows")]
-const SRCDS_EXEC_NAME: &str = "srcds-fix.exe";
-
 impl ServerTerminal {
     pub fn update(console: &mut Console, message: Message) -> Action {
         match message {
@@ -330,9 +322,16 @@ impl ServerTerminal {
 
     pub fn view<'a>(title: &String, console: &Console) -> Element<'a, Message> {
         let console_output_text = {
-            column(console.output.iter().map(|text| match text {
-                TextType::Input(string) => selectable_text(format!("{}", string)).into(),
-                TextType::Output(string) => selectable_text(format!("{}", string)).into(),
+            column(console.output.iter().map(|text| {
+                match text {
+                    TextType::Input(string) => selectable_text(format!("{}", string))
+                        .style(|theme| selectable_text::Style {
+                            color: Some(Color::from_rgb8(120, 120, 120)),
+                            ..tf2::selectable_text::default(theme)
+                        })
+                        .into(),
+                    TextType::Output(string) => selectable_text(format!("{}", string)).into(),
+                }
             }))
             .padding(5)
         };
@@ -342,20 +341,22 @@ impl ServerTerminal {
                 container(
                     row![
                         button(left_arrow().size(20).center()).on_press(Message::GoBack),
-                        horizontal_space(),
-                        text!("{}", title)
-                            .font(Font::with_name("TF2 Build"))
-                            .size(40)
-                            .line_height(1.0)
-                            .align_x(Alignment::Center)
-                            .align_y(Alignment::Center),
-                        horizontal_space()
+                        space::horizontal(),
+                        container(
+                            text!("{}", title)
+                                .font(Font::with_name("TF2 Build"))
+                                .size(40)
+                                .line_height(1.0)
+                                .align_x(Alignment::Center)
+                        )
+                        .padding(padding::top(4.0).bottom(-3.0)),
+                        space::horizontal()
                     ]
                     .width(Length::Fill)
                     .align_y(Alignment::Center)
                     .padding(padding::all(10))
                 )
-                .width(Length::Fill)
+                .align_x(Alignment::Center)
                 .style(|theme| tf2::container::outlined(theme)
                     .background(theme.colors().surface.surface_container.lowest)
                     .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))),

@@ -5,7 +5,7 @@ use crate::ui::themes::Theme;
 
 type Text<'a> = iced::widget::Text<'a, Theme>;
 
-pub const FONT_BYTES: &[u8] = include_bytes!("../../../fonts/mannagericons.ttf");
+pub const FONT_BYTES: &[u8] = include_bytes!("../../fonts/mannagericons.ttf");
 
 pub fn bug<'a>() -> Text<'a> {
     with_codepoint('\u{E800}')
