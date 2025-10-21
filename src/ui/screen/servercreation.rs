@@ -140,18 +140,22 @@ impl State {
 
                 Action::None
             }
-            Message::SelectMap => Action::Run(Task::perform(
-                rfd::AsyncFileDialog::new()
-                    .set_title("Choose a default map")
-                    .set_directory(format!(
-                        "{}\\{}\\maps",
-                        self.server.path.display().to_string(),
-                        get_arg_game_name(&self.server.game.clone())
-                    ))
-                    .add_filter("Source Map", &["bsp", "vpk"])
-                    .pick_file(),
-                Message::SelectMapFinished,
-            )),
+            Message::SelectMap => {
+                let path = PathBuf::from(format!(
+                    "{}/{}/maps",
+                    self.server.path.display().to_string(),
+                    get_arg_game_name(&self.server.game.clone())
+                ));
+
+                Action::Run(Task::perform(
+                    rfd::AsyncFileDialog::new()
+                        .set_title("Choose a default map")
+                        .set_directory(path)
+                        .add_filter("Source Map", &["bsp", "vpk"])
+                        .pick_file(),
+                    Message::SelectMapFinished,
+                ))
+            }
             Message::SelectMapFinished(file_handle) => {
                 if let Some(file) = file_handle {
                     self.server.map = file

@@ -318,7 +318,14 @@ impl State {
 
                         self.screen = Screen::ServerList;
 
-                        Task::none()
+                        let servers = self.servers.clone();
+
+                        Task::future(async {
+                            get_config_path()
+                                .and_then(|path| async move { servers.save(&path).await })
+                                .await
+                        })
+                        .discard()
                     }
                     servercreation::Action::Run(task) => task.map(Message::ServerCreation),
                 }

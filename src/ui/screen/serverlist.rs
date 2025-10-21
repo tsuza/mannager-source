@@ -1,5 +1,12 @@
 use core::str;
-use std::{io, net::Ipv4Addr, path::Path, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    io,
+    net::Ipv4Addr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
+};
 
 use iced::{
     Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard,
@@ -253,22 +260,26 @@ impl ServerList {
 
                         Action::None
                     }
-                    EditServer::ChangeMap => Action::Run(
-                        Task::perform(
-                            rfd::AsyncFileDialog::new()
-                                .set_title("Choose a default map")
-                                .set_directory(format!(
-                                    "{}/{}/maps",
-                                    info.path.display().to_string(),
-                                    get_arg_game_name(&info.game.clone())
-                                ))
-                                .add_filter("Source Map", &["bsp"])
-                                .pick_file(),
-                            EditServer::ChangeMapFinished,
+                    EditServer::ChangeMap => {
+                        let path = PathBuf::from(format!(
+                            "{}/{}/maps",
+                            info.path.display().to_string(),
+                            get_arg_game_name(&info.game.clone())
+                        ));
+
+                        Action::Run(
+                            Task::perform(
+                                rfd::AsyncFileDialog::new()
+                                    .set_title("Choose a default map")
+                                    .set_directory(path)
+                                    .add_filter("Source Map", &["bsp"])
+                                    .pick_file(),
+                                EditServer::ChangeMapFinished,
+                            )
+                            .map(ServerMessage::EditServer)
+                            .map(Message::ServerMessage.with(id)),
                         )
-                        .map(ServerMessage::EditServer)
-                        .map(Message::ServerMessage.with(id)),
-                    ),
+                    }
                     EditServer::ChangeMapFinished(file_handle) => {
                         if let Some(file) = file_handle {
                             info.map = file
