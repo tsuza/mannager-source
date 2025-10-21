@@ -45,16 +45,20 @@ impl DepotDownloader {
         path: &str,
         appid: u32,
     ) -> Result<Option<ChildStdout>, Error> {
-        let mut process = Command::new(&self.depotdownloader_path)
+        let mut process = Command::new(&self.depotdownloader_path);
+
+        process
             .args(["-app", &appid.to_string()])
             .args(["-dir", path])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .creation_flags(0x08000000)
-            .spawn()
-            .context(SpawnProcessSnafu)?;
+            .kill_on_drop(true);
+
+        #[cfg(target_os = "windows")]
+        process.creation_flags(0x08000000);
+
+        let mut process = process.spawn().context(SpawnProcessSnafu)?;
 
         let stdout = process.stdout.take();
 

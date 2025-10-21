@@ -18,6 +18,6 @@ pub async fn notification(title: &str, body: impl Into<String>, timeout: impl In
     #[cfg(target_os = "linux")]
     let _ = notification.show_async().await;
 
-     #[cfg(target_os = "windows")]
+    #[cfg(target_os = "windows")]
     let _ = notification.show();
 }

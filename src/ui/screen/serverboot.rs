@@ -111,7 +111,9 @@ impl Console {
                             .kill_on_drop(true)
                             .creation_flags(0x08000000)
                             .spawn()
-                            .map_err(|err| Error::SpawnProcessError { msg: err.to_string()})?
+                            .map_err(|err| Error::SpawnProcessError {
+                                msg: err.to_string(),
+                            })?
                     }
                 };
 

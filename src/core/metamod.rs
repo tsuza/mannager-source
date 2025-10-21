@@ -60,8 +60,8 @@ impl MetamodDownloader {
 
         #[cfg(target_os = "linux")]
         {
-            use flate2::read::GzDecoder;
             use crate::core::TarSnafu;
+            use flate2::read::GzDecoder;
 
             let tar = GzDecoder::new(cursor);
 
@@ -80,7 +80,9 @@ impl MetamodDownloader {
         {
             use crate::core::ZipSnafu;
 
-            let mut zip = zip::ZipArchive::new(cursor).context(ZipSnafu).context(ArchiveExtractionSnafu)?;
+            let mut zip = zip::ZipArchive::new(cursor)
+                .context(ZipSnafu)
+                .context(ArchiveExtractionSnafu)?;
 
             zip.extract(
                 path.to_path_buf()

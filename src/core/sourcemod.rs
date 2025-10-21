@@ -62,6 +62,7 @@ impl SourcemodDownloader {
 
         #[cfg(target_os = "linux")]
         {
+            use crate::core::TarSnafu;
             use flate2::read::GzDecoder;
 
             let tar = GzDecoder::new(cursor);
@@ -81,7 +82,9 @@ impl SourcemodDownloader {
         {
             use crate::core::ZipSnafu;
 
-            let mut zip = zip::ZipArchive::new(cursor).context(ZipSnafu).context(ArchiveExtractionSnafu)?;
+            let mut zip = zip::ZipArchive::new(cursor)
+                .context(ZipSnafu)
+                .context(ArchiveExtractionSnafu)?;
 
             zip.extract(
                 path.to_path_buf()

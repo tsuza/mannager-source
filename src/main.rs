@@ -1,8 +1,8 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+use iced::{Font, Size};
 #[cfg(target_os = "windows")]
 use iced::{advanced::graphics::image::image_rs::ImageFormat, window};
-use iced::{Font, Size};
 use ui::State;
 
 use crate::ui::icons::FONT_BYTES;
