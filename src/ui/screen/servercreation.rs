@@ -141,11 +141,9 @@ impl State {
                 Action::None
             }
             Message::SelectMap => {
-                let path = PathBuf::from(format!(
-                    "{}/{}/maps",
-                    self.server.path.display().to_string(),
-                    get_arg_game_name(&self.server.game.clone())
-                ));
+                let path = PathBuf::from(self.server.path.display().to_string())
+                    .join(get_arg_game_name(&self.server.game.clone()))
+                    .join("maps");
 
                 Action::Run(Task::perform(
                     rfd::AsyncFileDialog::new()

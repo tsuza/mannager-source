@@ -261,11 +261,9 @@ impl ServerList {
                         Action::None
                     }
                     EditServer::ChangeMap => {
-                        let path = PathBuf::from(format!(
-                            "{}/{}/maps",
-                            info.path.display().to_string(),
-                            get_arg_game_name(&info.game.clone())
-                        ));
+                        let path = PathBuf::from(info.path.display().to_string())
+                            .join(get_arg_game_name(&info.game.clone()))
+                            .join("maps");
 
                         Action::Run(
                             Task::perform(
