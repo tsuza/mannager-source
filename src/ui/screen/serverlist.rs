@@ -270,7 +270,7 @@ impl ServerList {
                                 rfd::AsyncFileDialog::new()
                                     .set_title("Choose a default map")
                                     .set_directory(path)
-                                    .add_filter("Source Map", &["bsp"])
+                                    .add_filter("Source Map", &["bsp", "vpk"])
                                     .pick_file(),
                                 EditServer::ChangeMapFinished,
                             )

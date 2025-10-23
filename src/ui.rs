@@ -12,9 +12,10 @@ use screen::{
 };
 
 use crate::{
-    core::{Game, get_arg_game_name},
+    core::{Game, SourceEngineVersion, get_arg_game_name},
     ui::{
         components::selectable_text,
+        games::SOURCE_GAMES,
         screen::servercreation::download_server,
         server::{Server, Servers},
         themes::Theme,
@@ -239,36 +240,51 @@ impl State {
                             return Task::none();
                         };
 
-                        #[cfg(target_os = "linux")]
-                        const SRCDS_EXEC_NAME: &str = "srcds_run";
+                        let Some(game_info) = SOURCE_GAMES
+                            .iter()
+                            .find(|game_info| game_info.game == info.game)
+                        else {
+                            return Task::none();
+                        };
 
-                        #[cfg(target_os = "windows")]
-                        const SRCDS_EXEC_NAME: &str = "srcds-fix.exe";
+                        let binary_path = {
+                            let server_path = &info.path;
+                            let executable_path = &game_info.executable_path;
 
-                        let binary_path = info.path.join(SRCDS_EXEC_NAME);
+                            server_path.join(executable_path)
+                        };
 
                         let port = info.port.unwrap_or_else(|| {
                             find_available_port(Ipv4Addr::new(0, 0, 0, 0), DEFAULT_PORT)
                         });
 
-                        let args = format!(
-                            "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}{}{}",
-                            get_arg_game_name(&info.game),
-                            info.name,
-                            info.map,
-                            info.max_players,
-                            port,
-                            port + PORT_OFFSET,
+                        let args = {
+                            let mut args = match game_info.engine {
+                                SourceEngineVersion::Source1 => {
+                                    format!("-console -game {}", get_arg_game_name(&info.game))
+                                }
+                                SourceEngineVersion::Source2 => "-dedicated".to_string(),
+                            };
+
+                            args.push_str(&format!(
+                                " +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
+                                info.name,
+                                info.map,
+                                info.max_players,
+                                port,
+                                port + PORT_OFFSET,
+                            ));
+
                             if info.max_players > 32 && info.game == Game::TeamFortress2 {
-                                " -unrestricted_maxplayers"
-                            } else {
-                                ""
-                            },
-                            info.gslt.as_ref().map_or(String::new(), |token| format!(
-                                "+sv_setsteamaccount {}",
-                                token
-                            ))
-                        );
+                                args.push_str(" -unrestricted_maxplayers");
+                            }
+
+                            if let Some(token) = &info.gslt {
+                                args.push_str(&format!(" +sv_setsteamaccount {token}"));
+                            }
+
+                            args
+                        };
 
                         let (task, handle) = Task::run(
                             Console::start(binary_path, args, info.name.clone(), port),

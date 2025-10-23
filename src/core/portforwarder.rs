@@ -1,34 +1,3 @@
-/*
-let forward_ports = |mut forwarder: Forwarder| {
-    forwarder
-        .forward_port(27015, 27015, PortMappingProtocol::UDP, "tf2 server")
-        .map_err(|_| Error::PortForwardingError)
-};
-
-let create_forwarder = |network_interfaces: Vec<Interface>| {
-    portforwarder_rs::port_forwarder::create_forwarder_from_any(
-        network_interfaces
-            .into_iter()
-            .map(|interface| interface.addr),
-    )
-    .map_err(|_| Error::PortForwardingError)
-};
-
-let _ = portforwarder_rs::query_interfaces::get_network_interfaces()
-    .map_err(|_| Error::PortForwardingError)
-    .and_then(create_forwarder)
-    .and_then(forward_ports)
-    .map_err(|_| async {
-        let _ = Notification::new()
-            .appname("MANNager")
-            .summary("[ MANNager ] Server running...")
-            .body("Port forwarding failed.")
-            .timeout(5)
-            .show_async()
-            .await;
-    });
-*/
-
 use std::{io, net::Ipv4Addr};
 
 use igd::{AddPortError, RemovePortError, SearchError};
