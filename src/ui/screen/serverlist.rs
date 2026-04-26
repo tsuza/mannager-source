@@ -532,7 +532,8 @@ where
                 .height(Length::Fill)
                 .style(|theme| {
                     gradient::Linear::new(PI)
-                        .add_stop(0.4, Color::from_rgba8(42, 39, 37, 1.0))
+                        .add_stop(0.0, Color::from_rgba8(42, 39, 37, 1.0))
+                        .add_stop(0.4, Color::from_rgba8(42, 39, 37, 0.9))
                         .add_stop(0.8, Color::from_rgba8(42, 39, 37, 0.1))
                         .into()
                 })
