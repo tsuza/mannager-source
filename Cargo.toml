@@ -1,6 +1,6 @@
 [package]
 name = "mannager"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 build = "build.rs"
 edition = "2024"
