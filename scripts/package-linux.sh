@@ -2,7 +2,7 @@
 
 ARCH="x86_64"
 TARGET="mannager"
-ID="org.tsuza.mannager"
+ID="net.tsuza.mannager"
 VERSION=$(cargo pkgid | cut -d '@' -f 2)
 PROFILE="release"
 ASSETS_DIR="assets/linux"

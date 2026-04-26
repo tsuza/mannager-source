@@ -1,34 +1,38 @@
 use core::str;
 use std::{
+    f32::consts::PI,
     io,
     net::Ipv4Addr,
     path::{Path, PathBuf},
-    str::FromStr,
     sync::Arc,
     time::Duration,
 };
 
 use iced::{
-    Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard,
+    Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard, color,
     font::Weight,
-    futures::TryFutureExt,
-    padding,
+    gradient, padding,
     widget::{
         Button, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
-        space, stack, svg, text, text_input,
+        space, stack, svg, text, text_input, tooltip,
     },
 };
+use iced::{
+    Background,
+    widget::{Space, text::Ellipsis},
+};
 use rfd::FileHandle;
+use sweeten::widget::drag::DragEvent;
 
 use crate::{
     core::get_arg_game_name,
+    icon,
     ui::{
-        components::{metered_progress_bar, tooltip},
-        games::SOURCE_GAMES,
-        icons::{
-            self, left_arrow, link, location, menu, password, people, plus, port, right_arrow,
-            start, stop, terminal,
+        components::{
+            metered_progress_bar,
+            spinner::{Circular, easing},
         },
+        games::SOURCE_GAMES,
         server::{Server, Servers},
         themes::{Theme, elevation, shadow_from_elevation, tf2},
     },
@@ -39,13 +43,10 @@ use iced_aw::{
     menu::{DrawPath, Item},
     number_input,
 };
-use iced_palace::widget::ellipsized_text;
 
 use snafu::prelude::*;
 
 use crate::ui::Element;
-
-use dragking;
 
 use crate::{
     core::{
@@ -74,7 +75,7 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub enum Message {
     CreateServer,
-    ServerReorder(dragking::DragEvent),
+    ServerReorder(DragEvent),
     ServerMessage(usize, ServerMessage),
 }
 
@@ -113,7 +114,7 @@ impl ServerList {
         match message {
             Message::CreateServer => Action::CreateServer,
             Message::ServerReorder(drag_event) => match drag_event {
-                dragking::DragEvent::Dropped {
+                DragEvent::Dropped {
                     index,
                     target_index,
                 } => {
@@ -135,7 +136,7 @@ impl ServerList {
 
                 let path = server.info.path.clone();
 
-                servers.remove(id).info.name;
+                servers.remove(id);
 
                 Action::Run(
                     Task::perform(
@@ -154,6 +155,8 @@ impl ServerList {
                 id,
                 ServerMessage::DownloadSourcemod(engine_version, sourcemod_branch),
             ) => {
+                // TODO: Look into adding the logic to download the correct verison here
+                // insteado of view?
                 let Some(server) = servers.get_mut(id) else {
                     return Action::None;
                 };
@@ -164,7 +167,7 @@ impl ServerList {
 
                 let path = server.info.path.clone();
                 let game = server.info.game.clone();
-                let branch = sourcemod_branch.clone();
+                let branch = sourcemod_branch;
 
                 server.is_downloading_sourcemod = true;
 
@@ -184,6 +187,7 @@ impl ServerList {
                 };
 
                 server.is_downloading_sourcemod = false;
+
                 let server_name = server.info.name.clone();
 
                 Action::Run(
@@ -246,7 +250,7 @@ impl ServerList {
                     return Action::None;
                 };
 
-                Action::Run(clipboard::write::<Message>(string).discard())
+                Action::Run(clipboard::write(clipboard::Content::Text(string)).discard())
             }
             Message::ServerMessage(id, ServerMessage::StartEditServer) => Action::EditServer(id),
             Message::ServerMessage(id, ServerMessage::EditServer(edit)) => {
@@ -321,73 +325,73 @@ impl ServerList {
     }
 
     pub fn view(servers: &Servers) -> Element<'_, Message> {
-        let servers = dragking::column(servers.iter().enumerate().map(|(id, server)| {
-            if !server.is_editing {
-                card(server).map(Message::ServerMessage.with(id))
-            } else {
-                editable_card(server).map(Message::ServerMessage.with(id))
-            }
-        }))
-        .on_drag_maybe(
-            servers
-                .iter()
-                .all(|server| {
-                    !server.is_running()
-                        && !server.is_downloading_sourcemod
-                        && !server.is_updating()
-                        && !server.is_editing
-                })
-                .then_some(Message::ServerReorder),
-        )
-        .spacing(20)
-        .align_x(Alignment::Center);
+        let servers = {
+            let server_cards = servers.iter().enumerate().map(|(id, server)| {
+                if !server.is_editing {
+                    card(server).map(Message::ServerMessage.with(id))
+                } else {
+                    editable_card(server).map(Message::ServerMessage.with(id))
+                }
+            });
 
-        container(column![
-            container(
-                container(
-                    column![
-                        container(
-                            text!("Servers")
-                                .font(Font::with_name("TF2 Build"))
-                                .size(40)
-                                .align_x(Alignment::Center)
-                                .width(Length::Fill)
-                        )
-                        .padding(padding::bottom(4)),
-                        rule::horizontal(2),
-                        container(
-                            column![
-                                scrollable(servers).height(Length::Fill).spacing(5),
-                                container(
-                                    button(
-                                        plus()
-                                            .size(30)
-                                            .width(30)
-                                            .align_x(Alignment::Center)
-                                            .align_y(Alignment::Center)
-                                    )
-                                    .on_press(Message::CreateServer)
-                                    .padding([15, 20])
-                                )
-                                .center_x(Length::Fill)
-                            ]
-                            .spacing(20)
-                        )
-                        .padding(padding::top(10))
-                    ]
+            let are_servers_idle = servers.iter().all(|server| {
+                !server.is_running()
+                    && !server.is_downloading_sourcemod
+                    && !server.is_updating()
+                    && !server.is_editing
+            });
+
+            if are_servers_idle {
+                sweeten::widget::column(server_cards)
+                    .on_drag(Message::ServerReorder)
+                    .spacing(20)
                     .align_x(Alignment::Center)
-                )
-                .width(1080)
-                .height(Length::Fill)
-                .padding(padding::all(50).top(20))
-                .style(|_theme| tf2::container::main(_theme))
+            } else {
+                sweeten::widget::column(server_cards)
+                    .spacing(20)
+                    .align_x(Alignment::Center)
+            }
+        };
+
+        container(
+            container(
+                column![
+                    container(
+                        text!("Servers")
+                            .font(Font::new("TF2 Build"))
+                            .size(40)
+                            .align_x(Alignment::Center)
+                            .width(Length::Fill)
+                    )
+                    .padding(padding::bottom(4)),
+                    rule::horizontal(2),
+                    column![
+                        scrollable(servers).height(Length::Fill).spacing(5),
+                        container(
+                            button(
+                                icon::plus()
+                                    .size(30)
+                                    .width(30)
+                                    .align_x(Alignment::Center)
+                                    .align_y(Alignment::Center)
+                            )
+                            .on_press(Message::CreateServer)
+                            .padding([15, 20])
+                        )
+                        .center_x(Length::Fill)
+                    ]
+                    .spacing(20)
+                    .padding(padding::top(10))
+                ]
+                .align_x(Alignment::Center),
             )
-            .center_x(Length::Fill)
-            .padding(40)
+            .width(1080)
             .height(Length::Fill)
-        ])
-        .width(Length::Fill)
-        .height(Length::Fill)
+            .padding(padding::all(50).top(20))
+            .style(|_theme| tf2::container::main(_theme)),
+        )
+        .center(Length::Fill)
+        .padding(40)
         .style(|theme| tf2::container::surface(theme))
         .into()
     }
@@ -417,7 +421,7 @@ where
             button(row![
                 text!("Download Sourcemod"),
                 space::horizontal(),
-                right_arrow()
+                icon::right_arrow()
             ])
             .on_press_maybe(
                 (!is_downloading_sourcemod).then_some(ServerMessage::DummyButtonEffectMsg),
@@ -428,10 +432,14 @@ where
             button(
                 row![
                     text!("Download Sourcemod"),
-                    text!("loading"),
+                    Circular::new()
+                        .easing(&easing::EMPHASIZED_DECELERATE)
+                        .cycle_duration(Duration::from_secs_f32(5.0))
+                        .size(20.0),
                     space::horizontal(),
-                    right_arrow()
+                    icon::right_arrow()
                 ]
+                .align_y(Alignment::Center)
                 .spacing(10),
             )
             .on_press_maybe(
@@ -446,7 +454,7 @@ where
             Menu::new(
                 [
                     Item::new(
-                        menu_button(icons::download(), "Stable branch").on_press_maybe(
+                        menu_button(icon::download(), "Stable branch").on_press_maybe(
                             (!is_downloading_sourcemod).then_some(
                                 ServerMessage::DownloadSourcemod(
                                     SourceEngineVersion::Source1,
@@ -455,7 +463,7 @@ where
                             ),
                         ),
                     ),
-                    Item::new(menu_button(icons::download(), "Dev branch").on_press_maybe(
+                    Item::new(menu_button(icon::download(), "Dev branch").on_press_maybe(
                         (!is_downloading_sourcemod).then_some(ServerMessage::DownloadSourcemod(
                             SourceEngineVersion::Source1,
                             SourcemodBranch::Dev,
@@ -470,26 +478,27 @@ where
 
         MenuBar::new(
             [Item::with_menu(
-                button(menu().size(20).center()).on_press(ServerMessage::DummyButtonEffectMsg),
+                button(icon::menu().size(20).center())
+                    .on_press(ServerMessage::DummyButtonEffectMsg),
                 Menu::new(
                     [
                         Item::new(
-                            menu_button(icons::edit(), "Edit")
+                            menu_button(icon::edit(), "Edit")
                                 .on_press(ServerMessage::StartEditServer),
                         ),
                         Item::new(
-                            menu_button(icons::download(), "Update Server")
+                            menu_button(icon::download(), "Update Server")
                                 .on_press(ServerMessage::UpdateServer),
                         ),
                         Item::new(container(rule::horizontal(1)).padding([5, 10])),
                         sourcemod_sub,
                         Item::new(container(rule::horizontal(1)).padding([5, 10])),
                         Item::new(
-                            menu_button(icons::folder(), "Open folder")
+                            menu_button(icon::folder(), "Open folder")
                                 .on_press(ServerMessage::OpenFolder),
                         ),
                         Item::new(
-                            menu_button(icons::trash(), "Delete server")
+                            menu_button(icon::trash(), "Delete server")
                                 .on_press(ServerMessage::DeleteServer),
                         ),
                     ]
@@ -500,130 +509,172 @@ where
             )]
             .into(),
         )
-        .draw_path(DrawPath::FakeHovering)
+        .close_on_background_click_global(true)
+        .close_on_item_click_global(true)
+        .draw_path(DrawPath::Backdrop)
         .padding(0)
     };
 
-    let console_button = server.is_running().then_some(
-        tooltip(
-            button(terminal().size(20).center()).on_press(ServerMessage::OpenTerminal),
-            "Open the terminal",
-            tooltip::Position::Top,
-        )
-        .delay(Duration::from_millis(500)),
-    );
+    // TODO: Remove the unwrap.
+    let server_icon = {
+        let icon = get_game_image(info.game).unwrap();
 
-    let join_link_button = server.is_running().then_some(
-        tooltip(
-            button(link().size(20).center()).on_press(ServerMessage::CopyLink),
-            "Copy the server link",
-            tooltip::Position::Top,
-        )
-        .delay(Duration::from_millis(500)),
-    );
+        let icon = svg(icon)
+            .content_fit(ContentFit::Contain)
+            .width(94)
+            .height(94)
+            .opacity(0.8);
 
-    let running_button = if !server.is_running() {
-        tooltip(
-            button(start().size(20).center())
-                .on_press(ServerMessage::StartServer)
-                .style(|theme, status| tf2::button::success(theme, status)),
-            "Start the server",
-            tooltip::Position::Top,
-        )
-        .delay(Duration::from_millis(500))
-    } else {
-        tooltip(
-            button(stop().size(20).center())
-                .on_press(ServerMessage::StopServer)
-                .style(|theme, status| tf2::button::error(theme, status)),
-            "Stop the server",
-            tooltip::Position::Top,
-        )
-        .delay(Duration::from_millis(500))
+        stack![
+            icon,
+            container(Space::new())
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(|theme| {
+                    gradient::Linear::new(PI)
+                        .add_stop(0.4, Color::from_rgba8(42, 39, 37, 1.0))
+                        .add_stop(0.8, Color::from_rgba8(42, 39, 37, 0.1))
+                        .into()
+                })
+        ]
     };
 
-    let server_image = get_game_image(info.game).unwrap();
+    let header_row = {
+        let server_name = text(format!("{}", &info.name))
+            .wrapping(text::Wrapping::None)
+            .ellipsis(Ellipsis::End)
+            .size(25)
+            .width(Length::Fill)
+            .font(iced::Font {
+                weight: Weight::Bold,
+                ..Font::DEFAULT
+            });
 
-    let card = container(
+        let console_button = server.is_running().then_some(
+            tooltip(
+                button(icon::terminal().size(20).center()).on_press(ServerMessage::OpenTerminal),
+                "Open the terminal",
+                tooltip::Position::Top,
+            )
+            .delay(Duration::from_millis(500)),
+        );
+
+        let join_link_button = server.is_running().then_some(
+            tooltip(
+                button(icon::link().size(20).center()).on_press(ServerMessage::CopyLink),
+                "Copy the server link",
+                tooltip::Position::Top,
+            )
+            .delay(Duration::from_millis(500)),
+        );
+
+        let running_button = if !server.is_running() {
+            tooltip(
+                button(icon::start().size(20).center())
+                    .on_press(ServerMessage::StartServer)
+                    .style(|theme, status| tf2::button::success(theme, status)),
+                "Start the server",
+                tooltip::Position::Top,
+            )
+            .delay(Duration::from_millis(500))
+        } else {
+            tooltip(
+                button(icon::stop().size(20).center())
+                    .on_press(ServerMessage::StopServer)
+                    .style(|theme, status| tf2::button::error(theme, status)),
+                "Stop the server",
+                tooltip::Position::Top,
+            )
+            .delay(Duration::from_millis(500))
+        };
+
         row![
-            svg(server_image)
-                .content_fit(ContentFit::Contain)
-                .width(94)
-                .height(94),
-            rule::vertical(2),
-            column![
-                row![
-                    ellipsized_text(format!("{}", &info.name))
-                        .wrapping(text::Wrapping::None)
-                        .size(25)
-                        .font(iced::Font {
-                            weight: Weight::Bold,
-                            ..Font::DEFAULT
-                        }),
-                    space::horizontal(),
-                    console_button,
-                    join_link_button,
-                    running_button,
-                    menu_settings
-                ]
-                .spacing(10)
-                .padding(padding::bottom(5))
-                .align_y(Alignment::Center),
-                rule::horizontal(0),
-                row![
-                    column![
-                        row![people(), text!("{}", info.max_players)]
-                            .align_y(Alignment::Center)
-                            .spacing(5),
-                        row![
-                            port(),
-                            text!(
-                                "{}",
-                                info.port
-                                    .map_or_else(|| "auto".to_string(), |port| port.to_string())
-                            )
-                        ]
-                        .align_y(Alignment::Center)
-                        .spacing(5)
-                    ]
-                    .width(Length::FillPortion(1))
-                    .spacing(5),
-                    column![
-                        row![location(), text!("{}", info.map)]
-                            .align_y(Alignment::Center)
-                            .spacing(5),
-                        info.password.as_deref().map(|password_str| {
-                            row![
-                                password(),
-                                hover(
-                                    container("").width(100).style(|_theme| {
-                                        container::background(Color::BLACK.scale_alpha(0.2))
-                                    }),
-                                    text!("{}", password_str)
-                                ),
-                            ]
-                            .align_y(Alignment::Center)
-                            .spacing(5)
-                        }),
-                    ]
-                    .width(Length::FillPortion(4))
-                    .spacing(5)
-                ]
-                .width(Length::Fill)
-                .spacing(20)
-            ]
-            .padding(padding::left(10))
+            server_name,
+            console_button,
+            join_link_button,
+            running_button,
+            menu_settings
         ]
-        .spacing(20)
-        .height(Length::Shrink),
-    )
-    .width(Length::Fill)
-    .padding(25)
-    .style(|theme| {
-        tf2::container::outlined(theme)
-            .background(theme.colors().surface.surface_container.lowest)
-            .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
-    });
+    };
+
+    let info = {
+        let left_side = column![
+            row![icon::users(), text!("{}", info.max_players)]
+                .align_y(Alignment::Center)
+                .spacing(5),
+            row![
+                icon::port(),
+                text!(
+                    "{}",
+                    info.port
+                        .map_or_else(|| "auto".to_string(), |port| port.to_string())
+                )
+            ]
+            .align_y(Alignment::Center)
+            .spacing(5)
+        ]
+        .width(Length::FillPortion(1))
+        .spacing(5);
+
+        let right_side = column![
+            row![icon::map(), text!("{}", info.map)]
+                .align_y(Alignment::Center)
+                .spacing(5),
+            info.password.as_deref().map(|password_str| {
+                row![
+                    icon::password(),
+                    hover(
+                        container("").width(100).style(|_theme| {
+                            container::background(Color::BLACK.scale_alpha(0.2))
+                        }),
+                        text!("{}", password_str)
+                    ),
+                ]
+                .align_y(Alignment::Center)
+                .spacing(5)
+            }),
+        ]
+        .width(Length::FillPortion(4))
+        .spacing(5);
+
+        row![left_side, right_side].width(Length::Fill).spacing(20)
+    };
+
+    let temp = if server.is_running() {
+        color!(0x00FF00).scale_alpha(0.6)
+    } else {
+        color!(0xFF0000).scale_alpha(0.6)
+    };
+
+    let card = container(row![
+        container(Space::new())
+            .height(Length::Fill)
+            .width(5)
+            .style(move |_| { container::background(temp) }),
+        container(stack![
+            container(server_icon).align_right(Length::Fill),
+            row![
+                column![
+                    header_row
+                        .spacing(10)
+                        .padding(padding::bottom(5))
+                        .align_y(Alignment::Center),
+                    rule::horizontal(0),
+                    info
+                ]
+                .padding(padding::left(10))
+            ]
+            .spacing(20)
+            .height(Length::Shrink),
+        ])
+        .width(Length::Fill) // TODO: make it 550 and put two per row
+        .padding(25)
+        .style(|theme| {
+            tf2::container::outlined(theme)
+                .background(theme.colors().surface.surface_container.lowest)
+                .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+        }),
+    ]);
 
     if let Some(percent) = server.updating_percent {
         stack![
@@ -663,7 +714,7 @@ where
                     .content_fit(ContentFit::Contain)
                     .width(94)
                     .height(94),
-                button(left_arrow()).on_press(ServerMessage::StopEditServer),
+                button(icon::left_arrow()).on_press(ServerMessage::StopEditServer),
             ],
             rule::vertical(2),
             column![
@@ -678,7 +729,7 @@ where
                     row![
                         column![
                             row![
-                                people(),
+                                icon::users(),
                                 number_input(&info.max_players, 0..100, |num| {
                                     ServerMessage::EditServer(EditServer::ChangeMaxPlayers(num))
                                 })
@@ -687,7 +738,7 @@ where
                             .align_y(Alignment::Center)
                             .spacing(5),
                             row![
-                                port(),
+                                icon::port(),
                                 text_input(
                                     "Port",
                                     &info.port.map_or_else(String::new, |port| port.to_string())
@@ -703,7 +754,7 @@ where
                         .spacing(5),
                         column![
                             row![
-                                location(),
+                                icon::map(),
                                 button(text!("{}", info.map))
                                     .on_press(ServerMessage::EditServer(EditServer::ChangeMap))
                                     .style(|theme, status| tf2::button::outlined(theme, status))
@@ -711,7 +762,7 @@ where
                             .align_y(Alignment::Center)
                             .spacing(5),
                             row![
-                                password(),
+                                icon::password(),
                                 text_input(
                                     "Password",
                                     info.password.as_deref().unwrap_or_default()
@@ -770,6 +821,7 @@ pub async fn setup_sourcemod(
     MetamodDownloader::download(&path, &game, &MetamodBranch::Stable, &engine)
         .await
         .context(SourcemodDownloadSnafu)?;
+
     SourcemodDownloader::download(&path, &game, &branch, &engine)
         .await
         .context(SourcemodDownloadSnafu)?;
@@ -788,13 +840,16 @@ pub async fn get_public_ip() -> Result<Ipv4Addr, Error> {
     let url = "https://api.ipify.org";
 
     let public_ip = reqwest::get(url)
-        .map_err(|_| Error::NoPublicIp)
-        .await?
+        .await
+        .map_err(|_| Error::NoPublicIp)?
         .text()
         .await
         .map_err(|_| Error::NoPublicIp)?;
 
-    Ipv4Addr::from_str(&public_ip).map_err(|_| Error::NoPublicIp)
+    public_ip
+        .trim()
+        .parse::<Ipv4Addr>()
+        .map_err(|_| Error::NoPublicIp)
 }
 
 #[derive(Snafu, Debug, Clone)]

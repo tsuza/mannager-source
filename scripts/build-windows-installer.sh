@@ -1,6 +1,6 @@
 #!/bin/bash
 VERSION=$(cargo pkgid | cut -d '@' -f 2)
-ID="org.tsuza.mannager"
+ID="net.tsuza.mannager"
 APP_CREATOR="tsuza"
 APP_NAME="MANNager"
 DESCRIPTION="Source Engine Dedicated Server Manager"

@@ -1,4 +1,4 @@
-use crate::ui::components::selectable_text::{Catalog, Style, StyleFn};
+use iced_selection::text::{Catalog, Style, StyleFn};
 
 use super::super::Theme;
 
@@ -17,6 +17,6 @@ impl Catalog for Theme {
 pub fn default(theme: &Theme) -> Style {
     Style {
         color: None,
-        selection_color: theme.colors().inverse.inverse_surface.scale_alpha(0.5),
+        selection: theme.colors().inverse.inverse_surface.scale_alpha(0.5),
     }
 }

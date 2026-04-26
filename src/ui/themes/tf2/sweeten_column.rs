@@ -1,5 +1,5 @@
-use dragking::column::{Catalog, Style, StyleFn};
 use iced::Border;
+use sweeten::widget::column::{Catalog, Style, StyleFn};
 
 use super::super::Theme;
 

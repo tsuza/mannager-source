@@ -11,7 +11,7 @@ use iced::{
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use snafu::{ResultExt, Snafu};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     select,
 };
 
@@ -19,14 +19,10 @@ use iced::widget::text::LineHeight;
 
 use crate::{
     core::portforwarder::{self, PortForwarderIP},
+    icon,
     ui::{
         Element,
-        components::{
-            notification::notification,
-            selectable_text::{self, selectable_text},
-            textinput_terminal,
-        },
-        icons::left_arrow,
+        components::{notification::notification, textinput_terminal},
         themes::{
             elevation, shadow_from_elevation,
             tf2::{self},
@@ -78,13 +74,13 @@ impl Console {
 
                 #[cfg(target_os = "linux")]
                 let mut pty = {
-                    let test = pty_process::Pty::new().map_err(|err| Error::SpawnProcessError {
+                    let pty = pty_process::Pty::new().map_err(|err| Error::SpawnProcessError {
                         msg: err.to_string(),
                     })?;
 
-                    let _ = test.resize(pty_process::Size::new(24, 80));
+                    let _ = pty.resize(pty_process::Size::new(24, 80));
 
-                    test
+                    pty
                 };
 
                 let mut _process = {
@@ -104,12 +100,14 @@ impl Console {
                     {
                         use std::process::Stdio;
 
+                        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
                         tokio::process::Command::new(executable_path)
                             .args(args.split_whitespace())
                             .stdin(Stdio::piped())
                             .stdout(Stdio::piped())
                             .kill_on_drop(true)
-                            .creation_flags(0x08000000)
+                            .creation_flags(CREATE_NO_WINDOW)
                             .spawn()
                             .map_err(|err| Error::SpawnProcessError {
                                 msg: err.to_string(),
@@ -117,7 +115,7 @@ impl Console {
                     }
                 };
 
-                let (mut process_reader, mut process_writer) = {
+                let (process_reader, mut process_writer) = {
                     #[cfg(target_os = "linux")]
                     {
                         pty.split()
@@ -146,54 +144,35 @@ impl Console {
                     .await;
                 }
 
-                let mut buffer: Vec<u8> = vec![];
+                let mut reader = BufReader::new(process_reader);
+                let mut line = String::new();
 
                 let mut input_bool = false;
 
                 loop {
-                    let read_future = process_reader.read_u8();
+                    line.clear();
+
+                    let read_future = reader.read_line(&mut line);
                     let input_future = receiver.select_next_some();
 
                     select! {
                         pty_output = read_future => {
-                            let byte = pty_output.context(CommunicationSnafu)?;
+                            let bytes = pty_output.context(CommunicationSnafu)?;
 
-                            buffer.push(byte);
-
-                            if buffer.len() < 2 {
+                            if bytes == 0 {
                                 continue;
                             }
 
-                            let Some(_last_byte) = buffer.get(buffer.len() - 2) else {
-                                continue;
+                            // This is definitely not error proof, but it's the only thing that came to mind.
+                            let text = if input_bool {
+                                input_bool = false;
+
+                                TextType::Input(line.trim_end().to_owned())
+                            } else {
+                                TextType::Output(line.trim_end().to_owned())
                             };
 
-                            #[cfg(target_os = "windows")]
-                            let line_break = byte == 10u8;
-
-                            #[cfg(target_os = "linux")]
-                            let line_break = _last_byte == &13u8 && byte == 10u8;
-
-                            if line_break {
-                                let Ok(string) = String::from_utf8(buffer.clone()) else {
-                                    buffer.clear();
-
-                                    continue;
-                                };
-
-                                // This is definitely not error proof, but it's the only thing that came to mind.
-                                let text = if input_bool {
-                                    input_bool = false;
-
-                                    TextType::Input(string)
-                                } else {
-                                    TextType::Output(string)
-                                };
-
-                                let _ = output.send(ServerCommunicationTwoWay::Output(text)).await;
-
-                                buffer.clear();
-                            }
+                            let _ = output.send(ServerCommunicationTwoWay::Output(text)).await;
                         },
 
                         input = input_future => {
@@ -323,74 +302,71 @@ impl ServerTerminal {
     }
 
     pub fn view<'a>(title: &String, console: &Console) -> Element<'a, Message> {
-        let console_output_text = {
-            column(console.output.iter().map(|text| {
-                match text {
-                    TextType::Input(string) => selectable_text(format!("{}", string))
-                        .style(|theme| selectable_text::Style {
-                            color: Some(Color::from_rgb8(120, 120, 120)),
-                            ..tf2::selectable_text::default(theme)
-                        })
-                        .into(),
-                    TextType::Output(string) => selectable_text(format!("{}", string)).into(),
-                }
+        let header = container(
+            row![
+                button(icon::left_arrow().size(20).center()).on_press(Message::GoBack),
+                space::horizontal(),
+                container(
+                    text!("{}", title)
+                        .font(Font::new("TF2 Build"))
+                        .size(40)
+                        .line_height(1.0)
+                )
+                .padding(padding::top(4.0).bottom(-2.0)),
+                space::horizontal()
+            ]
+            .width(Length::Fill)
+            .align_y(Alignment::Center)
+            .padding(padding::all(10)),
+        )
+        .align_x(Alignment::Center)
+        .style(|theme| {
+            tf2::container::outlined(theme)
+                .background(theme.colors().surface.surface_container.lowest)
+                .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+        });
+
+        let console_output = {
+            let console_output_text = column(console.output.iter().map(|text| match text {
+                TextType::Input(string) => iced_selection::text(format!("{}", string)).into(),
+                TextType::Output(string) => iced_selection::text(format!("{}", string)).into(),
             }))
-            .padding(5)
+            .padding(5);
+
+            container(
+                scrollable(console_output_text)
+                    .direction(scrollable::Direction::Vertical(
+                        scrollable::Scrollbar::new().width(15).scroller_width(12),
+                    ))
+                    .anchor_bottom()
+                    .auto_scroll(true)
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(padding::left(10))
+            .style(|theme| {
+                tf2::container::outlined(theme)
+                    .background(theme.colors().surface.surface_container.lowest)
+                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+            })
         };
 
-        container(
-            column![
-                container(
-                    row![
-                        button(left_arrow().size(20).center()).on_press(Message::GoBack),
-                        space::horizontal(),
-                        container(
-                            text!("{}", title)
-                                .font(Font::with_name("TF2 Build"))
-                                .size(40)
-                                .line_height(1.0)
-                                .align_x(Alignment::Center)
-                        )
-                        .padding(padding::top(4.0).bottom(-3.0)),
-                        space::horizontal()
-                    ]
-                    .width(Length::Fill)
-                    .align_y(Alignment::Center)
-                    .padding(padding::all(10))
-                )
-                .align_x(Alignment::Center)
-                .style(|theme| tf2::container::outlined(theme)
-                    .background(theme.colors().surface.surface_container.lowest)
-                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))),
-                container(
-                    scrollable(console_output_text)
-                        .direction(scrollable::Direction::Vertical(
-                            scrollable::Scrollbar::new().width(15).scroller_width(12),
-                        ))
-                        .anchor_bottom()
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                )
+        let console_input =
+            textinput_terminal::TextInput::new("Type your command...", &console.input)
+                .on_input(Message::ServerTerminalInput)
+                .on_submit(Message::SubmitServerTerminalInput)
+                .on_key_press(Message::OnKeyPress)
                 .width(Length::Fill)
-                .height(Length::Fill)
-                .padding(padding::left(10))
-                .style(|theme| tf2::container::outlined(theme)
-                    .background(theme.colors().surface.surface_container.lowest)
-                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))),
-                textinput_terminal::TextInput::new("Type your command...", &console.input)
-                    .on_input(Message::ServerTerminalInput)
-                    .on_submit(Message::SubmitServerTerminalInput)
-                    .on_key_press(Message::OnKeyPress)
-                    .width(Length::Fill)
-                    .line_height(LineHeight::Relative(1.4))
-            ]
-            .spacing(20),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(20)
-        .style(|theme| tf2::container::surface(theme))
-        .into()
+                .line_height(LineHeight::Relative(1.4));
+
+        container(column![header, console_output, console_input].spacing(20))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(20)
+            .style(|theme| tf2::container::surface(theme))
+            .into()
     }
 }
 

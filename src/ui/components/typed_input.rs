@@ -2,19 +2,19 @@
 //!
 //! *This API requires the following crate features to be activated: `typed_input`*
 
+use iced::advanced::Shell;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::widget::{
     Operation, Tree, Widget,
     tree::{State, Tag},
 };
-use iced::advanced::{Clipboard, Shell};
 use iced::mouse::{self, Cursor};
+use iced::widget::Id;
 use iced::{Element, Length, Padding, Pixels, Rectangle};
 use iced::{
     Event, Size,
     widget::text_input::{self, TextInput},
 };
-use iced_core::widget;
 
 use std::{fmt::Display, str::FromStr};
 
@@ -98,9 +98,9 @@ where
         }
     }
 
-    /// Sets the [Id](widget::Id) of the internal [`TextInput`]
+    /// Sets the [Id](Id) of the internal [`TextInput`]
     #[must_use]
-    pub fn id(mut self, id: widget::Id) -> Self {
+    pub fn id(mut self, id: Id) -> Self {
         self.text_input = self.text_input.id(id);
         self
     }
@@ -405,7 +405,6 @@ where
         layout: Layout<'_>,
         cursor: Cursor,
         renderer: &Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<Message>,
         viewport: &Rectangle,
     ) {
@@ -417,7 +416,6 @@ where
             layout,
             cursor,
             renderer,
-            clipboard,
             &mut sub_shell,
             viewport,
         );

@@ -49,10 +49,10 @@ impl Theme {
         })
     }
 
-    pub fn name(&self) -> Cow<'static, str> {
+    pub fn name(&self) -> &str {
         match self {
             Self::TeamFortress2 => "Dark".into(),
-            Self::Custom(custom) => custom.name.clone(),
+            Self::Custom(custom) => &custom.name,
         }
     }
 
@@ -84,6 +84,14 @@ impl std::fmt::Display for Theme {
 }
 
 impl Base for Theme {
+    fn default(_preference: iced::theme::Mode) -> Self {
+        Self::TeamFortress2
+    }
+
+    fn name(&self) -> &str {
+        self.name()
+    }
+
     fn base(&self) -> Style {
         Style {
             background_color: self.colors().surface.color,
@@ -91,10 +99,10 @@ impl Base for Theme {
         }
     }
 
-    fn palette(&self) -> Option<iced::theme::Palette> {
+    fn seed(&self) -> Option<iced::theme::palette::Seed> {
         let colors = self.colors();
 
-        Some(iced::theme::Palette {
+        Some(iced::theme::palette::Seed {
             background: colors.surface.color,
             text: colors.surface.on_surface,
             primary: colors.primary.color,
@@ -102,10 +110,6 @@ impl Base for Theme {
             warning: mix(from_argb!(0xffffff00), colors.primary.color, 0.25),
             danger: colors.error.color,
         })
-    }
-
-    fn default(_preference: iced::theme::Mode) -> Self {
-        Self::TeamFortress2
     }
 
     fn mode(&self) -> iced::theme::Mode {
@@ -135,7 +139,7 @@ impl From<Theme> for Custom {
         match theme {
             Theme::Custom(custom) => custom,
             theme => Self {
-                name: theme.name(),
+                name: theme.name().to_owned().into(),
                 is_dark: theme.is_dark(),
                 colorscheme: theme.colors(),
             },

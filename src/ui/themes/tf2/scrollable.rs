@@ -1,5 +1,6 @@
-use iced::widget::scrollable::{Catalog, Rail, Scroller, Status, Style, StyleFn};
-use iced::{Background, Border, border, color};
+use iced::theme::Base;
+use iced::widget::scrollable::{AutoScroll, Catalog, Rail, Scroller, Status, Style, StyleFn};
+use iced::{Background, Border, Color, Shadow, Vector, border, color};
 
 use crate::ui::themes::tf2::container;
 
@@ -23,7 +24,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let active = Rail {
         background: None,
         scroller: Scroller {
-            color: surface.on_surface_variant,
+            background: Background::Color(surface.on_surface_variant),
             border: border::rounded(400),
         },
         border: Border::default(),
@@ -32,10 +33,17 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let disabled = Rail {
         background: Some(Background::Color(disabled_container(surface.on_surface))),
         scroller: Scroller {
-            color: disabled_text(surface.on_surface_variant),
+            background: Background::Color(disabled_text(surface.on_surface_variant)),
             border: border::rounded(400),
         },
         ..active
+    };
+
+    let scroll = AutoScroll {
+        background: surface.color.into(),
+        border: border::rounded(500).width(1).color(surface.color),
+        icon: surface.color,
+        shadow: Shadow::default(),
     };
 
     let style = Style {
@@ -43,6 +51,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         vertical_rail: active,
         horizontal_rail: active,
         gap: None,
+        auto_scroll: scroll,
     };
 
     match status {
@@ -70,7 +79,11 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         } => {
             let hovered_rail = Rail {
                 scroller: Scroller {
-                    color: mix(surface.on_surface_variant, color!(0x994f3f), 0.7),
+                    background: Background::Color(mix(
+                        surface.on_surface_variant,
+                        color!(0x994f3f),
+                        0.7,
+                    )),
                     border: border::rounded(400),
                 },
                 ..active
@@ -102,7 +115,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         } => {
             let dragged_rail = Rail {
                 scroller: Scroller {
-                    color: color!(0x994f3f),
+                    background: Background::Color(color!(0x994f3f)),
                     border: border::rounded(400),
                 },
                 ..active

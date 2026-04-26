@@ -26,7 +26,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
 
     let active = Style {
         button_background: Some(Background::Color(surface.surface_container.highest)),
-        icon_color: surface.on_surface,
+        icon_color: surface.on_surface.into(),
     };
 
     match status {

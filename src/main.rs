@@ -3,14 +3,14 @@
 use iced::{Font, Size};
 #[cfg(target_os = "windows")]
 use iced::{advanced::graphics::image::image_rs::ImageFormat, window};
+
 use ui::State;
 
-use crate::ui::icons::FONT_BYTES;
-
 pub mod core;
+pub mod icon;
 pub mod ui;
 
-pub const APPLICATION_ID: &str = "org.tsuza.mannager";
+pub const APPLICATION_ID: &str = "net.tsuza.mannager";
 pub const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/app_icon.png");
 
 const TF2_BUILD_FONT_BYTES: &[u8] = include_bytes!("../fonts/tf2build.ttf");
@@ -30,14 +30,13 @@ fn main() -> iced::Result {
 
     iced::application(State::new, State::update, State::view)
         .title(State::title)
-        .subscription(State::subscription)
         .window_size(Size::new(900.0, 900.0))
         .centered()
-        .font(FONT_BYTES)
+        .font(icon::FONT)
         .font(TF2_BUILD_FONT_BYTES)
         .font(TF2_SECONDARY_FONT_BYTES)
         .font(iced_aw::ICED_AW_FONT_BYTES)
-        .default_font(Font::with_name("TF2 Secondary"))
+        .default_font(Font::new("TF2 Secondary"))
         .window(window_settings)
         .run()
 }

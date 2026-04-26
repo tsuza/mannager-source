@@ -1,6 +1,6 @@
 use std::{net::Ipv4Addr, path::PathBuf};
 
-use iced::{Function, Subscription, Task, clipboard, futures, keyboard};
+use iced::{Function, Subscription, Task, futures, keyboard};
 use screen::{
     Screen,
     serverboot::{
@@ -14,7 +14,6 @@ use screen::{
 use crate::{
     core::{Game, SourceEngineVersion, get_arg_game_name},
     ui::{
-        components::selectable_text,
         games::SOURCE_GAMES,
         screen::servercreation::download_server,
         server::{Server, Servers},
@@ -25,7 +24,6 @@ use futures::TryFutureExt;
 
 pub mod components;
 pub mod games;
-pub mod icons;
 pub mod screen;
 pub mod server;
 pub mod themes;
@@ -47,8 +45,6 @@ pub enum Message {
         usize,
         Result<ServerCommunicationTwoWay, screen::serverboot::Error>,
     ),
-    Copy,
-    SelectedText(Vec<(f32, String)>),
     ServerList(serverlist::Message),
     ServerCreation(servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
@@ -65,11 +61,11 @@ impl State {
         (
             Self {
                 screen: Screen::Loading,
-                servers: Servers(vec![]),
+                servers: Servers::new(),
             },
             Task::perform(
                 async {
-                    get_config_path()
+                    futures::future::ready(get_config_path())
                         .and_then(|path| async move { Servers::fetch(path.as_path()).await })
                         .await
                 },
@@ -88,17 +84,6 @@ impl State {
                 .map(|Server { info, .. }| format!("MANNager - Server Terminal [{}]", info.name))
                 .unwrap_or_else(|| "MANNager".to_string()),
         }
-    }
-
-    pub fn subscription(&self) -> Subscription<Message> {
-        fn handle_hotkey(key: keyboard::Key, modifiers: keyboard::Modifiers) -> Option<Message> {
-            match key.as_ref() {
-                keyboard::Key::Character("c") if modifiers.command() => Some(Message::Copy),
-                _ => None,
-            }
-        }
-
-        keyboard::on_key_press(handle_hotkey)
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -150,30 +135,6 @@ impl State {
 
                 Task::none()
             }
-            Message::Copy => selectable_text::selected(Message::SelectedText),
-            Message::SelectedText(contents) => {
-                let mut last_y = None;
-                let contents = contents
-                    .into_iter()
-                    .fold(String::new(), |acc, (y, content)| {
-                        if let Some(_y) = last_y {
-                            let new_line = if y == _y { "" } else { "\n" };
-                            last_y = Some(y);
-
-                            format!("{acc}{new_line}{content}")
-                        } else {
-                            last_y = Some(y);
-
-                            content
-                        }
-                    });
-
-                if contents.is_empty() {
-                    return Task::none();
-                }
-
-                clipboard::write(contents)
-            }
             Message::ServerList(message) => {
                 let action = ServerList::update(&mut self.servers, message);
 
@@ -183,7 +144,7 @@ impl State {
                         let servers = self.servers.clone();
 
                         Task::future(async {
-                            get_config_path()
+                            futures::future::ready(get_config_path())
                                 .and_then(|path| async move { servers.save(&path).await })
                                 .await
                         })
@@ -318,18 +279,20 @@ impl State {
                 }
             }
             Message::ServerCreation(msg) => {
+                use servercreation::Action;
+
                 let Screen::ServerCreation(creation) = &mut self.screen else {
                     return Task::none();
                 };
 
                 match creation.update(msg) {
-                    servercreation::Action::None => Task::none(),
-                    servercreation::Action::SwitchToServerList => {
+                    Action::None => Task::none(),
+                    Action::SwitchToServerList => {
                         self.screen = Screen::ServerList;
 
                         Task::none()
                     }
-                    servercreation::Action::ServerCreated(server) => {
+                    Action::ServerCreated(server) => {
                         self.servers.push(Server::with_info(server));
 
                         self.screen = Screen::ServerList;
@@ -337,16 +300,18 @@ impl State {
                         let servers = self.servers.clone();
 
                         Task::future(async {
-                            get_config_path()
+                            futures::future::ready(get_config_path())
                                 .and_then(|path| async move { servers.save(&path).await })
                                 .await
                         })
                         .discard()
                     }
-                    servercreation::Action::Run(task) => task.map(Message::ServerCreation),
+                    Action::Run(task) => task.map(Message::ServerCreation),
                 }
             }
             Message::ServerTerminal(id, message) => {
+                use serverboot::Action;
+
                 let Some(Server {
                     console: Some(console),
                     ..
@@ -358,13 +323,13 @@ impl State {
                 let action = ServerTerminal::update(console, message);
 
                 match action {
-                    serverboot::Action::None => Task::none(),
-                    serverboot::Action::GoBack => {
+                    Action::None => Task::none(),
+                    Action::GoBack => {
                         self.screen = Screen::ServerList;
 
                         Task::none()
                     }
-                    serverboot::Action::Run(task) => task.map(Message::ServerTerminal.with(id)),
+                    Action::Run(task) => task.map(Message::ServerTerminal.with(id)),
                 }
             }
         }
@@ -378,6 +343,7 @@ impl State {
             Screen::ServerTerminal(index) => {
                 let index = index.clone();
 
+                // TODO: remove the unwrap
                 let Server { info, console, .. } = &self.servers[index];
 
                 ServerTerminal::view(&info.name, console.as_ref().unwrap())
@@ -387,7 +353,7 @@ impl State {
     }
 }
 
-async fn get_config_path() -> Result<PathBuf, screen::serverlist::Error> {
+fn get_config_path() -> Result<PathBuf, screen::serverlist::Error> {
     if let Ok(executable_directory) = std::env::current_dir() {
         let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
 

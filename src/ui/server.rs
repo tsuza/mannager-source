@@ -16,15 +16,15 @@ use crate::{
 pub struct Servers(pub Vec<Server>);
 
 impl Servers {
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
     pub async fn fetch(path: &Path) -> Result<Self, Error> {
-        match path.try_exists() {
-            Ok(true) => {
-                let file_contents = fs::read_to_string(path).unwrap();
-                decoder::run(toml::from_str, Servers::decode, &file_contents)
-                    .map_err(|_| Error::NoServerListFile)
-            }
-            _ => Err(Error::NoServerListFile),
-        }
+        let file_contents = fs::read_to_string(path).map_err(|_| Error::NoServerListFile)?;
+
+        decoder::run(toml::from_str, Servers::decode, &file_contents)
+            .map_err(|_| Error::NoServerListFile)
     }
 
     pub async fn save(&self, path: &Path) -> Result<(), Error> {
@@ -35,6 +35,14 @@ impl Servers {
             .map_err(|_| Error::ServerSaveError)?;
 
         Ok(())
+    }
+
+    pub fn encode(&self) -> Value {
+        use decoder::encode::{map, sequence};
+
+        let servers = self.iter().map(|server| &server.info);
+
+        map([("servers", sequence(ServerInfo::encode, servers))]).into_value()
     }
 
     pub fn decode(value: Value) -> Result<Self, decoder::Error> {
@@ -50,14 +58,6 @@ impl Servers {
                 .map(|info| Server::with_info(info))
                 .collect(),
         ))
-    }
-
-    pub fn encode(&self) -> Value {
-        use decoder::encode::{map, sequence};
-
-        let servers = self.iter().map(|server| &server.info);
-
-        map([("servers", sequence(ServerInfo::encode, servers))]).into_value()
     }
 }
 

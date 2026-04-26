@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
     <content_rating type="oars-1.1" />
-    <id>org.tsuza.mannager</id>
+    <id>net.tsuza.mannager</id>
     <metadata_license>MIT</metadata_license>
     <project_license>MIT</project_license>
     <name>MANNager</name>
@@ -14,7 +14,7 @@
             automatic port forwarding is implemented to allow outside people to join your server, in case you want it.
         </p>
     </description>
-    <launchable type="desktop-id">org.tsuza.mannager.desktop</launchable>
+    <launchable type="desktop-id">net.tsuza.mannager.desktop</launchable>
     <url type="homepage">https://github.com/tsuza/mannager-source</url>
     <url type="bugtracker">https://github.com/tsuza/mannager-source/issues</url>
     <screenshots>
