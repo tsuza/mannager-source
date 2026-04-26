@@ -1,61 +1,222 @@
-use std::{net::Ipv4Addr, path::PathBuf};
+use std::{io, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
 
 use iced::{
-    border, color,
-    futures::{channel::mpsc, SinkExt, Stream, StreamExt},
-    keyboard,
+    Alignment, Color, Font, Length, Task,
+    futures::{SinkExt, Stream, StreamExt, channel::mpsc},
+    keyboard, padding,
     stream::try_channel,
     task,
-    widget::{column, container, scrollable, text},
-    Color, Element, Length, Subscription, Task,
+    widget::{button, column, container, row, scrollable, space, text},
 };
-use iced_aw::style::colors;
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
+use snafu::{ResultExt, Snafu};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     select,
 };
 
+use iced::widget::text::LineHeight;
+
 use crate::{
-    core::{
-        get_arg_game_name,
-        portforwarder::{self, PortForwarderIP},
-        SourceAppIDs,
-    },
+    core::portforwarder::{self, PortForwarderIP},
+    icon,
     ui::{
+        Element,
         components::{notification::notification, textinput_terminal},
-        style,
+        themes::{
+            elevation, shadow_from_elevation,
+            tf2::{self},
+        },
     },
 };
 
-use super::serverlist::ServerInfo;
+pub struct ServerTerminal;
 
-pub struct State {
-    running_servers_output: Vec<TerminalText>,
-    server_terminal_input: String,
-    server_terminal_input_history: Vec<String>,
-    server_terminal_input_index: usize,
-    server_stream_handle: task::Handle,
-    sender: Option<mpsc::Sender<String>>,
+#[derive(Debug, Clone)]
+pub struct Console {
+    pub output: Vec<TextType>,
+    pub input: String,
+    pub input_history: Vec<String>,
+    pub input_history_index: usize,
+    pub handle: task::Handle,
+    pub sender: Option<mpsc::Sender<String>>,
+    pub hosted_port: u16,
+}
+
+impl Console {
+    pub fn from_handle(handle: task::Handle, port: u16) -> Self {
+        Self {
+            output: vec![],
+            input: "".to_string(),
+            input_history: vec![],
+            input_history_index: 0,
+            handle: handle.abort_on_drop(),
+            sender: None,
+            hosted_port: port,
+        }
+    }
+
+    pub fn start(
+        executable_path: PathBuf,
+        args: String,
+        server_name: String,
+        port: u16,
+    ) -> impl Stream<Item = Result<ServerCommunicationTwoWay, Error>> {
+        try_channel(
+            1,
+            move |mut output: mpsc::Sender<ServerCommunicationTwoWay>| async move {
+                let (sender, mut receiver) = mpsc::channel(100);
+
+                output
+                    .send(ServerCommunicationTwoWay::Input(sender))
+                    .await
+                    .context(ChannelSendSnafu)?;
+
+                #[cfg(target_os = "linux")]
+                let mut pty = {
+                    let pty = pty_process::Pty::new().map_err(|err| Error::SpawnProcessError {
+                        msg: err.to_string(),
+                    })?;
+
+                    let _ = pty.resize(pty_process::Size::new(24, 80));
+
+                    pty
+                };
+
+                let mut _process = {
+                    #[cfg(target_os = "linux")]
+                    {
+                        pty_process::Command::new(executable_path)
+                            .args(args.split_whitespace())
+                            .spawn(&pty.pts().map_err(|err| Error::SpawnProcessError {
+                                msg: err.to_string(),
+                            })?)
+                            .map_err(|err| Error::SpawnProcessError {
+                                msg: err.to_string(),
+                            })?
+                    }
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        use std::process::Stdio;
+
+                        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+                        tokio::process::Command::new(executable_path)
+                            .args(args.split_whitespace())
+                            .stdin(Stdio::piped())
+                            .stdout(Stdio::piped())
+                            .kill_on_drop(true)
+                            .creation_flags(CREATE_NO_WINDOW)
+                            .spawn()
+                            .map_err(|err| Error::SpawnProcessError {
+                                msg: err.to_string(),
+                            })?
+                    }
+                };
+
+                let (process_reader, mut process_writer) = {
+                    #[cfg(target_os = "linux")]
+                    {
+                        pty.split()
+                    }
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        (_process.stdout.take().unwrap(), _process.stdin.unwrap())
+                    }
+                };
+
+                let forwarder = portforwarder::PortForwarder::open(
+                    PortForwarderIP::Any,
+                    port,
+                    port,
+                    PortMappingProtocol::UDP,
+                    &server_name,
+                );
+
+                if let Err(_) = forwarder {
+                    let _ = notification(
+                        "MANNager",
+                        "Port forwarding failed.",
+                        Duration::from_secs(5),
+                    )
+                    .await;
+                }
+
+                let mut reader = BufReader::new(process_reader);
+                let mut line = String::new();
+
+                let mut input_bool = false;
+
+                loop {
+                    line.clear();
+
+                    let read_future = reader.read_line(&mut line);
+                    let input_future = receiver.select_next_some();
+
+                    select! {
+                        pty_output = read_future => {
+                            let bytes = pty_output.context(CommunicationSnafu)?;
+
+                            if bytes == 0 {
+                                continue;
+                            }
+
+                            // This is definitely not error proof, but it's the only thing that came to mind.
+                            let text = if input_bool {
+                                input_bool = false;
+
+                                TextType::Input(line.trim_end().to_owned())
+                            } else {
+                                TextType::Output(line.trim_end().to_owned())
+                            };
+
+                            let _ = output.send(ServerCommunicationTwoWay::Output(text)).await;
+                        },
+
+                        input = input_future => {
+                            #[cfg(target_os = "linux")]
+                            let formatted_string = format!("{}\n", input);
+
+                            #[cfg(target_os = "windows")]
+                            let formatted_string = format!("{}", input);
+
+                            let _ = process_writer.write_all(formatted_string.as_bytes()).await;
+                            let _ = process_writer.flush().await;
+
+                            input_bool = true;
+                        }
+                    }
+                }
+            },
+        )
+    }
+}
+
+pub enum Action {
+    None,
+    GoBack,
+    Run(Task<Message>),
 }
 
 #[derive(Clone, Debug)]
 pub enum Message {
-    ServerCommunication(Result<ServerCommunicationTwoWay, Error>),
     ServerTerminalInput(String),
     SubmitServerTerminalInput,
     ShutDownServer,
     OnKeyPress(keyboard::Key, keyboard::Modifiers),
+    GoBack,
 }
 
 #[derive(Clone, Debug)]
 pub enum ServerCommunicationTwoWay {
     Input(mpsc::Sender<String>),
-    Output(TerminalText),
+    Output(TextType),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TerminalText {
+pub enum TextType {
     Input(String),
     Output(String),
 }
@@ -63,344 +224,150 @@ pub enum TerminalText {
 pub const DEFAULT_PORT: u16 = 27015;
 pub const PORT_OFFSET: u16 = 10;
 
-#[cfg(target_os = "linux")]
-const SRCDS_EXEC_NAME: &str = "srcds_run";
-
-#[cfg(target_os = "windows")]
-const SRCDS_EXEC_NAME: &str = "srcds-fix.exe";
-
-impl State {
-    pub fn new(server: &ServerInfo, port: u16) -> (Self, Task<Message>) {
-        let binary_path = server.path.join(SRCDS_EXEC_NAME);
-
-        let args = {
-            let mut temp = format!(
-                "-console -game {} +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
-                get_arg_game_name(&server.game),
-                server.name,
-                server.map,
-                server.max_players,
-                port,
-                port + PORT_OFFSET
-            );
-
-            if server.max_players > 32 && server.game == SourceAppIDs::TeamFortress2 {
-                temp = format!("{temp} -unrestricted_maxplayers");
-            }
-
-            temp
-        };
-
-        let (task, handle) = Task::run(
-            start_server(binary_path, args, server.name.clone(), port),
-            Message::ServerCommunication,
-        )
-        .abortable();
-
-        (
-            Self {
-                running_servers_output: vec![],
-                server_terminal_input: "".into(),
-                server_stream_handle: handle.abort_on_drop(),
-                sender: None,
-                server_terminal_input_history: vec![],
-                server_terminal_input_index: 0,
-            },
-            task,
-        )
-    }
-
-    pub fn title() -> String {
-        "MANNager - Server Terminal".into()
-    }
-
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+impl ServerTerminal {
+    pub fn update(console: &mut Console, message: Message) -> Action {
         match message {
             Message::ShutDownServer => {
-                self.server_stream_handle.abort();
+                console.handle.abort();
 
-                Task::none()
+                Action::None
             }
             Message::ServerTerminalInput(string) => {
-                self.server_terminal_input = string;
+                console.input = string;
 
-                Task::none()
+                Action::None
             }
             Message::SubmitServerTerminalInput => {
-                let Some(mut sender) = self.sender.clone() else {
-                    return Task::none();
+                let Some(mut sender) = console.sender.clone() else {
+                    return Action::None;
                 };
 
-                let input_to_send = self.server_terminal_input.clone();
+                let input_to_send = console.input.clone();
 
-                if !self.server_terminal_input.is_empty() {
-                    self.server_terminal_input_history
-                        .push(self.server_terminal_input.clone());
+                if !console.input.is_empty() {
+                    console.input_history.push(console.input.clone());
                 }
 
-                self.server_terminal_input_index = self.server_terminal_input_history.len();
+                console.input_history_index = console.input_history.len();
 
-                self.server_terminal_input.clear();
+                console.input.clear();
 
-                Task::future(async move { sender.send(input_to_send).await }).discard()
-            }
-            Message::ServerCommunication(x) => {
-                let Ok(communication) = x else {
-                    return Task::none();
-                };
-
-                match communication {
-                    ServerCommunicationTwoWay::Input(sender) => {
-                        self.sender = Some(sender);
-                    }
-                    ServerCommunicationTwoWay::Output(string) => {
-                        self.running_servers_output.push(string);
-                    }
-                }
-
-                Task::none()
+                Action::Run(Task::future(async move { sender.send(input_to_send).await }).discard())
             }
             Message::OnKeyPress(key, _) => {
                 let keyboard::Key::Named(key) = key else {
-                    return Task::none();
+                    return Action::None;
                 };
 
                 match key {
                     keyboard::key::Named::ArrowUp => {
-                        if self.server_terminal_input_index < 1 {
-                            return Task::none();
+                        if console.input_history_index < 1 {
+                            return Action::None;
                         }
 
-                        self.server_terminal_input_index -= 1;
+                        console.input_history_index -= 1;
 
-                        let Some(history_input) = self
-                            .server_terminal_input_history
-                            .get(self.server_terminal_input_index)
+                        let Some(history_input) =
+                            console.input_history.get(console.input_history_index)
                         else {
-                            return Task::none();
+                            return Action::None;
                         };
 
-                        self.server_terminal_input = history_input.clone();
+                        console.input = history_input.clone();
 
-                        Task::none()
+                        Action::None
                     }
                     keyboard::key::Named::ArrowDown => {
-                        if self.server_terminal_input_index
-                            >= self.server_terminal_input_history.len()
-                        {
-                            return Task::none();
+                        if console.input_history_index >= console.input_history.len() {
+                            return Action::None;
                         }
 
-                        self.server_terminal_input_index += 1;
+                        console.input_history_index += 1;
 
-                        let Some(history_input) = self
-                            .server_terminal_input_history
-                            .get(self.server_terminal_input_index)
+                        let Some(history_input) =
+                            console.input_history.get(console.input_history_index)
                         else {
-                            return Task::none();
+                            return Action::None;
                         };
 
-                        self.server_terminal_input = history_input.clone();
+                        console.input = history_input.clone();
 
-                        Task::none()
+                        Action::None
                     }
-                    _ => Task::none(),
+                    _ => Action::None,
                 }
             }
+            Message::GoBack => Action::GoBack,
         }
     }
 
-    pub fn subscription(&self) -> Subscription<Message> {
-        Subscription::none()
-    }
+    pub fn view<'a>(title: &String, console: &Console) -> Element<'a, Message> {
+        let header = container(
+            row![
+                button(icon::left_arrow().size(20).center()).on_press(Message::GoBack),
+                space::horizontal(),
+                container(
+                    text!("{}", title)
+                        .font(Font::new("TF2 Build"))
+                        .size(40)
+                        .line_height(1.0)
+                )
+                .padding(padding::top(4.0).bottom(-2.0)),
+                space::horizontal()
+            ]
+            .width(Length::Fill)
+            .align_y(Alignment::Center)
+            .padding(padding::all(10)),
+        )
+        .align_x(Alignment::Center)
+        .style(|theme| {
+            tf2::container::outlined(theme)
+                .background(theme.colors().surface.surface_container.lowest)
+                .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+        });
 
-    pub fn view(&self) -> Element<Message> {
-        let console_output_text = {
-            column(self.running_servers_output.iter().map(|text| match text {
-                TerminalText::Input(string) => text!("{}", string).color(colors::SILVER).into(),
-                TerminalText::Output(string) => text!("{}", string).color(Color::WHITE).into(),
+        let console_output = {
+            let console_output_text = column(console.output.iter().map(|text| match text {
+                TextType::Input(string) => iced_selection::text(format!("{}", string)).into(),
+                TextType::Output(string) => iced_selection::text(format!("{}", string)).into(),
             }))
-            .padding(5)
+            .padding(5);
+
+            container(
+                scrollable(console_output_text)
+                    .direction(scrollable::Direction::Vertical(
+                        scrollable::Scrollbar::new().width(15).scroller_width(12),
+                    ))
+                    .anchor_bottom()
+                    .auto_scroll(true)
+                    .width(Length::Fill)
+                    .height(Length::Fill),
+            )
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(padding::left(10))
+            .style(|theme| {
+                tf2::container::outlined(theme)
+                    .background(theme.colors().surface.surface_container.lowest)
+                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+            })
         };
 
-        container(
-            column![
-                container(
-                    scrollable(console_output_text)
-                        .direction(scrollable::Direction::Vertical(
-                            scrollable::Scrollbar::new().width(15).scroller_width(12),
-                        ))
-                        .anchor_bottom()
-                        .width(Length::Fill)
-                        .height(Length::Fill)
-                        .style(|_theme, _status| style::tf2::Style::scrollable(_theme, _status)),
-                )
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(|_theme| container::background(color!(0x2a2421)).border(border::rounded(5))),
-                textinput_terminal::TextInput::new(
-                    "Type your command...",
-                    &self.server_terminal_input
-                )
+        let console_input =
+            textinput_terminal::TextInput::new("Type your command...", &console.input)
                 .on_input(Message::ServerTerminalInput)
                 .on_submit(Message::SubmitServerTerminalInput)
                 .on_key_press(Message::OnKeyPress)
                 .width(Length::Fill)
-                .style(|_theme, _status| style::tf2::Style::server_text_input(_theme, _status))
-            ]
-            .spacing(20),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(20)
-        .style(|_theme| container::background(color!(0x3a3430)))
-        .into()
+                .line_height(LineHeight::Relative(1.4));
+
+        container(column![header, console_output, console_input].spacing(20))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .padding(20)
+            .style(|theme| tf2::container::surface(theme))
+            .into()
     }
-}
-
-fn start_server(
-    executable_path: PathBuf,
-    args: String,
-    server_name: String,
-    port: u16,
-) -> impl Stream<Item = Result<ServerCommunicationTwoWay, Error>> {
-    try_channel(1, move |mut output| async move {
-        let (sender, mut receiver) = mpsc::channel(100);
-
-        output
-            .send(ServerCommunicationTwoWay::Input(sender))
-            .await?;
-
-        #[cfg(target_os = "linux")]
-        let mut pty = {
-            let test =
-                pty_process::Pty::new().map_err(|err| Error::SpawnProcessError(err.to_string()))?;
-
-            let _ = test.resize(pty_process::Size::new(24, 80));
-
-            test
-        };
-
-        let mut _process = {
-            #[cfg(target_os = "linux")]
-            {
-                pty_process::Command::new(executable_path)
-                    .args(args.split_whitespace())
-                    .spawn(
-                        &pty.pts()
-                            .map_err(|err| Error::SpawnProcessError(err.to_string()))?,
-                    )
-                    .map_err(|err| Error::SpawnProcessError(err.to_string()))?
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                use std::process::Stdio;
-
-                tokio::process::Command::new(executable_path)
-                    .args(args.split_whitespace())
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .kill_on_drop(true)
-                    .creation_flags(0x08000000)
-                    .spawn()
-                    .map_err(|err| Error::SpawnProcessError(err.to_string()))?
-            }
-        };
-
-        let (mut process_reader, mut process_writer) = {
-            #[cfg(target_os = "linux")]
-            {
-                pty.split()
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                (_process.stdout.take().unwrap(), _process.stdin.unwrap())
-            }
-        };
-
-        let forwarder = portforwarder::PortForwarder::open(
-            PortForwarderIP::Any,
-            port,
-            port,
-            PortMappingProtocol::UDP,
-            &server_name,
-        );
-
-        if let Err(_) = forwarder {
-            let _ = notification(
-                "[ MANNager ] Server running...",
-                "Port forwarding failed.",
-                5,
-            );
-        }
-
-        let mut buffer: Vec<u8> = vec![];
-
-        let mut input_bool = false;
-
-        loop {
-            let read_future = process_reader.read_u8();
-            let input_future = receiver.select_next_some();
-
-            select! {
-                pty_output = read_future => {
-                    let byte = pty_output.map_err(|err| Error::CommunicationError(err.to_string()))?;
-
-                    buffer.push(byte);
-
-                    if buffer.len() < 2 {
-                        continue;
-                    }
-
-                    let Some(_last_byte) = buffer.get(buffer.len() - 2) else {
-                        continue;
-                    };
-
-                    #[cfg(target_os = "windows")]
-                    let line_break = byte == 10u8;
-
-                    #[cfg(target_os = "linux")]
-                    let line_break = _last_byte == &13u8 && byte == 10u8;
-
-                    if line_break {
-                        let Ok(string) = String::from_utf8(buffer.clone()) else {
-                            buffer.clear();
-
-                            continue;
-                        };
-
-                        // This is definitely not error proof, but it's the only thing that came to mind.
-                        let text = if input_bool {
-                            input_bool = false;
-
-                            TerminalText::Input(string)
-                        } else {
-                            TerminalText::Output(string)
-                        };
-
-                        let _ = output.send(ServerCommunicationTwoWay::Output(text)).await;
-
-                        buffer.clear();
-                    }
-                },
-
-                input = input_future => {
-                    #[cfg(target_os = "linux")]
-                    let formatted_string = format!("{}\n\0", input);
-
-                    #[cfg(target_os = "windows")]
-                    let formatted_string = format!("{}", input);
-
-                    let _ = process_writer.write_all(formatted_string.as_bytes()).await;
-                    let _ = process_writer.flush().await;
-
-                    input_bool = true;
-                }
-            }
-        }
-    })
 }
 
 pub fn find_available_port(ip: Ipv4Addr, starting_port: u16) -> u16 {
@@ -428,20 +395,23 @@ pub fn find_available_port(ip: Ipv4Addr, starting_port: u16) -> u16 {
     port
 }
 
-#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Snafu, Debug, Clone)]
 pub enum Error {
-    #[error("Failed to spawn the process: {0}")]
-    SpawnProcessError(String),
+    #[snafu(display("Failed to spawn the process: {msg}"))]
+    SpawnProcessError { msg: String },
 
-    #[error("Error in comunication: {0}")]
-    CommunicationError(String),
+    #[snafu(display("Error in comunication: {source}"))]
+    CommunicationError {
+        #[snafu(source(from(io::Error, Arc::new)))]
+        source: Arc<io::Error>,
+    },
 
-    #[error("Channel send failed: {0}")]
-    ChannelSendError(#[from] mpsc::SendError),
+    #[snafu(display("Channel send failed: {source}"))]
+    ChannelSendError { source: mpsc::SendError },
 
-    #[error("There was an error while")]
+    #[snafu(display("There was an error while"))]
     PortForwardingError,
 
-    #[error("Server path does not exist")]
+    #[snafu(display("Server path does not exist"))]
     ServerPathError,
 }

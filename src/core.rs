@@ -1,7 +1,7 @@
 use std::{io, sync::Arc};
 
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use decoder::Value;
+use snafu::prelude::*;
 use zip::result::ZipError;
 
 pub mod depotdownloader;
@@ -9,7 +9,7 @@ pub mod metamod;
 pub mod portforwarder;
 pub mod sourcemod;
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum SourceEngineVersion {
     #[default]
     Source1,
@@ -25,88 +25,139 @@ impl From<SourceEngineVersion> for u32 {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
-pub enum SourceAppIDs {
+#[derive(Debug, Clone, Default, PartialEq, Eq, Copy)]
+pub enum Game {
     #[default]
     TeamFortress2,
     CounterStrikeSource,
-    CounterStrike2,
     LeftForDead1,
     LeftForDead2,
     HalfLife2DM,
     NoMoreRoomInHell,
+    CounterStrike2,
+    Deadlock,
 }
 
-impl From<SourceAppIDs> for u32 {
-    fn from(value: SourceAppIDs) -> Self {
-        match value {
-            SourceAppIDs::TeamFortress2 => 232250,
-            SourceAppIDs::CounterStrikeSource => 232330,
-            SourceAppIDs::CounterStrike2 => 730,
-            SourceAppIDs::LeftForDead1 => 222840,
-            SourceAppIDs::LeftForDead2 => 222860,
-            SourceAppIDs::HalfLife2DM => 232370,
-            SourceAppIDs::NoMoreRoomInHell => 317670,
+impl Game {
+    pub fn decode(value: Value) -> Result<Self, decoder::Error> {
+        use decoder::decode::string;
+
+        let game = string(value)?;
+
+        game.parse().map_err(|str| decoder::Error::Custom(str))
+    }
+
+    pub fn encode(&self) -> Value {
+        use decoder::encode::string;
+
+        string(self.to_string())
+    }
+}
+
+impl std::str::FromStr for Game {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Team Fortress 2" => Ok(Game::TeamFortress2),
+            "Counter-Strike: Source" => Ok(Game::CounterStrikeSource),
+            "Left For Dead 1" => Ok(Game::LeftForDead1),
+            "Left For Dead 2" => Ok(Game::LeftForDead2),
+            "Half-Life 2: DM" => Ok(Game::HalfLife2DM),
+            "No More Room In Hell" => Ok(Game::NoMoreRoomInHell),
+            "Counter-Strike: 2" => Ok(Game::CounterStrike2),
+            "Deadlock" => Ok(Game::Deadlock),
+            _ => Err(format!("'{s}' is not a valid game")),
         }
     }
 }
 
-pub fn get_arg_game_name(game: &SourceAppIDs) -> &'static str {
-    match game {
-        SourceAppIDs::TeamFortress2 => "tf",
-        SourceAppIDs::CounterStrikeSource => "cstrike",
-        SourceAppIDs::CounterStrike2 => "cs",
-        SourceAppIDs::LeftForDead1 => "left4dead",
-        SourceAppIDs::LeftForDead2 => "left4dead2",
-        SourceAppIDs::HalfLife2DM => "hl2mp",
-        SourceAppIDs::NoMoreRoomInHell => "nmrih",
+impl std::fmt::Display for Game {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Game::TeamFortress2 => write!(f, "Team Fortress 2"),
+            Game::CounterStrikeSource => write!(f, "Counter-Strike: Source"),
+            Game::LeftForDead1 => write!(f, "Left For Dead1"),
+            Game::LeftForDead2 => write!(f, "Left For Dead2"),
+            Game::HalfLife2DM => write!(f, "Half Life 2: DM"),
+            Game::NoMoreRoomInHell => write!(f, "No More Room In Hell"),
+            Game::CounterStrike2 => write!(f, "Counter-Strike: 2"),
+            Game::Deadlock => write!(f, "Deadlock"),
+        }
     }
 }
 
-#[derive(Error, Debug, Clone)]
+impl From<Game> for u32 {
+    fn from(value: Game) -> Self {
+        match value {
+            Game::TeamFortress2 => 232250,
+            Game::CounterStrikeSource => 232330,
+            Game::CounterStrike2 => 730,
+            Game::LeftForDead1 => 222840,
+            Game::LeftForDead2 => 222860,
+            Game::HalfLife2DM => 232370,
+            Game::NoMoreRoomInHell => 317670,
+            Game::Deadlock => 1422450,
+        }
+    }
+}
+
+pub fn get_arg_game_name(game: &Game) -> &'static str {
+    match game {
+        Game::TeamFortress2 => "tf",
+        Game::CounterStrikeSource => "cstrike",
+        Game::CounterStrike2 => "cs",
+        Game::LeftForDead1 => "left4dead",
+        Game::LeftForDead2 => "left4dead2",
+        Game::HalfLife2DM => "hl2mp",
+        Game::NoMoreRoomInHell => "nmrih",
+        Game::Deadlock => "deadlock",
+    }
+}
+
+#[derive(Snafu, Debug, Clone)]
+#[snafu(visibility(pub))]
 pub enum Error {
-    #[error("Failed to create directories: {0}")]
-    DirectoryCreationError(String),
+    #[snafu(display("Failed to create directories: {source}"))]
+    DirectoryCreationError {
+        #[snafu(source(from(io::Error, Arc::new)))]
+        source: Arc<io::Error>,
+    },
 
-    #[error("download request failed: {0}")]
-    DownloadRequestError(Arc<reqwest::Error>),
+    #[snafu(display("download request failed: {source}"))]
+    DownloadRequestError {
+        #[snafu(source(from(reqwest::Error, Arc::new)))]
+        source: Arc<reqwest::Error>,
+    },
 
-    #[error("extraction error: {0}")]
-    ArchiveExtractionError(Arc<ExtractError>),
+    #[snafu(display("extraction error: {source}"))]
+    ArchiveExtractionError {
+        #[snafu(source(from(ExtractError, Arc::new)))]
+        source: Arc<ExtractError>,
+    },
 
-    #[error("Failed to spawn the process: {0}")]
-    SpawnProcessError(String),
+    #[snafu(display("Failed to spawn the process: {source}"))]
+    SpawnProcessError {
+        #[snafu(source(from(io::Error, Arc::new)))]
+        source: Arc<io::Error>,
+    },
 
-    #[error("Failed to retrieve the latest version")]
+    #[snafu(display("Failed to retrieve the latest version"))]
     UnableToFindLatestVersionError,
 
-    #[error("io failed: {0}")]
-    Io(Arc<io::Error>),
+    #[snafu(display("io failed: {source}"))]
+    Io {
+        #[snafu(source(from(io::Error, Arc::new)))]
+        source: Arc<io::Error>,
+    },
 }
 
-#[derive(Error, Debug)]
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
 pub enum ExtractError {
-    #[error("")]
-    ZipError(#[from] ZipError),
+    #[snafu(display("{source}"))]
+    ZipError { source: ZipError },
 
-    #[error(transparent)]
-    TarError(#[from] io::Error),
-}
-
-impl From<ExtractError> for Error {
-    fn from(error: ExtractError) -> Self {
-        Self::ArchiveExtractionError(Arc::new(error))
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Self::Io(Arc::new(error))
-    }
-}
-
-impl From<reqwest::Error> for Error {
-    fn from(error: reqwest::Error) -> Self {
-        Self::DownloadRequestError(Arc::new(error))
-    }
+    #[snafu(display("{source}"))]
+    TarError { source: io::Error },
 }

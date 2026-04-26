@@ -1,23 +1,42 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
-use iced::Font;
-use ui::{style::icon, State};
+use iced::{Font, Size};
+#[cfg(target_os = "windows")]
+use iced::{advanced::graphics::image::image_rs::ImageFormat, window};
+
+use ui::State;
 
 pub mod core;
+pub mod icon;
 pub mod ui;
 
-pub const APPLICATION_ID: &str = "org.tsuza.mannager";
+pub const APPLICATION_ID: &str = "net.tsuza.mannager";
 pub const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/app_icon.png");
 
 const TF2_BUILD_FONT_BYTES: &[u8] = include_bytes!("../fonts/tf2build.ttf");
 const TF2_SECONDARY_FONT_BYTES: &[u8] = include_bytes!("../fonts/TF2secondary.ttf");
 
 fn main() -> iced::Result {
-    iced::daemon(State::title, State::update, State::view)
-        .subscription(State::subscription)
-        .font(icon::FONT_BYTES)
+    let window_settings = iced::window::Settings {
+        #[cfg(target_os = "linux")]
+        platform_specific: iced::window::settings::PlatformSpecific {
+            application_id: APPLICATION_ID.to_string(),
+            override_redirect: false,
+        },
+        #[cfg(target_os = "windows")]
+        icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png)).ok(),
+        ..Default::default()
+    };
+
+    iced::application(State::new, State::update, State::view)
+        .title(State::title)
+        .window_size(Size::new(900.0, 900.0))
+        .centered()
+        .font(icon::FONT)
         .font(TF2_BUILD_FONT_BYTES)
         .font(TF2_SECONDARY_FONT_BYTES)
-        .default_font(Font::with_name("TF2 Secondary"))
-        .run_with(State::new)
+        .font(iced_aw::ICED_AW_FONT_BYTES)
+        .default_font(Font::new("TF2 Secondary"))
+        .window(window_settings)
+        .run()
 }

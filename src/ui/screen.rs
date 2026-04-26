@@ -1,13 +1,11 @@
+pub mod loading;
 pub mod serverboot;
 pub mod servercreation;
 pub mod serverlist;
 
-pub struct Screen {
-    pub current_page: ScreenKind,
-
-    pub serverlist_page: serverlist::State,
-}
-
-pub enum ScreenKind {
+pub enum Screen {
+    Loading,
     ServerList,
+    ServerCreation(servercreation::State),
+    ServerTerminal(usize),
 }

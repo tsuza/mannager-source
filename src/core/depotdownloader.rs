@@ -1,4 +1,5 @@
 use reqwest::{self};
+use snafu::ResultExt;
 use std::{
     fs,
     io::Cursor,
@@ -7,7 +8,10 @@ use std::{
 };
 use tokio::process::{Child, ChildStdout, Command};
 
-use super::{Error, ExtractError};
+use super::{
+    ArchiveExtractionSnafu, DirectoryCreationSnafu, DownloadRequestSnafu, Error, SpawnProcessSnafu,
+    ZipSnafu,
+};
 
 pub struct DepotDownloader {
     pub depotdownloader_path: PathBuf,
@@ -41,14 +45,20 @@ impl DepotDownloader {
         path: &str,
         appid: u32,
     ) -> Result<Option<ChildStdout>, Error> {
-        let mut process = Command::new(&self.depotdownloader_path)
+        let mut process = Command::new(&self.depotdownloader_path);
+
+        process
             .args(["-app", &appid.to_string()])
             .args(["-dir", path])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|err| Error::SpawnProcessError(err.to_string()))?;
+            .kill_on_drop(true);
+
+        #[cfg(target_os = "windows")]
+        process.creation_flags(0x08000000);
+
+        let mut process = process.spawn().context(SpawnProcessSnafu)?;
 
         let stdout = process.stdout.take();
 
@@ -59,16 +69,24 @@ impl DepotDownloader {
 }
 
 async fn download_file(path: &PathBuf) -> Result<(), Error> {
-    fs::create_dir_all(path).map_err(|err| Error::DirectoryCreationError(err.to_string()))?;
+    fs::create_dir_all(path).context(DirectoryCreationSnafu)?;
 
-    let steamcmd_contents = reqwest::get(DEPOTDOWNLOADER_URL).await?.bytes().await?;
+    let steamcmd_contents = reqwest::get(DEPOTDOWNLOADER_URL)
+        .await
+        .context(DownloadRequestSnafu)?
+        .bytes()
+        .await
+        .context(DownloadRequestSnafu)?;
 
     let cursor = Cursor::new(steamcmd_contents);
 
-    let mut zip = zip::ZipArchive::new(cursor).map_err(|err| ExtractError::ZipError(err))?;
+    let mut zip = zip::ZipArchive::new(cursor)
+        .context(ZipSnafu)
+        .context(ArchiveExtractionSnafu)?;
 
     zip.extract(path)
-        .map_err(|err| ExtractError::ZipError(err))?;
+        .context(ZipSnafu)
+        .context(ArchiveExtractionSnafu)?;
 
     Ok(())
 }

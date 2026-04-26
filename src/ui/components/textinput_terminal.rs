@@ -1,3 +1,4 @@
+// TODO: Look up the update textinput from iced and update it accordingly
 mod cursor;
 mod editor;
 mod value;
@@ -7,24 +8,30 @@ use std::time::{Duration, Instant};
 use cursor::Cursor;
 use editor::Editor;
 use iced::{
+    Alignment, Background, Border, Color, Element, Event, Length, Padding, Pixels, Point,
+    Rectangle, Size, Task, Theme, Vector,
     advanced::{
-        clipboard, layout,
+        Layout, Shell, Text, Widget,
+        clipboard::{self, Clipboard},
+        graphics::core::{InputMethod, input_method},
+        layout,
         mouse::{self, click},
         renderer,
-        text::{self, paragraph, Paragraph},
+        text::{self, Paragraph, paragraph},
         widget::{
-            self,
+            Tree,
             operation::{self, Operation},
-            tree, Tree,
+            tree,
         },
-        Clipboard, Layout, Shell, Text, Widget,
     },
-    alignment, event,
+    alignment,
     keyboard::{self, key},
     touch,
-    widget::text_input,
-    window, Background, Border, Element, Event, Length, Padding, Pixels, Point, Rectangle, Size,
-    Task, Theme, Vector,
+    widget::{
+        Id,
+        text_input::{self, Catalog, Status, StyleFn},
+    },
+    window,
 };
 use value::Value;
 
@@ -60,7 +67,38 @@ use value::Value;
 ///     }
 /// }
 /// ```
-#[allow(missing_debug_implementations)]
+/// A field that can be filled with text.
+///
+/// # Example
+/// ```no_run
+/// # mod iced { pub mod widget { pub use iced_widget::*; } pub use iced_widget::Renderer; pub use iced_widget::core::*; }
+/// # pub type Element<'a, Message> = iced_widget::core::Element<'a, Message, iced_widget::Theme, iced_widget::Renderer>;
+/// #
+/// use iced::widget::text_input;
+///
+/// struct State {
+///    content: String,
+/// }
+///
+/// #[derive(Debug, Clone)]
+/// enum Message {
+///     ContentChanged(String)
+/// }
+///
+/// fn view(state: &State) -> Element<'_, Message> {
+///     text_input("Type something here...", &state.content)
+///         .on_input(Message::ContentChanged)
+///         .into()
+/// }
+///
+/// fn update(state: &mut State, message: Message) {
+///     match message {
+///         Message::ContentChanged(content) => {
+///             state.content = content;
+///         }
+///     }
+/// }
+/// ```
 pub struct TextInput<'a, Message, Theme, Renderer>
 where
     Theme: Catalog,
@@ -78,10 +116,11 @@ where
     alignment: alignment::Horizontal,
     on_input: Option<Box<dyn Fn(String) -> Message + 'a>>,
     on_paste: Option<Box<dyn Fn(String) -> Message + 'a>>,
-    on_key_press: Option<Box<dyn Fn(keyboard::Key, keyboard::Modifiers) -> Message + 'a>>,
     on_submit: Option<Message>,
+    on_key_press: Option<Box<dyn Fn(keyboard::Key, keyboard::Modifiers) -> Message + 'a>>,
     icon: Option<Icon<Renderer::Font>>,
     class: Theme::Class<'a>,
+    last_status: Option<Status>,
 }
 
 /// The default [`Padding`] of a [`TextInput`].
@@ -113,10 +152,11 @@ where
             on_key_press: None,
             icon: None,
             class: Theme::default(),
+            last_status: None,
         }
     }
 
-    /// Sets the [`Id`] of the [`TextInput`].
+    /// Sets the [`widget::Id`] of the [`TextInput`].
     pub fn id(mut self, id: impl Into<Id>) -> Self {
         self.id = Some(id.into());
         self
@@ -174,6 +214,8 @@ where
         self
     }
 
+    /// Sets the message that should be produced when the [`TextInput`] is
+    /// focused and a key is pressed.
     pub fn on_key_press(
         mut self,
         on_key_press: impl Fn(keyboard::Key, keyboard::Modifiers) -> Message + 'a,
@@ -250,7 +292,7 @@ where
     ///
     /// [`Renderer`]: text::Renderer
     pub fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
@@ -273,18 +315,20 @@ where
             content: self.placeholder.as_str(),
             bounds: Size::new(f32::INFINITY, text_bounds.height),
             size: text_size,
-            horizontal_alignment: alignment::Horizontal::Left,
-            vertical_alignment: alignment::Vertical::Center,
+            align_x: text::Alignment::Default,
+            align_y: alignment::Vertical::Center,
             shaping: text::Shaping::Advanced,
-            wrapping: text::Wrapping::default(),
+            wrapping: text::Wrapping::None,
+            ellipsis: text::Ellipsis::None,
+            hint_factor: renderer.scale_factor(),
         };
 
-        state.placeholder.update(placeholder_text);
+        let _ = state.placeholder.update(placeholder_text);
 
         let secure_value = self.is_secure.then(|| value.secure());
         let value = secure_value.as_ref().unwrap_or(value);
 
-        state.value.update(Text {
+        let _ = state.value.update(Text {
             content: &value.to_string(),
             ..placeholder_text
         });
@@ -298,13 +342,15 @@ where
                 font: icon.font,
                 size: icon.size.unwrap_or_else(|| renderer.default_size()),
                 bounds: Size::new(f32::INFINITY, text_bounds.height),
-                horizontal_alignment: alignment::Horizontal::Center,
-                vertical_alignment: alignment::Vertical::Center,
+                align_x: text::Alignment::Center,
+                align_y: alignment::Vertical::Center,
                 shaping: text::Shaping::Advanced,
-                wrapping: text::Wrapping::default(),
+                wrapping: text::Wrapping::None,
+                ellipsis: text::Ellipsis::None,
+                hint_factor: renderer.scale_factor(),
             };
 
-            state.icon.update(icon_text);
+            let _ = state.icon.update(icon_text);
 
             let icon_width = state.icon.min_width();
 
@@ -335,6 +381,53 @@ where
         }
     }
 
+    fn input_method<'b>(
+        &self,
+        state: &'b State<Renderer::Paragraph>,
+        layout: Layout<'_>,
+        value: &Value,
+    ) -> InputMethod<&'b str> {
+        let Some(Focus {
+            is_window_focused: true,
+            ..
+        }) = &state.is_focused
+        else {
+            return InputMethod::Disabled;
+        };
+
+        let secure_value = self.is_secure.then(|| value.secure());
+        let value = secure_value.as_ref().unwrap_or(value);
+
+        let text_bounds = layout.children().next().unwrap().bounds();
+
+        let caret_index = match state.cursor.state(value) {
+            cursor::State::Index(position) => position,
+            cursor::State::Selection { start, end } => start.min(end),
+        };
+
+        let text = state.value.raw();
+        let (cursor_x, scroll_offset) =
+            measure_cursor_and_scroll_offset(text, text_bounds, caret_index);
+
+        let alignment_offset =
+            alignment_offset(text_bounds.width, text.min_width(), self.alignment);
+
+        let x = (text_bounds.x + cursor_x).floor() - scroll_offset + alignment_offset;
+
+        InputMethod::Enabled {
+            cursor: Rectangle::new(
+                Point::new(x, text_bounds.y),
+                Size::new(1.0, text_bounds.height),
+            ),
+            purpose: if self.is_secure {
+                input_method::Purpose::Secure
+            } else {
+                input_method::Purpose::Normal
+            },
+            preedit: state.preedit.as_ref().map(input_method::Preedit::as_ref),
+        }
+    }
+
     /// Draws the [`TextInput`] with the given [`Renderer`], overriding its
     /// [`Value`] if provided.
     ///
@@ -345,7 +438,7 @@ where
         renderer: &mut Renderer,
         theme: &Theme,
         layout: Layout<'_>,
-        cursor: mouse::Cursor,
+        _cursor: mouse::Cursor,
         value: Option<&Value>,
         viewport: &Rectangle,
     ) {
@@ -361,19 +454,7 @@ where
         let mut children_layout = layout.children();
         let text_bounds = children_layout.next().unwrap().bounds();
 
-        let is_mouse_over = cursor.is_over(bounds);
-
-        let status = if is_disabled {
-            text_input::Status::Disabled
-        } else if state.is_focused() {
-            text_input::Status::Focused
-        } else if is_mouse_over {
-            text_input::Status::Hovered
-        } else {
-            text_input::Status::Active
-        };
-
-        let style = theme.style(&self.class, status);
+        let style = theme.style(&self.class, self.last_status.unwrap_or(Status::Disabled));
 
         renderer.fill_quad(
             renderer::Quad {
@@ -387,9 +468,15 @@ where
         if self.icon.is_some() {
             let icon_layout = children_layout.next().unwrap();
 
+            let icon = state.icon.raw();
+
             renderer.fill_paragraph(
-                state.icon.raw(),
-                icon_layout.bounds().center(),
+                icon,
+                icon_layout.bounds().anchor(
+                    icon.min_bounds(),
+                    Alignment::Center,
+                    Alignment::Center,
+                ),
                 style.icon,
                 *viewport,
             );
@@ -410,16 +497,19 @@ where
                     let is_cursor_visible = !is_disabled
                         && ((focus.now - focus.updated_at).as_millis()
                             / CURSOR_BLINK_INTERVAL_MILLIS)
-                            % 2
-                            == 0;
+                            .is_multiple_of(2);
 
                     let cursor = if is_cursor_visible {
                         Some((
                             renderer::Quad {
                                 bounds: Rectangle {
-                                    x: (text_bounds.x + text_value_width).floor(),
+                                    x: text_bounds.x + text_value_width,
                                     y: text_bounds.y,
-                                    width: 1.0,
+                                    width: if renderer::CRISP {
+                                        (1.0 / renderer.scale_factor().unwrap_or(1.0)).max(1.0)
+                                    } else {
+                                        1.0
+                                    },
                                     height: text_bounds.height,
                                 },
                                 ..renderer::Quad::default()
@@ -471,7 +561,13 @@ where
         };
 
         let draw = |renderer: &mut Renderer, viewport| {
-            let paragraph = if text.is_empty() {
+            let paragraph = if text.is_empty()
+                && state
+                    .preedit
+                    .as_ref()
+                    .map(|preedit| preedit.content.is_empty())
+                    .unwrap_or(true)
+            {
                 state.placeholder.raw()
             } else {
                 state.value.raw()
@@ -488,12 +584,13 @@ where
                     },
                 );
             } else {
-                renderer.with_translation(Vector::ZERO, |_| {});
+                // Drawing an empty quad helps some renderers to track the damage of the blinking cursor
+                renderer.fill_quad(renderer::Quad::default(), Color::TRANSPARENT);
             }
 
             renderer.fill_paragraph(
                 paragraph,
-                Point::new(text_bounds.x, text_bounds.center_y())
+                text_bounds.anchor(paragraph.min_bounds(), Alignment::Start, Alignment::Center)
                     + Vector::new(alignment_offset - offset, 0.0),
                 if text.is_empty() {
                     style.placeholder
@@ -512,8 +609,8 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for TextInput<'a, Message, Theme, Renderer>
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for TextInput<'_, Message, Theme, Renderer>
 where
     Message: Clone,
     Theme: Catalog,
@@ -544,7 +641,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
@@ -553,29 +650,28 @@ where
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut Tree,
-        _layout: Layout<'_>,
+        layout: Layout<'_>,
         _renderer: &Renderer,
         operation: &mut dyn Operation,
     ) {
         let state = tree.state.downcast_mut::<State<Renderer::Paragraph>>();
 
-        operation.focusable(state, self.id.as_ref().map(|id| &id.0));
-        operation.text_input(state, self.id.as_ref().map(|id| &id.0));
+        operation.text_input(self.id.as_ref(), layout.bounds(), state);
+        operation.focusable(self.id.as_ref(), layout.bounds(), state);
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let update_cache = |state, value| {
             replace_paragraph(
                 renderer,
@@ -588,22 +684,21 @@ where
             );
         };
 
-        match event {
+        match &event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
                 let state = state::<Renderer>(tree);
+                let cursor_before = state.cursor;
 
                 let click_position = cursor.position_over(layout.bounds());
 
                 state.is_focused = if click_position.is_some() {
-                    state.is_focused.or_else(|| {
-                        let now = Instant::now();
+                    let now = Instant::now();
 
-                        Some(Focus {
-                            updated_at: now,
-                            now,
-                            is_window_focused: true,
-                        })
+                    Some(Focus {
+                        updated_at: now,
+                        now,
+                        is_window_focused: true,
                     })
                 } else {
                     None
@@ -649,11 +744,14 @@ where
                             } else {
                                 state.cursor.move_to(position);
                             }
-                            state.is_dragging = true;
+
+                            state.is_dragging = Some(Drag::Select);
                         }
                         click::Kind::Double => {
                             if self.is_secure {
                                 state.cursor.select_all(&self.value);
+
+                                state.is_dragging = None;
                             } else {
                                 let position = find_cursor_position(
                                     text_layout.bounds(),
@@ -667,31 +765,35 @@ where
                                     self.value.previous_start_of_word(position),
                                     self.value.next_end_of_word(position),
                                 );
-                            }
 
-                            state.is_dragging = false;
+                                state.is_dragging = Some(Drag::SelectWords { anchor: position });
+                            }
                         }
                         click::Kind::Triple => {
                             state.cursor.select_all(&self.value);
-                            state.is_dragging = false;
+                            state.is_dragging = None;
                         }
                     }
 
                     state.last_click = Some(click);
 
-                    return event::Status::Captured;
+                    if cursor_before != state.cursor {
+                        shell.request_redraw();
+                    }
+
+                    shell.capture_event();
                 }
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerLifted { .. })
             | Event::Touch(touch::Event::FingerLost { .. }) => {
-                state::<Renderer>(tree).is_dragging = false;
+                state::<Renderer>(tree).is_dragging = None;
             }
             Event::Mouse(mouse::Event::CursorMoved { position })
             | Event::Touch(touch::Event::FingerMoved { position, .. }) => {
                 let state = state::<Renderer>(tree);
 
-                if state.is_dragging {
+                if let Some(is_dragging) = &state.is_dragging {
                     let text_layout = layout.children().next().unwrap();
 
                     let target = {
@@ -716,50 +818,78 @@ where
                         find_cursor_position(text_layout.bounds(), &value, state, target)
                             .unwrap_or(0);
 
-                    state
-                        .cursor
-                        .select_range(state.cursor.start(&value), position);
+                    let selection_before = state.cursor.selection(&value);
 
-                    return event::Status::Captured;
+                    match is_dragging {
+                        Drag::Select => {
+                            state
+                                .cursor
+                                .select_range(state.cursor.start(&value), position);
+                        }
+                        Drag::SelectWords { anchor } => {
+                            if position < *anchor {
+                                state.cursor.select_range(
+                                    self.value.previous_start_of_word(position),
+                                    self.value.next_end_of_word(*anchor),
+                                );
+                            } else {
+                                state.cursor.select_range(
+                                    self.value.previous_start_of_word(*anchor),
+                                    self.value.next_end_of_word(position),
+                                );
+                            }
+                        }
+                    }
+
+                    if let Some(focus) = &mut state.is_focused {
+                        focus.updated_at = Instant::now();
+                    }
+
+                    if selection_before != state.cursor.selection(&value) {
+                        shell.request_redraw();
+                    }
+
+                    shell.capture_event();
                 }
             }
-            Event::Keyboard(keyboard::Event::KeyPressed { key, text, .. }) => {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key,
+                text,
+                modified_key,
+                physical_key,
+                ..
+            }) => {
                 let state = state::<Renderer>(tree);
 
                 if let Some(focus) = &mut state.is_focused {
                     let modifiers = state.keyboard_modifiers;
-                    focus.updated_at = Instant::now();
 
                     if let Some(on_key_press) = &self.on_key_press {
                         let message = (on_key_press)(key.clone(), modifiers.clone());
+
                         shell.publish(message);
                     }
 
-                    match key.as_ref() {
-                        keyboard::Key::Character("c")
-                            if state.keyboard_modifiers.command() && !self.is_secure =>
-                        {
+                    match key.to_latin(*physical_key) {
+                        Some('c') if state.keyboard_modifiers.command() && !self.is_secure => {
                             if let Some((start, end)) = state.cursor.selection(&self.value) {
-                                clipboard.write(
-                                    clipboard::Kind::Standard,
+                                shell.write_clipboard(clipboard::Content::Text(
                                     self.value.select(start, end).to_string(),
-                                );
+                                ));
                             }
 
-                            return event::Status::Captured;
+                            shell.capture_event();
+                            return;
                         }
-                        keyboard::Key::Character("x")
-                            if state.keyboard_modifiers.command() && !self.is_secure =>
-                        {
+                        Some('x') if state.keyboard_modifiers.command() && !self.is_secure => {
                             let Some(on_input) = &self.on_input else {
-                                return event::Status::Ignored;
+                                return;
                             };
 
                             if let Some((start, end)) = state.cursor.selection(&self.value) {
-                                clipboard.write(
-                                    clipboard::Kind::Standard,
+                                shell.write_clipboard(clipboard::Content::Text(
                                     self.value.select(start, end).to_string(),
-                                );
+                                ));
                             }
 
                             let mut editor = Editor::new(&mut self.value, &mut state.cursor);
@@ -767,35 +897,31 @@ where
 
                             let message = (on_input)(editor.contents());
                             shell.publish(message);
+                            shell.capture_event();
 
+                            focus.updated_at = Instant::now();
                             update_cache(state, &self.value);
-
-                            return event::Status::Captured;
+                            return;
                         }
-                        keyboard::Key::Character("v")
+                        Some('v')
                             if state.keyboard_modifiers.command()
                                 && !state.keyboard_modifiers.alt() =>
                         {
                             let Some(on_input) = &self.on_input else {
-                                return event::Status::Ignored;
+                                return;
                             };
 
-                            let content = match state.is_pasting.take() {
-                                Some(content) => content,
+                            let content = match &state.is_pasting {
+                                Some(Paste::Pasting(content)) => content,
+                                Some(Paste::Reading) => return,
                                 None => {
-                                    let content: String = clipboard
-                                        .read(clipboard::Kind::Standard)
-                                        .unwrap_or_default()
-                                        .chars()
-                                        .filter(|c| !c.is_control())
-                                        .collect();
-
-                                    Value::new(&content)
+                                    shell.read_clipboard(clipboard::Kind::Text);
+                                    state.is_pasting = Some(Paste::Reading);
+                                    return;
                                 }
                             };
 
                             let mut editor = Editor::new(&mut self.value, &mut state.cursor);
-
                             editor.paste(content.clone());
 
                             let message = if let Some(paste) = &self.on_paste {
@@ -804,24 +930,32 @@ where
                                 (on_input)(editor.contents())
                             };
                             shell.publish(message);
+                            shell.capture_event();
 
-                            state.is_pasting = Some(content);
-
+                            focus.updated_at = Instant::now();
                             update_cache(state, &self.value);
-
-                            return event::Status::Captured;
+                            return;
                         }
-                        keyboard::Key::Character("a") if state.keyboard_modifiers.command() => {
+                        Some('a') if state.keyboard_modifiers.command() => {
+                            let cursor_before = state.cursor;
+
                             state.cursor.select_all(&self.value);
 
-                            return event::Status::Captured;
+                            if cursor_before != state.cursor {
+                                focus.updated_at = Instant::now();
+
+                                shell.request_redraw();
+                            }
+
+                            shell.capture_event();
+                            return;
                         }
                         _ => {}
                     }
 
                     if let Some(text) = text {
                         let Some(on_input) = &self.on_input else {
-                            return event::Status::Ignored;
+                            return;
                         };
 
                         state.is_pasting = None;
@@ -833,31 +967,39 @@ where
 
                             let message = (on_input)(editor.contents());
                             shell.publish(message);
+                            shell.capture_event();
 
                             focus.updated_at = Instant::now();
-
                             update_cache(state, &self.value);
-
-                            return event::Status::Captured;
+                            return;
                         }
                     }
 
-                    match key.as_ref() {
+                    #[cfg(target_os = "macos")]
+                    let macos_shortcut = crate::text_editor::convert_macos_shortcut(key, modifiers);
+
+                    #[cfg(target_os = "macos")]
+                    let modified_key = macos_shortcut.as_ref().unwrap_or(modified_key);
+
+                    match modified_key.as_ref() {
                         keyboard::Key::Named(key::Named::Enter) => {
                             if let Some(on_submit) = self.on_submit.clone() {
                                 shell.publish(on_submit);
+                                shell.capture_event();
                             }
                         }
                         keyboard::Key::Named(key::Named::Backspace) => {
                             let Some(on_input) = &self.on_input else {
-                                return event::Status::Ignored;
+                                return;
                             };
 
-                            if modifiers.jump() && state.cursor.selection(&self.value).is_none() {
-                                if self.is_secure {
-                                    let cursor_pos = state.cursor.end(&self.value);
-                                    state.cursor.select_range(0, cursor_pos);
-                                } else {
+                            if state.cursor.selection(&self.value).is_none() {
+                                if (self.is_secure && modifiers.jump()) || modifiers.macos_command()
+                                {
+                                    state
+                                        .cursor
+                                        .select_range(state.cursor.start(&self.value), 0);
+                                } else if modifiers.jump() {
                                     state.cursor.select_left_by_words(&self.value);
                                 }
                             }
@@ -867,19 +1009,24 @@ where
 
                             let message = (on_input)(editor.contents());
                             shell.publish(message);
+                            shell.capture_event();
 
+                            focus.updated_at = Instant::now();
                             update_cache(state, &self.value);
                         }
                         keyboard::Key::Named(key::Named::Delete) => {
                             let Some(on_input) = &self.on_input else {
-                                return event::Status::Ignored;
+                                return;
                             };
 
-                            if modifiers.jump() && state.cursor.selection(&self.value).is_none() {
-                                if self.is_secure {
-                                    let cursor_pos = state.cursor.end(&self.value);
-                                    state.cursor.select_range(cursor_pos, self.value.len());
-                                } else {
+                            if state.cursor.selection(&self.value).is_none() {
+                                if (self.is_secure && modifiers.jump()) || modifiers.macos_command()
+                                {
+                                    state.cursor.select_range(
+                                        state.cursor.start(&self.value),
+                                        self.value.len(),
+                                    );
+                                } else if modifiers.jump() {
                                     state.cursor.select_right_by_words(&self.value);
                                 }
                             }
@@ -889,10 +1036,14 @@ where
 
                             let message = (on_input)(editor.contents());
                             shell.publish(message);
+                            shell.capture_event();
 
+                            focus.updated_at = Instant::now();
                             update_cache(state, &self.value);
                         }
                         keyboard::Key::Named(key::Named::Home) => {
+                            let cursor_before = state.cursor;
+
                             if modifiers.shift() {
                                 state
                                     .cursor
@@ -900,8 +1051,18 @@ where
                             } else {
                                 state.cursor.move_to(0);
                             }
+
+                            if cursor_before != state.cursor {
+                                focus.updated_at = Instant::now();
+
+                                shell.request_redraw();
+                            }
+
+                            shell.capture_event();
                         }
                         keyboard::Key::Named(key::Named::End) => {
+                            let cursor_before = state.cursor;
+
                             if modifiers.shift() {
                                 state.cursor.select_range(
                                     state.cursor.start(&self.value),
@@ -910,32 +1071,27 @@ where
                             } else {
                                 state.cursor.move_to(self.value.len());
                             }
-                        }
-                        keyboard::Key::Named(key::Named::ArrowLeft)
-                            if modifiers.macos_command() =>
-                        {
-                            if modifiers.shift() {
-                                state
-                                    .cursor
-                                    .select_range(state.cursor.start(&self.value), 0);
-                            } else {
-                                state.cursor.move_to(0);
+
+                            if cursor_before != state.cursor {
+                                focus.updated_at = Instant::now();
+
+                                shell.request_redraw();
                             }
-                        }
-                        keyboard::Key::Named(key::Named::ArrowRight)
-                            if modifiers.macos_command() =>
-                        {
-                            if modifiers.shift() {
-                                state.cursor.select_range(
-                                    state.cursor.start(&self.value),
-                                    self.value.len(),
-                                );
-                            } else {
-                                state.cursor.move_to(self.value.len());
-                            }
+
+                            shell.capture_event();
                         }
                         keyboard::Key::Named(key::Named::ArrowLeft) => {
-                            if modifiers.jump() && !self.is_secure {
+                            let cursor_before = state.cursor;
+
+                            if (self.is_secure && modifiers.jump()) || modifiers.macos_command() {
+                                if modifiers.shift() {
+                                    state
+                                        .cursor
+                                        .select_range(state.cursor.start(&self.value), 0);
+                                } else {
+                                    state.cursor.move_to(0);
+                                }
+                            } else if modifiers.jump() {
                                 if modifiers.shift() {
                                     state.cursor.select_left_by_words(&self.value);
                                 } else {
@@ -946,9 +1102,28 @@ where
                             } else {
                                 state.cursor.move_left(&self.value);
                             }
+
+                            if cursor_before != state.cursor {
+                                focus.updated_at = Instant::now();
+
+                                shell.request_redraw();
+                            }
+
+                            shell.capture_event();
                         }
                         keyboard::Key::Named(key::Named::ArrowRight) => {
-                            if modifiers.jump() && !self.is_secure {
+                            let cursor_before = state.cursor;
+
+                            if (self.is_secure && modifiers.jump()) || modifiers.macos_command() {
+                                if modifiers.shift() {
+                                    state.cursor.select_range(
+                                        state.cursor.start(&self.value),
+                                        self.value.len(),
+                                    );
+                                } else {
+                                    state.cursor.move_to(self.value.len());
+                                }
+                            } else if modifiers.jump() {
                                 if modifiers.shift() {
                                     state.cursor.select_right_by_words(&self.value);
                                 } else {
@@ -959,42 +1134,36 @@ where
                             } else {
                                 state.cursor.move_right(&self.value);
                             }
+
+                            if cursor_before != state.cursor {
+                                focus.updated_at = Instant::now();
+
+                                shell.request_redraw();
+                            }
+
+                            shell.capture_event();
                         }
                         keyboard::Key::Named(key::Named::Escape) => {
                             state.is_focused = None;
-                            state.is_dragging = false;
+                            state.is_dragging = None;
                             state.is_pasting = None;
 
                             state.keyboard_modifiers = keyboard::Modifiers::default();
-                        }
-                        keyboard::Key::Named(
-                            key::Named::Tab | key::Named::ArrowUp | key::Named::ArrowDown,
-                        ) => {
-                            return event::Status::Ignored;
+
+                            shell.capture_event();
                         }
                         _ => {}
                     }
-
-                    return event::Status::Captured;
                 }
             }
             Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
                 let state = state::<Renderer>(tree);
 
-                if state.is_focused.is_some() {
-                    match key.as_ref() {
-                        keyboard::Key::Character("v") => {
-                            state.is_pasting = None;
-                        }
-                        keyboard::Key::Named(
-                            key::Named::Tab | key::Named::ArrowUp | key::Named::ArrowDown,
-                        ) => {
-                            return event::Status::Ignored;
-                        }
-                        _ => {}
-                    }
-
-                    return event::Status::Captured;
+                if state.is_focused.is_some()
+                    && let keyboard::Key::Character("v") = key.as_ref()
+                {
+                    state.is_pasting = None;
+                    shell.capture_event();
                 }
 
                 state.is_pasting = None;
@@ -1002,8 +1171,84 @@ where
             Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
                 let state = state::<Renderer>(tree);
 
-                state.keyboard_modifiers = modifiers;
+                state.keyboard_modifiers = *modifiers;
             }
+            Event::Clipboard(clipboard::Event::Read(Ok(content))) => {
+                let Some(on_input) = &self.on_input else {
+                    return;
+                };
+
+                let state = state::<Renderer>(tree);
+
+                let Some(focus) = &mut state.is_focused else {
+                    return;
+                };
+
+                if let clipboard::Content::Text(text) = content.as_ref()
+                    && let Some(Paste::Reading) = state.is_pasting
+                {
+                    state.is_pasting = Some(Paste::Pasting(Value::new(text)));
+
+                    let mut editor = Editor::new(&mut self.value, &mut state.cursor);
+                    editor.paste(Value::new(text));
+
+                    let message = if let Some(paste) = &self.on_paste {
+                        (paste)(editor.contents())
+                    } else {
+                        (on_input)(editor.contents())
+                    };
+                    shell.publish(message);
+                    shell.capture_event();
+
+                    focus.updated_at = Instant::now();
+                    update_cache(state, &self.value);
+                    return;
+                }
+            }
+            Event::InputMethod(event) => match event {
+                input_method::Event::Opened | input_method::Event::Closed => {
+                    let state = state::<Renderer>(tree);
+
+                    state.preedit = matches!(event, input_method::Event::Opened)
+                        .then(input_method::Preedit::new);
+
+                    shell.request_redraw();
+                }
+                input_method::Event::Preedit(content, selection) => {
+                    let state = state::<Renderer>(tree);
+
+                    if state.is_focused.is_some() {
+                        state.preedit = Some(input_method::Preedit {
+                            content: content.to_owned(),
+                            selection: selection.clone(),
+                            text_size: self.size,
+                        });
+
+                        shell.request_redraw();
+                    }
+                }
+                input_method::Event::Commit(text) => {
+                    let state = state::<Renderer>(tree);
+
+                    if let Some(focus) = &mut state.is_focused {
+                        let Some(on_input) = &self.on_input else {
+                            return;
+                        };
+
+                        let mut editor = Editor::new(&mut self.value, &mut state.cursor);
+                        editor.paste(Value::new(text));
+
+                        focus.updated_at = Instant::now();
+                        state.is_pasting = None;
+
+                        let message = (on_input)(editor.contents());
+                        shell.publish(message);
+                        shell.capture_event();
+
+                        update_cache(state, &self.value);
+                    }
+                }
+            },
             Event::Window(window::Event::Unfocused) => {
                 let state = state::<Renderer>(tree);
 
@@ -1018,29 +1263,55 @@ where
                     focus.is_window_focused = true;
                     focus.updated_at = Instant::now();
 
-                    shell.request_redraw(window::RedrawRequest::NextFrame);
+                    shell.request_redraw();
                 }
             }
             Event::Window(window::Event::RedrawRequested(now)) => {
                 let state = state::<Renderer>(tree);
 
-                if let Some(focus) = &mut state.is_focused {
-                    if focus.is_window_focused {
-                        focus.now = now;
+                if let Some(focus) = &mut state.is_focused
+                    && focus.is_window_focused
+                {
+                    if matches!(state.cursor.state(&self.value), cursor::State::Index(_)) {
+                        focus.now = *now;
 
                         let millis_until_redraw = CURSOR_BLINK_INTERVAL_MILLIS
-                            - (now - focus.updated_at).as_millis() % CURSOR_BLINK_INTERVAL_MILLIS;
+                            - (*now - focus.updated_at).as_millis() % CURSOR_BLINK_INTERVAL_MILLIS;
 
-                        shell.request_redraw(window::RedrawRequest::At(
-                            now + Duration::from_millis(millis_until_redraw as u64),
-                        ));
+                        shell.request_redraw_at(
+                            *now + Duration::from_millis(millis_until_redraw as u64),
+                        );
                     }
+
+                    shell.request_input_method(&self.input_method(state, layout, &self.value));
                 }
             }
             _ => {}
         }
 
-        event::Status::Ignored
+        let state = state::<Renderer>(tree);
+        let is_disabled = self.on_input.is_none();
+
+        let status = if is_disabled {
+            Status::Disabled
+        } else if state.is_focused() {
+            Status::Focused {
+                is_hovered: cursor.is_over(layout.bounds()),
+            }
+        } else if cursor.is_over(layout.bounds()) {
+            Status::Hovered
+        } else {
+            Status::Active
+        };
+
+        if let Event::Window(window::Event::RedrawRequested(_now)) = event {
+            self.last_status = Some(status);
+        } else if self
+            .last_status
+            .is_some_and(|last_status| status != last_status)
+        {
+            shell.request_redraw();
+        }
     }
 
     fn draw(
@@ -1058,7 +1329,7 @@ where
 
     fn mouse_interaction(
         &self,
-        _state: &Tree,
+        _tree: &Tree,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _viewport: &Rectangle,
@@ -1114,87 +1385,6 @@ pub enum Side {
     Right,
 }
 
-/// The identifier of a [`TextInput`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Id(widget::Id);
-
-impl Id {
-    /// Creates a custom [`Id`].
-    pub fn new(id: impl Into<std::borrow::Cow<'static, str>>) -> Self {
-        Self(widget::Id::new(id))
-    }
-
-    /// Creates a unique [`Id`].
-    ///
-    /// This function produces a different [`Id`] every time it is called.
-    pub fn unique() -> Self {
-        Self(widget::Id::unique())
-    }
-}
-
-impl From<Id> for widget::Id {
-    fn from(id: Id) -> Self {
-        id.0
-    }
-}
-
-impl From<&'static str> for Id {
-    fn from(id: &'static str) -> Self {
-        Self::new(id)
-    }
-}
-
-impl From<String> for Id {
-    fn from(id: String) -> Self {
-        Self::new(id)
-    }
-}
-
-/// Produces a [`Task`] that focuses the [`TextInput`] with the given [`Id`].
-pub fn focus<T>(id: impl Into<Id>) -> Task<T>
-where
-    T: Send + 'static,
-{
-    widget::operate(operation::focusable::focus(id.into().0))
-}
-
-/// Produces a [`Task`] that moves the cursor of the [`TextInput`] with the given [`Id`] to the
-/// end.
-pub fn move_cursor_to_end<T>(id: impl Into<Id>) -> Task<T>
-where
-    T: Send + 'static,
-{
-    widget::operate(operation::text_input::move_cursor_to_end(id.into().0))
-}
-
-/// Produces a [`Task`] that moves the cursor of the [`TextInput`] with the given [`Id`] to the
-/// front.
-pub fn move_cursor_to_front<T>(id: impl Into<Id>) -> Task<T>
-where
-    T: Send + 'static,
-{
-    widget::operate(operation::text_input::move_cursor_to_front::<T>(
-        id.into().0,
-    ))
-}
-
-/// Produces a [`Task`] that moves the cursor of the [`TextInput`] with the given [`Id`] to the
-/// provided position.
-pub fn move_cursor_to<T>(id: impl Into<Id>, position: usize) -> Task<T>
-where
-    T: Send + 'static,
-{
-    widget::operate(operation::text_input::move_cursor_to(id.into().0, position))
-}
-
-/// Produces a [`Task`] that selects all the content of the [`TextInput`] with the given [`Id`].
-pub fn select_all<T>(id: impl Into<Id>) -> Task<T>
-where
-    T: Send + 'static,
-{
-    widget::operate(operation::text_input::select_all(id.into().0))
-}
-
 /// The state of a [`TextInput`].
 #[derive(Debug, Default, Clone)]
 pub struct State<P: text::Paragraph> {
@@ -1202,8 +1392,9 @@ pub struct State<P: text::Paragraph> {
     placeholder: paragraph::Plain<P>,
     icon: paragraph::Plain<P>,
     is_focused: Option<Focus>,
-    is_dragging: bool,
-    is_pasting: Option<Value>,
+    is_dragging: Option<Drag>,
+    is_pasting: Option<Paste>,
+    preedit: Option<input_method::Preedit>,
     last_click: Option<mouse::Click>,
     cursor: Cursor,
     keyboard_modifiers: keyboard::Modifiers,
@@ -1214,11 +1405,23 @@ fn state<Renderer: text::Renderer>(tree: &mut Tree) -> &mut State<Renderer::Para
     tree.state.downcast_mut::<State<Renderer::Paragraph>>()
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Focus {
     updated_at: Instant,
     now: Instant,
     is_window_focused: bool,
+}
+
+#[derive(Debug, Clone)]
+enum Drag {
+    Select,
+    SelectWords { anchor: usize },
+}
+
+#[derive(Debug, Clone)]
+enum Paste {
+    Reading,
+    Pasting(Value),
 }
 
 impl<P: text::Paragraph> State<P> {
@@ -1274,6 +1477,11 @@ impl<P: text::Paragraph> State<P> {
     pub fn select_all(&mut self) {
         self.cursor.select_range(0, usize::MAX);
     }
+
+    /// Selects the given range of the content of the [`TextInput`].
+    pub fn select_range(&mut self, start: usize, end: usize) {
+        self.cursor.select_range(start, end);
+    }
 }
 
 impl<P: text::Paragraph> operation::Focusable for State<P> {
@@ -1291,6 +1499,14 @@ impl<P: text::Paragraph> operation::Focusable for State<P> {
 }
 
 impl<P: text::Paragraph> operation::TextInput for State<P> {
+    fn text(&self) -> &str {
+        if self.value.content().is_empty() {
+            self.placeholder.content()
+        } else {
+            self.value.content()
+        }
+    }
+
     fn move_cursor_to_front(&mut self) {
         State::move_cursor_to_front(self);
     }
@@ -1305,6 +1521,10 @@ impl<P: text::Paragraph> operation::TextInput for State<P> {
 
     fn select_all(&mut self) {
         State::select_all(self);
+    }
+
+    fn select_range(&mut self, start: usize, end: usize) {
+        State::select_range(self, start, end);
     }
 }
 
@@ -1386,86 +1606,35 @@ fn replace_paragraph<Renderer>(
     state.value = paragraph::Plain::new(Text {
         font,
         line_height,
-        content: &value.to_string(),
+        content: value.to_string(),
         bounds: Size::new(f32::INFINITY, text_bounds.height),
         size: text_size,
-        horizontal_alignment: alignment::Horizontal::Left,
-        vertical_alignment: alignment::Vertical::Top,
+        align_x: text::Alignment::Default,
+        align_y: alignment::Vertical::Center,
         shaping: text::Shaping::Advanced,
-        wrapping: text::Wrapping::default(),
+        wrapping: text::Wrapping::None,
+        ellipsis: text::Ellipsis::None,
+        hint_factor: renderer.scale_factor(),
     });
 }
 
 const CURSOR_BLINK_INTERVAL_MILLIS: u128 = 500;
 
-/// The theme catalog of a [`TextInput`].
-pub trait Catalog: Sized {
-    /// The item class of the [`Catalog`].
-    type Class<'a>;
-
-    /// The default class produced by the [`Catalog`].
-    fn default<'a>() -> Self::Class<'a>;
-
-    /// The [`Style`] of a class with the given status.
-    fn style(&self, class: &Self::Class<'_>, status: text_input::Status) -> text_input::Style;
-}
-
-/// A styling function for a [`TextInput`].
-///
-/// This is just a boxed closure: `Fn(&Theme, Status) -> Style`.
-pub type StyleFn<'a, Theme> = Box<dyn Fn(&Theme, text_input::Status) -> text_input::Style + 'a>;
-
-impl Catalog for Theme {
-    type Class<'a> = StyleFn<'a, Self>;
-
-    fn default<'a>() -> Self::Class<'a> {
-        Box::new(default)
-    }
-
-    fn style(&self, class: &Self::Class<'_>, status: text_input::Status) -> text_input::Style {
-        class(self, status)
-    }
-}
-
-/// The default style of a [`TextInput`].
-pub fn default(theme: &Theme, status: text_input::Status) -> text_input::Style {
-    let palette = theme.extended_palette();
-
-    let active = text_input::Style {
-        background: Background::Color(palette.background.base.color),
-        border: Border {
-            radius: 2.0.into(),
-            width: 1.0,
-            color: palette.background.strong.color,
-        },
-        icon: palette.background.weak.text,
-        placeholder: palette.background.strong.color,
-        value: palette.background.base.text,
-        selection: palette.primary.weak.color,
-    };
-
-    match status {
-        text_input::Status::Active => active,
-        text_input::Status::Hovered => text_input::Style {
-            border: Border {
-                color: palette.background.base.text,
-                ..active.border
-            },
-            ..active
-        },
-        text_input::Status::Focused => text_input::Style {
-            border: Border {
-                color: palette.primary.strong.color,
-                ..active.border
-            },
-            ..active
-        },
-        text_input::Status::Disabled => text_input::Style {
-            background: Background::Color(palette.background.weak.color),
-            value: active.placeholder,
-            ..active
-        },
-    }
+/// The appearance of a text input.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Style {
+    /// The [`Background`] of the text input.
+    pub background: Background,
+    /// The [`Border`] of the text input.
+    pub border: Border,
+    /// The [`Color`] of the icon of the text input.
+    pub icon: Color,
+    /// The [`Color`] of the placeholder of the text input.
+    pub placeholder: Color,
+    /// The [`Color`] of the value of the text input.
+    pub value: Color,
+    /// The [`Color`] of the selection of the text input.
+    pub selection: Color,
 }
 
 fn alignment_offset(

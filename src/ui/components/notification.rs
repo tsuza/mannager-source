@@ -1,25 +1,22 @@
 use notify_rust::{Notification, Timeout};
 
-pub async fn notification(title: &str, body: impl ToString, timeout: impl Into<Timeout>) {
+pub async fn notification(title: &str, body: impl Into<String>, timeout: impl Into<Timeout>) {
     let mut notification = Notification::new();
 
     notification
         .appname("MANNager")
         .summary(title)
-        .body(&body.to_string())
+        .body(&body.into())
         .timeout(timeout.into());
 
     #[cfg(target_os = "linux")]
-    notification.icon("org.tsuza.mannager");
+    notification.icon("net.tsuza.mannager");
 
     #[cfg(target_os = "windows")]
-    notification.app_id("org.tsuza.mannager");
+    notification.app_id("net.tsuza.mannager");
 
     #[cfg(target_os = "linux")]
-    let _ = notification
-        .show_async()
-        .await
-        .and_then(|notification| Ok(notification.on_close(|_| ())));
+    let _ = notification.show_async().await;
 
     #[cfg(target_os = "windows")]
     let _ = notification.show();
