@@ -8,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use iced::widget::{Space, text::Ellipsis};
 use iced::{
     Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard, color,
     font::Weight,
@@ -16,10 +17,6 @@ use iced::{
         Button, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
         space, stack, svg, text, text_input, tooltip,
     },
-};
-use iced::{
-    Background,
-    widget::{Space, text::Ellipsis},
 };
 use rfd::FileHandle;
 use sweeten::widget::drag::DragEvent;
@@ -683,7 +680,7 @@ where
             opaque(
                 center(
                     metered_progress_bar(0.0..=100.0, percent)
-                        .bars(20)
+                        .bars(15)
                         .spacing(4)
                         .length(Length::Fill)
                         .girth(Length::Fill)

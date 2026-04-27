@@ -402,7 +402,7 @@ fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
         .align_x(Alignment::Center);
 
     let progress = metered_progress_bar(0.0..=100.0, progress)
-        .bars(20)
+        .bars(15)
         .spacing(4)
         .length(500);
 
