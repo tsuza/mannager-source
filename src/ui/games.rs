@@ -34,6 +34,16 @@ pub static SOURCE_GAMES: LazyLock<Vec<SourceGame>> = LazyLock::new(|| {
             },
         },
         SourceGame {
+            game: Game::CounterStrikeGlobalOffensive,
+            image: svg::Handle::from_memory(include_bytes!("../../images/csgo-logo.svg")),
+            engine: SourceEngineVersion::Source1,
+            executable_path: if cfg!(target_os = "windows") {
+                PathBuf::from("srcds-fix.exe")
+            } else {
+                PathBuf::from("srcds_run")
+            },
+        },
+        SourceGame {
             game: Game::LeftForDead1,
             image: svg::Handle::from_memory(include_bytes!("../../images/l4d1-logo.svg")),
             engine: SourceEngineVersion::Source1,

@@ -29,6 +29,7 @@ impl From<SourceEngineVersion> for u32 {
 pub enum Game {
     #[default]
     TeamFortress2,
+    CounterStrikeGlobalOffensive,
     CounterStrikeSource,
     LeftForDead1,
     LeftForDead2,
@@ -77,8 +78,9 @@ impl std::fmt::Display for Game {
         match self {
             Game::TeamFortress2 => write!(f, "Team Fortress 2"),
             Game::CounterStrikeSource => write!(f, "Counter-Strike: Source"),
-            Game::LeftForDead1 => write!(f, "Left For Dead1"),
-            Game::LeftForDead2 => write!(f, "Left For Dead2"),
+            Game::CounterStrikeGlobalOffensive => write!(f, "Counter-Strike: Global Offensive"),
+            Game::LeftForDead1 => write!(f, "Left For Dead 1"),
+            Game::LeftForDead2 => write!(f, "Left For Dead 2"),
             Game::HalfLife2DM => write!(f, "Half Life 2: DM"),
             Game::NoMoreRoomInHell => write!(f, "No More Room In Hell"),
             Game::CounterStrike2 => write!(f, "Counter-Strike: 2"),
@@ -93,6 +95,7 @@ impl From<Game> for u32 {
             Game::TeamFortress2 => 232250,
             Game::CounterStrikeSource => 232330,
             Game::CounterStrike2 => 730,
+            Game::CounterStrikeGlobalOffensive => 740,
             Game::LeftForDead1 => 222840,
             Game::LeftForDead2 => 222860,
             Game::HalfLife2DM => 232370,
@@ -106,6 +109,7 @@ pub fn get_arg_game_name(game: &Game) -> &'static str {
     match game {
         Game::TeamFortress2 => "tf",
         Game::CounterStrikeSource => "cstrike",
+        Game::CounterStrikeGlobalOffensive => "csgo",
         Game::CounterStrike2 => "cs",
         Game::LeftForDead1 => "left4dead",
         Game::LeftForDead2 => "left4dead2",
