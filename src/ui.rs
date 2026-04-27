@@ -136,11 +136,13 @@ impl State {
                 Task::none()
             }
             Message::ServerList(message) => {
+                use serverlist::Action;
+
                 let action = ServerList::update(&mut self.servers, message);
 
                 match action {
-                    serverlist::Action::None => Task::none(),
-                    serverlist::Action::SaveServers => {
+                    Action::None => Task::none(),
+                    Action::SaveServers => {
                         let servers = self.servers.clone();
 
                         Task::future(async {
@@ -150,13 +152,12 @@ impl State {
                         })
                         .discard()
                     }
-
-                    serverlist::Action::CreateServer => {
+                    Action::CreateServer => {
                         self.screen = Screen::ServerCreation(servercreation::State::new());
 
                         Task::none()
                     }
-                    serverlist::Action::UpdateServer(id) => {
+                    Action::UpdateServer(id) => {
                         let Some(Server {
                             info,
                             updating_percent,
@@ -178,7 +179,7 @@ impl State {
                         )
                         .map(Message::UpdateServer.with(id))
                     }
-                    serverlist::Action::EditServer(id) => {
+                    Action::EditServer(id) => {
                         let Some(server) = self.servers.get_mut(id) else {
                             return Task::none();
                         };
@@ -187,7 +188,7 @@ impl State {
 
                         Task::none()
                     }
-                    serverlist::Action::StopEditServer(id) => {
+                    Action::StopEditServer(id) => {
                         let Some(server) = self.servers.get_mut(id) else {
                             return Task::none();
                         };
@@ -196,7 +197,7 @@ impl State {
 
                         Task::none()
                     }
-                    serverlist::Action::RunServer(id) => {
+                    Action::RunServer(id) => {
                         let Some(Server { info, console, .. }) = self.servers.get_mut(id) else {
                             return Task::none();
                         };
@@ -259,12 +260,12 @@ impl State {
 
                         task
                     }
-                    serverlist::Action::OpenTerminal(id) => {
+                    Action::OpenTerminal(id) => {
                         self.screen = Screen::ServerTerminal(id);
 
                         Task::none()
                     }
-                    serverlist::Action::StopServer(id) => {
+                    Action::StopServer(id) => {
                         let Some(Server { console, .. }) = self.servers.get_mut(id) else {
                             return Task::none();
                         };
@@ -275,7 +276,7 @@ impl State {
 
                         Task::none()
                     }
-                    serverlist::Action::Run(task) => task.map(Message::ServerList),
+                    Action::Run(task) => task.map(Message::ServerList),
                 }
             }
             Message::ServerCreation(msg) => {
