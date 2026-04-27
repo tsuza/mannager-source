@@ -62,6 +62,7 @@ impl std::str::FromStr for Game {
         match s {
             "Team Fortress 2" => Ok(Game::TeamFortress2),
             "Counter-Strike: Source" => Ok(Game::CounterStrikeSource),
+            "Counter-Strike: Global Offensive" => Ok(Game::CounterStrikeGlobalOffensive),
             "Left For Dead 1" => Ok(Game::LeftForDead1),
             "Left For Dead 2" => Ok(Game::LeftForDead2),
             "Half-Life 2: DM" => Ok(Game::HalfLife2DM),
