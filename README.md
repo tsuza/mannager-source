@@ -40,10 +40,15 @@
 - Easily download, update & setup a Source game's dedicated server from a wide range of selections.
   - Team Fortress 2
   - Half Life 2: Deathmatch
-  - No More Room In Hell
   - Left 4 Dead 1
   - Left 4 Dead 2
-- Easily download either the stable or dev branch of Sourcemod ( and Metamod ).
+  - Counter-Strike: Source
+  - Counter-Strike: Global Offensive
+  - Counter-Strike 2
+  - Deadlock
+  - No More Room In Hell
+  - ... if there any other ones you'd want just open an issue!
+- Easily download the stable or dev branch of Sourcemod ( and Metamod ).
 - Automatically port forward your server.
 - Native terminal built into the app for server management.
 
@@ -62,7 +67,7 @@ The server list file, a file that contains all of the servers being tracked by t
 ## To-Do
 The top priority for now is:
 - [ ] Finalize the custom title bar for the terminal.
-- [ ] Finalize the support for Source 2 games ( CS2, Deadlock ).
+- [x] Finalize the support for Source 2 games ( CS2, Deadlock ).
 - [x] Finalize Windows support ( and its Workflow ).
 - [ ] Add support for configuring convars and admins within the app.
 
