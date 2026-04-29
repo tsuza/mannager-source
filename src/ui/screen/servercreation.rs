@@ -404,7 +404,8 @@ fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
     let progress = metered_progress_bar(0.0..=100.0, progress)
         .bars(15)
         .spacing(4)
-        .length(500);
+        .length(500)
+        .girth(50);
 
     container(
         container(column![

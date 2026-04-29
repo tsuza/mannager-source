@@ -666,7 +666,7 @@ where
             .height(Length::Shrink),
         ])
         .width(Length::Fill) // TODO: make it 550 and put two per row
-        .padding(25)
+        .padding(20)
         .style(|theme| {
             tf2::container::outlined(theme)
                 .background(theme.colors().surface.surface_container.lowest)
@@ -800,7 +800,7 @@ where
         .height(Length::Shrink),
     )
     .width(Length::Fill)
-    .padding(25)
+    .padding(20)
     .style(|theme| {
         tf2::container::outlined(theme)
             .background(theme.colors().surface.surface_container.lowest)
