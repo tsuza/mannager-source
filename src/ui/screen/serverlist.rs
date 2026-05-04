@@ -547,37 +547,29 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
     let server_icon = {
         let icon = get_game_image(info.game).unwrap();
 
-        let icon = svg(icon)
+        svg(icon)
             .content_fit(ContentFit::Contain)
-            .width(94)
-            .height(94)
-            .opacity(0.8);
-
-        stack![
-            icon,
-            container(Space::new())
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(|theme| {
-                    gradient::Linear::new(PI)
-                        .add_stop(0.0, Color::from_rgba8(42, 39, 37, 1.0))
-                        .add_stop(0.4, Color::from_rgba8(42, 39, 37, 0.9))
-                        .add_stop(0.8, Color::from_rgba8(42, 39, 37, 0.1))
-                        .into()
-                })
-        ]
+            .width(32)
+            .height(32)
+            .opacity(0.8)
     };
 
     let header_row = {
-        let server_name = text(format!("{}", &info.name))
-            .wrapping(text::Wrapping::None)
-            .ellipsis(Ellipsis::End)
-            .size(25)
-            .width(Length::Fill)
-            .font(iced::Font {
-                weight: Weight::Bold,
-                ..Font::DEFAULT
-            });
+        let server_name = row![
+            server_icon,
+            text(info.name.as_str())
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End)
+                .size(25)
+                .line_height(1.0)
+                .width(Length::Fill)
+                .font(iced::Font {
+                    weight: Weight::Bold,
+                    ..Font::DEFAULT
+                })
+        ]
+        .align_y(Alignment::Center)
+        .spacing(10);
 
         let console_button = server.is_running().then_some(
             tooltip(
@@ -679,7 +671,7 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
                 .spacing(5)
             }),
         ]
-        .width(150)
+        .width(200)
         .spacing(5);
 
         // TODO: Remove the unwrap
@@ -739,17 +731,14 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
 
     let card = container(row![
         status_bar,
-        container(stack![
-            container(server_icon).align_right(Length::Fill),
-            column![header_row, info],
-        ])
-        .width(Length::Fill) // TODO: make it 550 and put two per row
-        .padding(20)
-        .style(|theme| {
-            tf2::container::outlined(theme)
-                .background(theme.colors().surface.surface_container.lowest)
-                .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
-        }),
+        container(column![header_row, info])
+            .width(Length::Fill) // TODO: make it 550 and put two per row
+            .padding(20)
+            .style(|theme| {
+                tf2::container::outlined(theme)
+                    .background(theme.colors().surface.surface_container.lowest)
+                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+            }),
     ]);
 
     if let Some(percent) = server.updating_percent {

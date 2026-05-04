@@ -29,6 +29,7 @@ impl From<SourceEngineVersion> for u32 {
 pub enum Game {
     #[default]
     TeamFortress2,
+    TeamFortress2Classified,
     CounterStrikeGlobalOffensive,
     CounterStrikeSource,
     LeftForDead1,
@@ -61,6 +62,7 @@ impl std::str::FromStr for Game {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Team Fortress 2" => Ok(Game::TeamFortress2),
+            "Team Fortress 2 Classified" => Ok(Game::TeamFortress2Classified),
             "Counter-Strike: Source" => Ok(Game::CounterStrikeSource),
             "Counter-Strike: Global Offensive" => Ok(Game::CounterStrikeGlobalOffensive),
             "Left For Dead 1" => Ok(Game::LeftForDead1),
@@ -78,6 +80,7 @@ impl std::fmt::Display for Game {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Game::TeamFortress2 => write!(f, "Team Fortress 2"),
+            Game::TeamFortress2Classified => write!(f, "Team Fortress 2 Classified"),
             Game::CounterStrikeSource => write!(f, "Counter-Strike: Source"),
             Game::CounterStrikeGlobalOffensive => write!(f, "Counter-Strike: Global Offensive"),
             Game::LeftForDead1 => write!(f, "Left For Dead 1"),
@@ -94,6 +97,7 @@ impl From<Game> for u32 {
     fn from(value: Game) -> Self {
         match value {
             Game::TeamFortress2 => 232250,
+            Game::TeamFortress2Classified => 3557020,
             Game::CounterStrikeSource => 232330,
             Game::CounterStrike2 => 730,
             Game::CounterStrikeGlobalOffensive => 740,
@@ -109,6 +113,7 @@ impl From<Game> for u32 {
 pub fn get_arg_game_name(game: &Game) -> &'static str {
     match game {
         Game::TeamFortress2 => "tf",
+        Game::TeamFortress2Classified => "tf2classified",
         Game::CounterStrikeSource => "cstrike",
         Game::CounterStrikeGlobalOffensive => "csgo",
         Game::CounterStrike2 => "cs",
