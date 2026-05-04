@@ -7,7 +7,7 @@ use std::{
 };
 
 use iced::{
-    Alignment, Font, Length, Task,
+    Alignment, Color, Font, Length, Task,
     futures::{SinkExt, Stream, StreamExt, channel::mpsc},
     keyboard, padding,
     stream::try_channel,
@@ -333,9 +333,16 @@ impl ServerTerminal {
         });
 
         let console_output = {
-            let console_output_text = column(console.output.iter().map(|text| match text {
-                TextType::Input(string) => iced_selection::text(format!("{}", string)).into(),
-                TextType::Output(string) => iced_selection::text(format!("{}", string)).into(),
+            let console_output_text = column(console.output.iter().map(|text| {
+                match text {
+                    TextType::Input(string) => iced_selection::text(format!("{}", string))
+                        .style(|_theme| iced_selection::text::Style {
+                            color: Some(Color::from_rgb8(120, 120, 120)),
+                            ..Default::default()
+                        })
+                        .into(),
+                    TextType::Output(string) => iced_selection::text(format!("{}", string)).into(),
+                }
             }))
             .padding(5);
 
