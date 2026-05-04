@@ -1,7 +1,13 @@
-use std::{io, net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    io,
+    net::{Ipv4Addr, UdpSocket},
+    path::PathBuf,
+    sync::Arc,
+    time::Duration,
+};
 
 use iced::{
-    Alignment, Color, Font, Length, Task,
+    Alignment, Font, Length, Task,
     futures::{SinkExt, Stream, StreamExt, channel::mpsc},
     keyboard, padding,
     stream::try_channel,
@@ -59,8 +65,6 @@ impl Console {
     pub fn start(
         executable_path: PathBuf,
         args: String,
-        server_name: String,
-        port: u16,
     ) -> impl Stream<Item = Result<ServerCommunicationTwoWay, Error>> {
         try_channel(
             1,
@@ -127,23 +131,6 @@ impl Console {
                     }
                 };
 
-                let forwarder = portforwarder::PortForwarder::open(
-                    PortForwarderIP::Any,
-                    port,
-                    port,
-                    PortMappingProtocol::UDP,
-                    &server_name,
-                );
-
-                if let Err(_) = forwarder {
-                    let _ = notification(
-                        "MANNager",
-                        "Port forwarding failed.",
-                        Duration::from_secs(5),
-                    )
-                    .await;
-                }
-
                 let mut reader = BufReader::new(process_reader);
                 let mut line = String::new();
 
@@ -191,6 +178,25 @@ impl Console {
                 }
             },
         )
+    }
+
+    pub async fn port_forward(server_name: String, port: u16) {
+        let forwarder = portforwarder::PortForwarder::open(
+            PortForwarderIP::Any,
+            port,
+            port,
+            PortMappingProtocol::UDP,
+            &server_name,
+        );
+
+        if let Err(_) = forwarder {
+            let _ = notification(
+                "MANNager",
+                "Port forwarding failed.",
+                Duration::from_secs(5),
+            )
+            .await;
+        }
     }
 }
 
@@ -370,29 +376,12 @@ impl ServerTerminal {
     }
 }
 
-pub fn find_available_port(ip: Ipv4Addr, starting_port: u16) -> u16 {
-    let mut port = starting_port;
+pub fn find_available_port(ip: Ipv4Addr) -> u16 {
+    let socket = UdpSocket::bind((ip, 27015))
+        .or_else(|_| UdpSocket::bind((ip, 0)))
+        .unwrap();
 
-    const MAX_ATTEMPTS: u32 = 50;
-
-    let _ip = ip.to_string();
-
-    for _ in 1..MAX_ATTEMPTS {
-        match std::net::UdpSocket::bind(format!("{_ip}:{port}"))
-            .and_then(|_| std::net::UdpSocket::bind(format!("{_ip}:{}", port + PORT_OFFSET)))
-        {
-            Ok(_) => {
-                break;
-            }
-            Err(_) => {
-                port += 10;
-
-                continue;
-            }
-        }
-    }
-
-    port
+    socket.local_addr().unwrap().port()
 }
 
 #[derive(Snafu, Debug, Clone)]
