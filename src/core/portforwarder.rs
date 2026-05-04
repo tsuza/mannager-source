@@ -60,21 +60,21 @@ impl PortForwarder {
 // TODO improve display errors
 #[derive(Snafu, Debug)]
 pub enum Error {
-    #[snafu(display(""))]
+    #[snafu(display("No network interfaces found"))]
     NoInterfacesError { source: io::Error },
-    #[snafu(display(""))]
+
+    #[snafu(display("No gateway found"))]
     NoGatewayFoundError { source: SearchError },
-    #[snafu(display(""))]
+
+    #[snafu(display("Port forwarding failed"))]
     PortForwardingFailed { source: PortForwardingError },
 }
 
 #[derive(Snafu, Debug)]
 pub enum PortForwardingError {
-    #[snafu(display(""))]
-    AddPortError {
-        source: AddPortError,
-    },
-    RemovePortError {
-        source: RemovePortError,
-    },
+    #[snafu(display("Failed to add port mapping"))]
+    AddPortError { source: AddPortError },
+
+    #[snafu(display("Failed to remove port mapping"))]
+    RemovePortError { source: RemovePortError },
 }
