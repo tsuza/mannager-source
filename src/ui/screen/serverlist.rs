@@ -657,7 +657,7 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
         let second_col = column![
             row![
                 icon::map(),
-                text("test")
+                text(info.map.as_str())
                     .ellipsis(Ellipsis::Middle)
                     .wrapping(Wrapping::None)
             ]
