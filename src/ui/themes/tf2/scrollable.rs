@@ -1,6 +1,5 @@
-use iced::theme::Base;
 use iced::widget::scrollable::{AutoScroll, Catalog, Rail, Scroller, Status, Style, StyleFn};
-use iced::{Background, Border, Color, Shadow, Vector, border, color};
+use iced::{Background, Border, Shadow, border, color};
 
 use crate::ui::themes::tf2::container;
 

@@ -9,10 +9,10 @@ use cursor::Cursor;
 use editor::Editor;
 use iced::{
     Alignment, Background, Border, Color, Element, Event, Length, Padding, Pixels, Point,
-    Rectangle, Size, Task, Theme, Vector,
+    Rectangle, Size, Vector,
     advanced::{
         Layout, Shell, Text, Widget,
-        clipboard::{self, Clipboard},
+        clipboard::{self},
         graphics::core::{InputMethod, input_method},
         layout,
         mouse::{self, click},

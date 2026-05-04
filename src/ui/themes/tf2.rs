@@ -20,6 +20,7 @@ pub mod svg;
 pub mod sweeten_column;
 pub mod text;
 pub mod text_input;
+pub mod toggler;
 
 pub const fn color_scheme() -> ColorScheme {
     ColorScheme {

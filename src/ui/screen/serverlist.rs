@@ -8,7 +8,10 @@ use std::{
     time::Duration,
 };
 
-use iced::widget::{Space, text::Ellipsis};
+use iced::widget::{
+    Space,
+    text::{Ellipsis, Wrapping},
+};
 use iced::{
     Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard, color,
     font::Weight,
@@ -19,7 +22,7 @@ use iced::{
     },
 };
 use rfd::FileHandle;
-use sweeten::widget::drag::DragEvent;
+use sweeten::{toggler, widget::drag::DragEvent};
 
 use crate::{
     core::get_arg_game_name,
@@ -92,6 +95,7 @@ pub enum ServerMessage {
     OpenFolder,
     CopyLink,
     CopyLinkFinished(Option<String>),
+    PortForwardingToggle(bool),
     DummyButtonEffectMsg,
 }
 
@@ -318,6 +322,15 @@ impl ServerList {
             Message::ServerMessage(id, ServerMessage::StopEditServer) => Action::StopEditServer(id),
             Message::ServerMessage(id, ServerMessage::OpenTerminal) => Action::OpenTerminal(id),
             Message::ServerMessage(_, ServerMessage::DummyButtonEffectMsg) => Action::None,
+            Message::ServerMessage(id, ServerMessage::PortForwardingToggle(value)) => {
+                let Some(server) = servers.get_mut(id) else {
+                    return Action::None;
+                };
+
+                server.is_port_forwarding = value;
+
+                return Action::None;
+            }
         }
     }
 
@@ -394,13 +407,11 @@ impl ServerList {
     }
 }
 
-fn card<'a>(server: &Server) -> Element<'a, ServerMessage>
-where
-    Message: Clone + 'a,
-{
+fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
     let Server {
         info,
         is_downloading_sourcemod,
+        is_port_forwarding,
         ..
     } = &server;
 
@@ -591,33 +602,47 @@ where
             console_button,
             join_link_button,
             running_button,
-            menu_settings
+            menu_settings,
         ]
+        .spacing(10)
+        .padding(padding::bottom(5))
+        .align_y(Alignment::Center)
     };
 
     let info = {
-        let left_side = column![
-            row![icon::users(), text!("{}", info.max_players)]
-                .align_y(Alignment::Center)
-                .spacing(5),
+        let first_col = column![
+            row![
+                icon::users(),
+                text(info.max_players)
+                    .ellipsis(Ellipsis::Middle)
+                    .wrapping(Wrapping::None)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(5),
             row![
                 icon::port(),
-                text!(
-                    "{}",
+                text(
                     info.port
                         .map_or_else(|| "auto".to_string(), |port| port.to_string())
                 )
+                .ellipsis(Ellipsis::Middle)
+                .wrapping(Wrapping::None)
             ]
             .align_y(Alignment::Center)
             .spacing(5)
         ]
-        .width(Length::FillPortion(1))
+        .width(100)
         .spacing(5);
 
-        let right_side = column![
-            row![icon::map(), text!("{}", info.map)]
-                .align_y(Alignment::Center)
-                .spacing(5),
+        let second_col = column![
+            row![
+                icon::map(),
+                text("test")
+                    .ellipsis(Ellipsis::Middle)
+                    .wrapping(Wrapping::None)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(5),
             info.password.as_deref().map(|password_str| {
                 row![
                     icon::password(),
@@ -625,45 +650,59 @@ where
                         container("").width(100).style(|_theme| {
                             container::background(Color::BLACK.scale_alpha(0.2))
                         }),
-                        text!("{}", password_str)
+                        text(password_str)
+                            .ellipsis(Ellipsis::Middle)
+                            .wrapping(Wrapping::None)
                     ),
                 ]
                 .align_y(Alignment::Center)
                 .spacing(5)
             }),
         ]
-        .width(Length::FillPortion(4))
+        .width(150)
         .spacing(5);
 
-        row![left_side, right_side].width(Length::Fill).spacing(20)
+        let third_col = column![
+            tooltip(
+                row![
+                    icon::port_forwarding(),
+                    toggler(*is_port_forwarding).on_toggle(ServerMessage::PortForwardingToggle)
+                ]
+                .align_y(Alignment::Center)
+                .spacing(5),
+                container("Port Forwarding")
+                    .padding(10)
+                    .style(tf2::container::tooltip),
+                tooltip::Position::Top,
+            )
+            .delay(Duration::from_millis(200))
+        ]
+        .width(50)
+        .spacing(5);
+
+        row![first_col, second_col, third_col]
+            .width(Length::Fill)
+            .spacing(20)
     };
 
-    let temp = if server.is_running() {
-        color!(0x00FF00).scale_alpha(0.6)
-    } else {
-        color!(0xFF0000).scale_alpha(0.6)
-    };
+    let status_bar = {
+        let color = if server.is_running() {
+            color!(0x00FF00).scale_alpha(0.6)
+        } else {
+            color!(0xFF0000).scale_alpha(0.6)
+        };
 
-    let card = container(row![
         container(Space::new())
             .height(Length::Fill)
             .width(5)
-            .style(move |_| { container::background(temp) }),
+            .style(move |_| container::background(color))
+    };
+
+    let card = container(row![
+        status_bar,
         container(stack![
             container(server_icon).align_right(Length::Fill),
-            row![
-                column![
-                    header_row
-                        .spacing(10)
-                        .padding(padding::bottom(5))
-                        .align_y(Alignment::Center),
-                    rule::horizontal(0),
-                    info
-                ]
-                .padding(padding::left(10))
-            ]
-            .spacing(20)
-            .height(Length::Shrink),
+            column![header_row, info],
         ])
         .width(Length::Fill) // TODO: make it 550 and put two per row
         .padding(20)
@@ -697,12 +736,10 @@ where
     }
 }
 
-fn editable_card<'a>(server: &Server) -> Element<'a, ServerMessage>
-where
-    Message: Clone + 'a,
-{
+fn editable_card<'a>(server: &Server) -> Element<'a, ServerMessage> {
     let Server { info, .. } = &server;
 
+    // TODO: Remove the unwrap
     let game_image = get_game_image(info.game).unwrap();
 
     let card = container(

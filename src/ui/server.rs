@@ -21,7 +21,9 @@ impl Servers {
     }
 
     pub async fn fetch(path: &Path) -> Result<Self, Error> {
-        let file_contents = fs::read_to_string(path).map_err(|_| Error::NoServerListFile)?;
+        let file_contents = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|_| Error::NoServerListFile)?;
 
         decoder::run(toml::from_str, Servers::decode, &file_contents)
             .map_err(|_| Error::NoServerListFile)
@@ -88,6 +90,7 @@ pub struct Server {
     pub is_downloading_sourcemod: bool,
     pub updating_percent: Option<f32>,
     pub is_editing: bool,
+    pub is_port_forwarding: bool,
 }
 
 impl Server {
@@ -98,6 +101,7 @@ impl Server {
             is_downloading_sourcemod: false,
             updating_percent: None,
             is_editing: false,
+            is_port_forwarding: false,
         }
     }
 
@@ -108,6 +112,7 @@ impl Server {
             is_downloading_sourcemod: false,
             updating_percent: None,
             is_editing: false,
+            is_port_forwarding: false,
         }
     }
 

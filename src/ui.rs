@@ -1,6 +1,6 @@
 use std::{net::Ipv4Addr, path::PathBuf};
 
-use iced::{Function, Subscription, Task, futures, keyboard};
+use iced::{Function, Task, futures};
 use screen::{
     Screen,
     serverboot::{
@@ -45,6 +45,7 @@ pub enum Message {
         usize,
         Result<ServerCommunicationTwoWay, screen::serverboot::Error>,
     ),
+    PortForward(usize),
     ServerList(serverlist::Message),
     ServerCreation(servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
@@ -198,7 +199,13 @@ impl State {
                         Task::none()
                     }
                     Action::RunServer(id) => {
-                        let Some(Server { info, console, .. }) = self.servers.get_mut(id) else {
+                        let Some(Server {
+                            info,
+                            console,
+                            is_port_forwarding,
+                            ..
+                        }) = self.servers.get_mut(id)
+                        else {
                             return Task::none();
                         };
 
@@ -216,9 +223,11 @@ impl State {
                             server_path.join(executable_path)
                         };
 
-                        let port = info.port.unwrap_or_else(|| {
-                            find_available_port(Ipv4Addr::new(0, 0, 0, 0), DEFAULT_PORT)
-                        });
+                        let port = info
+                            .port
+                            .unwrap_or_else(|| find_available_port(Ipv4Addr::UNSPECIFIED));
+
+                        println!("{port}");
 
                         let args = {
                             let mut args = match game_info.engine {
@@ -248,17 +257,26 @@ impl State {
                             args
                         };
 
-                        let (task, handle) = Task::run(
-                            Console::start(binary_path, args, info.name.clone(), port),
+                        self.screen = Screen::ServerTerminal(id);
+
+                        let (server_stream, handle) = Task::run(
+                            Console::start(binary_path, args),
                             Message::ServerCommunication.with(id),
                         )
                         .abortable();
 
+                        let port_forward_task = if *is_port_forwarding {
+                            Task::perform(
+                                Console::port_forward(info.name.clone(), port),
+                                move |_| Message::PortForward(id),
+                            )
+                        } else {
+                            Task::none()
+                        };
+
                         *console = Some(Console::from_handle(handle, port));
 
-                        self.screen = Screen::ServerTerminal(id);
-
-                        task
+                        Task::batch([server_stream, port_forward_task])
                     }
                     Action::OpenTerminal(id) => {
                         self.screen = Screen::ServerTerminal(id);
@@ -332,6 +350,11 @@ impl State {
                     }
                     Action::Run(task) => task.map(Message::ServerTerminal.with(id)),
                 }
+            }
+            Message::PortForward(_) => {
+                println!("test");
+
+                Task::none()
             }
         }
     }
