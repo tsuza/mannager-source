@@ -91,6 +91,7 @@ pub struct Server {
     pub updating_percent: Option<f32>,
     pub is_editing: bool,
     pub is_port_forwarding: bool,
+    pub is_sdr: bool,
 }
 
 impl Server {
@@ -102,6 +103,7 @@ impl Server {
             updating_percent: None,
             is_editing: false,
             is_port_forwarding: false,
+            is_sdr: false,
         }
     }
 
@@ -113,6 +115,7 @@ impl Server {
             updating_percent: None,
             is_editing: false,
             is_port_forwarding: false,
+            is_sdr: false,
         }
     }
 

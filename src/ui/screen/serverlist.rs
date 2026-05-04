@@ -96,6 +96,7 @@ pub enum ServerMessage {
     CopyLink,
     CopyLinkFinished(Option<String>),
     PortForwardingToggle(bool),
+    SdrToggle(bool),
     DummyButtonEffectMsg,
 }
 
@@ -232,6 +233,7 @@ impl ServerList {
 
                 let port = console.hosted_port;
 
+                // TODO: This does not account for SDR.
                 Action::Run(
                     Task::perform(
                         async move {
@@ -329,6 +331,23 @@ impl ServerList {
 
                 server.is_port_forwarding = value;
 
+                if server.is_port_forwarding && server.is_sdr {
+                    server.is_sdr = false;
+                }
+
+                return Action::None;
+            }
+            Message::ServerMessage(id, ServerMessage::SdrToggle(value)) => {
+                let Some(server) = servers.get_mut(id) else {
+                    return Action::None;
+                };
+
+                server.is_sdr = value;
+
+                if server.is_sdr && server.is_port_forwarding {
+                    server.is_port_forwarding = false;
+                }
+
                 return Action::None;
             }
         }
@@ -412,6 +431,7 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
         info,
         is_downloading_sourcemod,
         is_port_forwarding,
+        is_sdr,
         ..
     } = &server;
 
@@ -662,6 +682,13 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
         .width(150)
         .spacing(5);
 
+        // TODO: Remove the unwrap
+        let can_sdr = SOURCE_GAMES
+            .iter()
+            .find(|game_info| game_info.game == info.game)
+            .map(|game_info| game_info.can_sdr)
+            .unwrap();
+
         let third_col = column![
             tooltip(
                 row![
@@ -675,7 +702,19 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
                     .style(tf2::container::tooltip),
                 tooltip::Position::Top,
             )
-            .delay(Duration::from_millis(200))
+            .delay(Duration::from_millis(200)),
+            can_sdr.then_some(tooltip(
+                row![
+                    icon::sdr(),
+                    toggler(*is_sdr).on_toggle(ServerMessage::SdrToggle)
+                ]
+                .align_y(Alignment::Center)
+                .spacing(5),
+                container("SDR ( Steam Datagram Relay )")
+                    .padding(10)
+                    .style(tf2::container::tooltip),
+                tooltip::Position::Top
+            ))
         ]
         .width(50)
         .spacing(5);

@@ -203,6 +203,7 @@ impl State {
                             info,
                             console,
                             is_port_forwarding,
+                            is_sdr,
                             ..
                         }) = self.servers.get_mut(id)
                         else {
@@ -252,6 +253,10 @@ impl State {
 
                             if let Some(token) = &info.gslt {
                                 args.push_str(&format!(" +sv_setsteamaccount {token}"));
+                            }
+
+                            if *is_sdr {
+                                args.push_str(" -enablefakeip")
                             }
 
                             args

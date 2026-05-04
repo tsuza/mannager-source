@@ -1,6 +1,6 @@
 // Generated automatically by iced_lucide at build time.
 // Do not edit manually.
-// 05de1938bb6f29829a1800e3910dc3af537a33134ec1141fd31c9062fa236e1b
+// 8dae6056cb24e042c4b3b162d2241e6cac74b7fa285ad037216da7eb327e1f16
 use iced::Font;
 use iced::widget::{Text, text};
 
@@ -27,8 +27,9 @@ pub const ALL_ICONS: &[(&str, &str)] = &[
     ("password", "\u{E4A3}"),
     ("plus", "\u{E13D}"),
     ("port", "\u{E620}"),
-    ("port_forwarding", "\u{E125}"),
+    ("port_forwarding", "\u{E1AE}"),
     ("right_arrow", "\u{E06F}"),
+    ("sdr", "\u{E683}"),
     ("start", "\u{E13C}"),
     ("stop", "\u{E167}"),
     ("terminal", "\u{E181}"),
@@ -179,7 +180,7 @@ where
     Theme: iced::widget::text::Catalog + 'a,
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
-    icon("\u{E125}")
+    icon("\u{E1AE}")
 }
 
 pub fn right_arrow<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
@@ -188,6 +189,14 @@ where
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
     icon("\u{E06F}")
+}
+
+pub fn sdr<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
+where
+    Theme: iced::widget::text::Catalog + 'a,
+    Renderer: iced::advanced::text::Renderer<Font = Font>,
+{
+    icon("\u{E683}")
 }
 
 pub fn start<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
