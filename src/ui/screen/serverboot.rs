@@ -88,9 +88,13 @@ impl Console {
                 };
 
                 let mut _process = {
+                    // TODO: Remove the unwrap
+                    let parent = executable_path.parent().unwrap();
+
                     #[cfg(target_os = "linux")]
                     {
-                        pty_process::Command::new(executable_path)
+                        pty_process::Command::new(&executable_path)
+                            .current_dir(parent)
                             .args(args.split_whitespace())
                             .spawn(&pty.pts().map_err(|err| Error::SpawnProcessError {
                                 msg: err.to_string(),
@@ -106,7 +110,8 @@ impl Console {
 
                         const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-                        tokio::process::Command::new(executable_path)
+                        tokio::process::Command::new(&executable_path)
+                            .current_dir(parent)
                             .args(args.split_whitespace())
                             .stdin(Stdio::piped())
                             .stdout(Stdio::piped())
