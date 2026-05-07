@@ -336,7 +336,7 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
             );
 
             column![
-                text!("Server Path"),
+                text("Server Path"),
                 row![
                     button("Click to pick a directory").on_press(Message::ChooseServerPath),
                     path
@@ -349,7 +349,7 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
 
         let game_section = container(column![
             row![
-                text!("Server Game"),
+                text("Server Game"),
                 tooltip(
                     icon::warning(),
                     "Is your game missing? Feel free to open an issue on Github so it can be added!",
@@ -368,7 +368,7 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
             .padding(20)
             .style(|theme| tf2::container::outlined(theme)),
             container(
-                button(text!("Create").size(20)).on_press(Message::DownloadServer)
+                button(text("Create").size(20)).on_press(Message::DownloadServer)
             )
             .width(Length::Fill)
             .align_x(Alignment::Center)
