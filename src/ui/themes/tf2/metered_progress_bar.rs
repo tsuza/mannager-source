@@ -1,5 +1,5 @@
 use crate::ui::components::metered_progress_bar::{Catalog, Style, StyleFn};
-use iced::{border, color};
+use iced::border;
 
 use super::super::Theme;
 
@@ -15,10 +15,18 @@ impl Catalog for Theme {
     }
 }
 
-pub fn default(_theme: &Theme) -> Style {
+pub fn default(theme: &Theme) -> Style {
+    let surface = theme.colors().surface;
+    let outline = theme.colors().outline;
+    let primary = theme.colors().primary;
+
     Style {
-        background: iced::Background::Color(color!(0x272422)),
-        bar: iced::Background::Color(color!(0xffffff)),
-        border: border::width(2).color(color!(0x3a3630)),
+        background: iced::Background::Color(surface.surface_container.lowest),
+        bar: iced::Background::Color(primary.color),
+        border: border::Border {
+            color: outline.color,
+            width: 1.5,
+            radius: 10.into(),
+        },
     }
 }

@@ -19,38 +19,56 @@ impl Catalog for Theme {
 
 pub fn default(theme: &Theme, status: Status) -> Style {
     let surface = theme.colors().surface;
+    let accent = theme.colors().primary;
+    let outline = theme.colors().outline;
 
-    let active = Rail {
+    let base_scroller = Scroller {
+        background: Background::Color(surface.on_surface_variant),
+        border: border::rounded(400),
+    };
+
+    let active_rail = Rail {
         background: None,
-        scroller: Scroller {
-            background: Background::Color(surface.on_surface_variant),
-            border: border::rounded(400),
-        },
+        scroller: base_scroller,
         border: Border::default(),
     };
 
-    let disabled = Rail {
+    let disabled_rail = Rail {
         background: Some(Background::Color(disabled_container(surface.on_surface))),
         scroller: Scroller {
             background: Background::Color(disabled_text(surface.on_surface_variant)),
             border: border::rounded(400),
         },
-        ..active
+        ..active_rail
     };
 
-    let scroll = AutoScroll {
+    let hovered_scroller = Scroller {
+        background: Background::Color(mix(surface.on_surface_variant, accent.color, 0.6)),
+        border: border::rounded(400),
+    };
+
+    let dragged_scroller = Scroller {
+        background: Background::Color(accent.color),
+        border: border::rounded(400),
+    };
+
+    let auto_scroll = AutoScroll {
         background: surface.color.into(),
-        border: border::rounded(500).width(1).color(surface.color),
-        icon: surface.color,
-        shadow: Shadow::default(),
+        border: border::rounded(500).width(1).color(outline.color),
+        icon: surface.on_surface_variant,
+        shadow: Shadow {
+            color: theme.colors().shadow,
+            offset: iced::Vector::new(0.0, 6.0),
+            blur_radius: 14.0,
+        },
     };
 
-    let style = Style {
-        container: container::default(theme),
-        vertical_rail: active,
-        horizontal_rail: active,
+    let base = Style {
+        container: container::transparent(theme),
+        vertical_rail: active_rail,
+        horizontal_rail: active_rail,
         gap: None,
-        auto_scroll: scroll,
+        auto_scroll,
     };
 
     match status {
@@ -59,84 +77,74 @@ pub fn default(theme: &Theme, status: Status) -> Style {
             is_vertical_scrollbar_disabled,
         } => Style {
             horizontal_rail: if is_horizontal_scrollbar_disabled {
-                disabled
+                disabled_rail.clone()
             } else {
-                active
+                active_rail.clone()
             },
             vertical_rail: if is_vertical_scrollbar_disabled {
-                disabled
+                disabled_rail.clone()
             } else {
-                active
+                active_rail.clone()
             },
-            ..style
+            ..base
         },
+
         Status::Hovered {
             is_horizontal_scrollbar_hovered,
             is_vertical_scrollbar_hovered,
             is_horizontal_scrollbar_disabled,
             is_vertical_scrollbar_disabled,
-        } => {
-            let hovered_rail = Rail {
-                scroller: Scroller {
-                    background: Background::Color(mix(
-                        surface.on_surface_variant,
-                        color!(0x994f3f),
-                        0.7,
-                    )),
-                    border: border::rounded(400),
-                },
-                ..active
-            };
+        } => Style {
+            horizontal_rail: if is_horizontal_scrollbar_disabled {
+                disabled_rail.clone()
+            } else if is_horizontal_scrollbar_hovered {
+                Rail {
+                    scroller: hovered_scroller,
+                    ..active_rail
+                }
+            } else {
+                active_rail.clone()
+            },
+            vertical_rail: if is_vertical_scrollbar_disabled {
+                disabled_rail.clone()
+            } else if is_vertical_scrollbar_hovered {
+                Rail {
+                    scroller: hovered_scroller,
+                    ..active_rail
+                }
+            } else {
+                active_rail.clone()
+            },
+            ..base
+        },
 
-            Style {
-                horizontal_rail: if is_horizontal_scrollbar_disabled {
-                    disabled
-                } else if is_horizontal_scrollbar_hovered {
-                    hovered_rail
-                } else {
-                    active
-                },
-                vertical_rail: if is_vertical_scrollbar_disabled {
-                    disabled
-                } else if is_vertical_scrollbar_hovered {
-                    hovered_rail
-                } else {
-                    active
-                },
-                ..style
-            }
-        }
         Status::Dragged {
             is_horizontal_scrollbar_dragged,
             is_vertical_scrollbar_dragged,
             is_horizontal_scrollbar_disabled,
             is_vertical_scrollbar_disabled,
-        } => {
-            let dragged_rail = Rail {
-                scroller: Scroller {
-                    background: Background::Color(color!(0x994f3f)),
-                    border: border::rounded(400),
-                },
-                ..active
-            };
-
-            Style {
-                horizontal_rail: if is_horizontal_scrollbar_disabled {
-                    disabled
-                } else if is_horizontal_scrollbar_dragged {
-                    dragged_rail
-                } else {
-                    active
-                },
-                vertical_rail: if is_vertical_scrollbar_disabled {
-                    disabled
-                } else if is_vertical_scrollbar_dragged {
-                    dragged_rail
-                } else {
-                    active
-                },
-                ..style
-            }
-        }
+        } => Style {
+            horizontal_rail: if is_horizontal_scrollbar_disabled {
+                disabled_rail.clone()
+            } else if is_horizontal_scrollbar_dragged {
+                Rail {
+                    scroller: dragged_scroller,
+                    ..active_rail
+                }
+            } else {
+                active_rail.clone()
+            },
+            vertical_rail: if is_vertical_scrollbar_disabled {
+                disabled_rail.clone()
+            } else if is_vertical_scrollbar_dragged {
+                Rail {
+                    scroller: dragged_scroller,
+                    ..active_rail
+                }
+            } else {
+                active_rail.clone()
+            },
+            ..base
+        },
     }
 }

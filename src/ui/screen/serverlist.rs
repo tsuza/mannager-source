@@ -8,17 +8,22 @@ use std::{
     time::Duration,
 };
 
-use iced::widget::{
-    Space,
-    text::{Ellipsis, Wrapping},
-};
 use iced::{
-    Alignment, Color, ContentFit, Font, Function, Length, Task, clipboard, color,
+    Alignment, Border, Color, ContentFit, Font, Function, Length, Task,
+    border::{self, radius},
+    clipboard, color,
     font::Weight,
     gradient, padding,
     widget::{
-        Button, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
+        Button, Row, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
         space, stack, svg, text, text_input, tooltip,
+    },
+};
+use iced::{
+    border::Radius,
+    widget::{
+        Space, image,
+        text::{Ellipsis, Wrapping},
     },
 };
 use rfd::FileHandle;
@@ -30,10 +35,12 @@ use crate::{
     ui::{
         components::{
             metered_progress_bar,
+            progress_bar::animated_progress_bar,
             spinner::{Circular, easing},
+            toggle_button_group::grouped_buttons,
         },
         games::SOURCE_GAMES,
-        server::{Server, Servers},
+        server::{HostingMode, Server, Servers},
         themes::{Theme, elevation, shadow_from_elevation, tf2},
     },
 };
@@ -95,8 +102,7 @@ pub enum ServerMessage {
     OpenFolder,
     CopyLink,
     CopyLinkFinished(Option<String>),
-    PortForwardingToggle(bool),
-    SdrToggle(bool),
+    HostingModeChange(HostingMode),
     DummyButtonEffectMsg,
 }
 
@@ -324,36 +330,21 @@ impl ServerList {
             Message::ServerMessage(id, ServerMessage::StopEditServer) => Action::StopEditServer(id),
             Message::ServerMessage(id, ServerMessage::OpenTerminal) => Action::OpenTerminal(id),
             Message::ServerMessage(_, ServerMessage::DummyButtonEffectMsg) => Action::None,
-            Message::ServerMessage(id, ServerMessage::PortForwardingToggle(value)) => {
-                let Some(server) = servers.get_mut(id) else {
+            Message::ServerMessage(id, ServerMessage::HostingModeChange(mode)) => {
+                let Some(Server { hosting_mode, .. }) = servers.get_mut(id) else {
                     return Action::None;
                 };
 
-                server.is_port_forwarding = value;
+                *hosting_mode = mode;
 
-                if server.is_port_forwarding && server.is_sdr {
-                    server.is_sdr = false;
-                }
-
-                return Action::None;
-            }
-            Message::ServerMessage(id, ServerMessage::SdrToggle(value)) => {
-                let Some(server) = servers.get_mut(id) else {
-                    return Action::None;
-                };
-
-                server.is_sdr = value;
-
-                if server.is_sdr && server.is_port_forwarding {
-                    server.is_port_forwarding = false;
-                }
-
-                return Action::None;
+                Action::None
             }
         }
     }
 
     pub fn view(servers: &Servers) -> Element<'_, Message> {
+        let server_amount = servers.len();
+
         let servers = {
             let server_cards = servers.iter().enumerate().map(|(id, server)| {
                 if !server.is_editing {
@@ -373,11 +364,11 @@ impl ServerList {
             if are_servers_idle {
                 sweeten::widget::column(server_cards)
                     .on_drag(Message::ServerReorder)
-                    .spacing(20)
+                    .spacing(10)
                     .align_x(Alignment::Center)
             } else {
                 sweeten::widget::column(server_cards)
-                    .spacing(20)
+                    .spacing(10)
                     .align_x(Alignment::Center)
             }
         };
@@ -385,15 +376,18 @@ impl ServerList {
         container(
             container(
                 column![
-                    container(
-                        text!("Servers")
+                    container(column![
+                        text("Servers")
                             .font(Font::new("TF2 Build"))
-                            .size(40)
-                            .align_x(Alignment::Center)
-                            .width(Length::Fill)
-                    )
+                            .size(30)
+                            .line_height(1.0)
+                            .width(Length::Fill),
+                        text!("{server_amount} instances")
+                            .size(12)
+                            .style(tf2::text::muted)
+                    ])
                     .padding(padding::bottom(4)),
-                    rule::horizontal(2),
+                    rule::horizontal(1),
                     column![
                         scrollable(servers).height(Length::Fill).spacing(5),
                         container(
@@ -416,12 +410,10 @@ impl ServerList {
             )
             .width(1080)
             .height(Length::Fill)
-            .padding(padding::all(50).top(20))
-            .style(|_theme| tf2::container::main(_theme)),
+            .padding(padding::all(50).top(20)),
         )
         .center(Length::Fill)
-        .padding(40)
-        .style(|theme| tf2::container::surface(theme))
+        .style(|theme| tf2::container::main(theme))
         .into()
     }
 }
@@ -430,8 +422,7 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
     let Server {
         info,
         is_downloading_sourcemod,
-        is_port_forwarding,
-        is_sdr,
+        hosting_mode,
         ..
     } = &server;
 
@@ -527,7 +518,8 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
                         ),
                         Item::new(
                             menu_button(icon::trash(), "Delete server")
-                                .on_press(ServerMessage::DeleteServer),
+                                .on_press(ServerMessage::DeleteServer)
+                                .style(tf2::button::error),
                         ),
                     ]
                     .into(),
@@ -549,27 +541,22 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
 
         svg(icon)
             .content_fit(ContentFit::Contain)
-            .width(32)
-            .height(32)
-            .opacity(0.8)
+            .width(80)
+            .height(80)
+            .opacity(1.0)
     };
 
     let header_row = {
-        let server_name = row![
-            server_icon,
-            text(info.name.as_str())
-                .wrapping(Wrapping::None)
-                .ellipsis(Ellipsis::End)
-                .size(25)
-                .line_height(1.0)
-                .width(Length::Fill)
-                .font(iced::Font {
-                    weight: Weight::Bold,
-                    ..Font::DEFAULT
-                })
-        ]
-        .align_y(Alignment::Center)
-        .spacing(10);
+        let server_name = text(info.name.as_str())
+            .wrapping(Wrapping::None)
+            .ellipsis(Ellipsis::End)
+            .size(25)
+            .line_height(1.0)
+            .width(Length::Fill)
+            .font(iced::Font {
+                weight: Weight::Bold,
+                ..Font::DEFAULT
+            });
 
         let console_button = server.is_running().then_some(
             tooltip(
@@ -616,145 +603,160 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
             running_button,
             menu_settings,
         ]
-        .spacing(10)
-        .padding(padding::bottom(5))
+        .spacing(7)
         .align_y(Alignment::Center)
     };
 
     let info = {
-        let first_col = column![
-            row![
-                icon::users(),
-                text(info.max_players)
-                    .ellipsis(Ellipsis::Middle)
-                    .wrapping(Wrapping::None)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(5),
-            row![
-                icon::port(),
-                text(
-                    info.port
-                        .map_or_else(|| "auto".to_string(), |port| port.to_string())
-                )
-                .ellipsis(Ellipsis::Middle)
-                .wrapping(Wrapping::None)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(5)
-        ]
-        .width(100)
-        .spacing(5);
-
-        let second_col = column![
-            row![
-                icon::map(),
-                text(info.map.as_str())
-                    .ellipsis(Ellipsis::Middle)
-                    .wrapping(Wrapping::None)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(5),
-            info.password.as_deref().map(|password_str| {
-                row![
-                    icon::password(),
-                    hover(
-                        container("").width(100).style(|_theme| {
-                            container::background(Color::BLACK.scale_alpha(0.2))
-                        }),
-                        text(password_str)
-                            .ellipsis(Ellipsis::Middle)
-                            .wrapping(Wrapping::None)
-                    ),
-                ]
-                .align_y(Alignment::Center)
-                .spacing(5)
-            }),
-        ]
-        .width(200)
-        .spacing(5);
-
-        // TODO: Remove the unwrap
         let can_sdr = SOURCE_GAMES
             .iter()
             .find(|game_info| game_info.game == info.game)
             .map(|game_info| game_info.can_sdr)
             .unwrap();
 
-        let third_col = column![
-            tooltip(
-                row![
-                    icon::port_forwarding(),
-                    toggler(*is_port_forwarding).on_toggle(ServerMessage::PortForwardingToggle)
-                ]
-                .align_y(Alignment::Center)
-                .spacing(5),
-                container("Port Forwarding")
-                    .padding(10)
-                    .style(tf2::container::tooltip),
-                tooltip::Position::Top,
+        let button_group = {
+            let mut items = vec![
+                (icon::local(), HostingMode::Local),
+                (icon::port_forwarding(), HostingMode::Upnp),
+            ];
+
+            if can_sdr {
+                items.push((icon::sdr(), HostingMode::Sdr));
+            }
+
+            grouped_buttons(
+                items,
+                *hosting_mode,
+                ServerMessage::HostingModeChange,
+                tf2::button::default,
             )
-            .delay(Duration::from_millis(200)),
-            can_sdr.then_some(tooltip(
-                row![
-                    icon::sdr(),
-                    toggler(*is_sdr).on_toggle(ServerMessage::SdrToggle)
-                ]
-                .align_y(Alignment::Center)
-                .spacing(5),
-                container("SDR ( Steam Datagram Relay )")
-                    .padding(10)
-                    .style(tf2::container::tooltip),
-                tooltip::Position::Top
-            ))
-        ]
-        .width(50)
-        .spacing(5);
-
-        row![first_col, second_col, third_col]
-            .width(Length::Fill)
-            .spacing(20)
-    };
-
-    let status_bar = {
-        let color = if server.is_running() {
-            color!(0x00FF00).scale_alpha(0.6)
-        } else {
-            color!(0xFF0000).scale_alpha(0.6)
         };
 
-        container(Space::new())
-            .height(Length::Fill)
-            .width(5)
-            .style(move |_| container::background(color))
+        row![
+            container(
+                row![
+                    container(
+                        row![
+                            icon::users().size(15),
+                            text(info.max_players)
+                                .ellipsis(Ellipsis::Middle)
+                                .wrapping(Wrapping::None)
+                                .size(15)
+                        ]
+                        .align_y(Alignment::Center)
+                        .spacing(5)
+                    )
+                    .padding(padding::horizontal(10).vertical(6))
+                    .style(tf2::container::info_container),
+                    container(
+                        row![
+                            icon::port().size(15),
+                            text(
+                                info.port
+                                    .map_or_else(|| "auto".to_string(), |port| port.to_string())
+                            )
+                            .ellipsis(Ellipsis::Middle)
+                            .wrapping(Wrapping::None)
+                            .size(15)
+                        ]
+                        .align_y(Alignment::Center)
+                        .spacing(5)
+                    )
+                    .padding(padding::horizontal(10).vertical(6))
+                    .style(tf2::container::info_container),
+                    container(
+                        row![
+                            icon::map().size(15),
+                            text(info.map.as_str())
+                                .ellipsis(Ellipsis::Middle)
+                                .wrapping(Wrapping::None)
+                                .size(15)
+                        ]
+                        .align_y(Alignment::Center)
+                        .spacing(5)
+                    )
+                    .padding(padding::horizontal(10).vertical(6))
+                    .style(tf2::container::info_container),
+                    info.password.as_deref().map(|password_str| {
+                        container(
+                            row![
+                                icon::password().size(15),
+                                hover(
+                                    container("").width(100).style(|_theme| {
+                                        container::background(Color::BLACK.scale_alpha(0.2))
+                                    }),
+                                    iced_selection::text(password_str)
+                                        .ellipsis(Ellipsis::Middle)
+                                        .wrapping(Wrapping::None)
+                                        .size(15)
+                                ),
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(5),
+                        )
+                        .padding(padding::horizontal(10).vertical(6))
+                        .style(tf2::container::info_container)
+                    }),
+                ]
+                .spacing(20)
+            )
+            .width(Length::Fill),
+            column![
+                text("NETWORK").size(10).style(tf2::text::muted),
+                button_group
+            ]
+        ]
+        .align_y(Alignment::End)
+        .spacing(20)
     };
 
-    let card = container(row![
-        status_bar,
-        container(column![header_row, info])
-            .width(Length::Fill) // TODO: make it 550 and put two per row
-            .padding(20)
-            .style(|theme| {
-                tf2::container::outlined(theme)
-                    .background(theme.colors().surface.surface_container.lowest)
-                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
-            }),
-    ]);
+    // TODO: Change the colors into the theme's, thus using the ones for the play/stop button
+    let status_bar = {
+        let color = |theme: &Theme| {
+            if server.is_running() {
+                theme.colors().success.color
+            } else {
+                theme.colors().error.color
+            }
+        };
+
+        container(
+            container(Space::new())
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .style(move |theme| {
+                    container::background(color(theme)).border(border::rounded(border::left(10)))
+                }),
+        )
+        .width(5)
+        .padding(padding::all(1).right(0))
+    };
+
+    let card = container(
+        row![
+            status_bar,
+            row![server_icon, column![header_row, info].spacing(10)]
+                .align_y(Alignment::Center)
+                .spacing(20)
+                .padding(padding::vertical(12).horizontal(14)),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .width(Length::Fill) // TODO: make it 550 and put two per row
+    .style(tf2::container::card);
 
     if let Some(percent) = server.updating_percent {
         stack![
             card,
             opaque(
                 center(
-                    metered_progress_bar(0.0..=100.0, percent)
-                        .bars(15)
-                        .spacing(4)
+                    animated_progress_bar(0.0..=100.0, percent)
                         .length(Length::Fill)
                         .girth(Length::Fill)
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(50)
+                .padding(padding::all(30).horizontal(50))
                 .style(|_theme| container::background(Color::BLACK.scale_alpha(0.8)))
             ),
         ]

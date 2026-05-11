@@ -16,25 +16,6 @@ impl Catalog for Theme {
     }
 }
 
-pub fn styled(
-    background: Background,
-    foreground: Background,
-    text_color: Color,
-    border: Option<Color>,
-) -> Style {
-    Style {
-        background,
-        background_border_width: if border.is_some() { 1.5 } else { 0.0 },
-        background_border_color: border.unwrap_or(Color::TRANSPARENT),
-        foreground,
-        foreground_border_width: 0.0,
-        foreground_border_color: Color::TRANSPARENT,
-        text_color: Some(text_color),
-        border_radius: None,
-        padding_ratio: 0.2,
-    }
-}
-
 pub fn default(theme: &Theme, status: Status) -> Style {
     let surface = theme.colors().surface;
     let primary = theme.colors().primary;
@@ -44,61 +25,60 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     match status {
         Status::Active { is_toggled } => {
             if is_toggled {
-                styled(
-                    primary.color.into(),
-                    primary.on_primary.into(),
-                    primary.on_primary,
-                    None,
-                )
+                Style {
+                    background: Background::Color(primary.color),
+                    foreground: Background::Color(primary.on_primary),
+                    text_color: Some(primary.on_primary),
+                    background_border_color: Color::TRANSPARENT,
+                    foreground_border_color: Color::TRANSPARENT,
+                    background_border_width: 0.0,
+                    foreground_border_width: 0.0,
+                    padding_ratio: 0.2,
+                    border_radius: None,
+                }
             } else {
-                styled(
-                    secondary.secondary_container.into(),
-                    surface.on_surface_variant.into(),
-                    surface.on_surface,
-                    Some(outline.variant),
-                )
+                Style {
+                    background: Background::Color(secondary.secondary_container),
+                    foreground: Background::Color(surface.on_surface_variant),
+                    text_color: Some(surface.on_surface),
+                    background_border_color: outline.color,
+                    foreground_border_color: Color::TRANSPARENT,
+                    background_border_width: 1.0,
+                    foreground_border_width: 0.0,
+                    padding_ratio: 0.2,
+                    border_radius: None,
+                }
             }
         }
 
         Status::Hovered { is_toggled } => {
             if is_toggled {
-                styled(
-                    mix(primary.color, primary.on_primary, HOVERED_LAYER_OPACITY).into(),
-                    primary.on_primary.into(),
-                    primary.on_primary,
-                    None,
-                )
+                Style {
+                    background: Background::Color(primary.primary_container),
+                    foreground: Background::Color(primary.color),
+                    text_color: Some(primary.on_primary),
+                    ..default(theme, Status::Active { is_toggled })
+                }
             } else {
-                styled(
-                    mix(
-                        secondary.secondary_container,
-                        surface.on_surface,
-                        HOVERED_LAYER_OPACITY,
-                    )
-                    .into(),
-                    surface.on_surface.into(),
-                    surface.on_surface,
-                    Some(outline.color),
-                )
+                Style {
+                    background: Background::Color(surface.surface_container.high),
+                    foreground: Background::Color(surface.on_surface_variant),
+                    text_color: Some(surface.on_surface),
+                    ..default(theme, Status::Active { is_toggled })
+                }
             }
         }
 
-        Status::Disabled { is_toggled } => {
-            if is_toggled {
-                styled(
-                    disabled_container(primary.color).into(),
-                    disabled_text(primary.on_primary).into(),
-                    surface.on_surface,
-                    None,
-                )
-            } else {
-                styled(
-                    disabled_container(secondary.secondary_container).into(),
-                    disabled_text(surface.on_surface).into(),
-                    surface.on_surface,
-                    Some(disabled_text(surface.on_surface)),
-                )
-            }
-        }
+        Status::Disabled { is_toggled } => Style {
+            background: Background::Color(surface.surface_container.lowest),
+            foreground: Background::Color(surface.on_surface_variant),
+            text_color: Some(surface.on_surface_variant),
+            background_border_color: outline.variant,
+            foreground_border_color: Color::TRANSPARENT,
+            background_border_width: 1.0,
+            foreground_border_width: 0.0,
+            padding_ratio: 0.2,
+            border_radius: None,
+        },
     }
 }

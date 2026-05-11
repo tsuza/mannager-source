@@ -90,8 +90,14 @@ pub struct Server {
     pub is_downloading_sourcemod: bool,
     pub updating_percent: Option<f32>,
     pub is_editing: bool,
-    pub is_port_forwarding: bool,
-    pub is_sdr: bool,
+    pub hosting_mode: HostingMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HostingMode {
+    Local,
+    Sdr,
+    Upnp,
 }
 
 impl Server {
@@ -102,8 +108,7 @@ impl Server {
             is_downloading_sourcemod: false,
             updating_percent: None,
             is_editing: false,
-            is_port_forwarding: false,
-            is_sdr: false,
+            hosting_mode: HostingMode::Local,
         }
     }
 
@@ -114,8 +119,7 @@ impl Server {
             is_downloading_sourcemod: false,
             updating_percent: None,
             is_editing: false,
-            is_port_forwarding: false,
-            is_sdr: false,
+            hosting_mode: HostingMode::Local,
         }
     }
 

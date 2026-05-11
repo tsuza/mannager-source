@@ -1,5 +1,7 @@
-#![allow(dead_code)]
-use iced::widget::text::{Catalog, Style, StyleFn};
+use iced::{
+    color,
+    widget::text::{Catalog, Style, StyleFn},
+};
 
 use super::super::Theme;
 
@@ -7,7 +9,7 @@ impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
 
     fn default<'a>() -> Self::Class<'a> {
-        Box::new(none)
+        Box::new(default)
     }
 
     fn style(&self, class: &Self::Class<'_>) -> Style {
@@ -15,8 +17,16 @@ impl Catalog for Theme {
     }
 }
 
-pub fn none(_: &Theme) -> Style {
-    Style { color: None }
+pub fn default(theme: &Theme) -> Style {
+    Style {
+        color: Some(theme.colors().surface.on_surface),
+    }
+}
+
+pub fn muted(theme: &Theme) -> Style {
+    Style {
+        color: Some(color!(0x574f47)),
+    }
 }
 
 pub fn primary(theme: &Theme) -> Style {
@@ -33,7 +43,7 @@ pub fn primary_container(theme: &Theme) -> Style {
 
 pub fn secondary(theme: &Theme) -> Style {
     Style {
-        color: Some(theme.colors().secondary.on_secondary),
+        color: Some(theme.colors().secondary.color),
     }
 }
 

@@ -22,11 +22,12 @@ impl ExtendedCatalog for Theme {
 }
 
 pub fn default(theme: &Theme, status: Status) -> Style {
+    let primary = theme.colors().primary;
     let surface = theme.colors().surface;
 
     let active = Style {
-        button_background: Some(Background::Color(surface.surface_container.highest)),
-        icon_color: surface.on_surface.into(),
+        button_background: Some(surface.surface_container.lowest.into()),
+        icon_color: primary.on_primary,
     };
 
     match status {

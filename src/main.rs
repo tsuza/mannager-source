@@ -15,6 +15,7 @@ pub const APP_ICON_BYTES: &[u8] = include_bytes!("../assets/app_icon.png");
 
 const TF2_BUILD_FONT_BYTES: &[u8] = include_bytes!("../fonts/tf2build.ttf");
 const TF2_SECONDARY_FONT_BYTES: &[u8] = include_bytes!("../fonts/TF2secondary.ttf");
+const ROBOMONO_FONT_BYTES: &[u8] = include_bytes!("../fonts/robomono.ttf");
 
 fn main() -> iced::Result {
     let window_settings = iced::window::Settings {
@@ -35,6 +36,7 @@ fn main() -> iced::Result {
         .font(icon::FONT)
         .font(TF2_BUILD_FONT_BYTES)
         .font(TF2_SECONDARY_FONT_BYTES)
+        .font(ROBOMONO_FONT_BYTES)
         .font(iced_aw::ICED_AW_FONT_BYTES)
         .default_font(Font::new("TF2 Secondary"))
         .window(window_settings)

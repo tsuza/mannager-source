@@ -1,6 +1,6 @@
 // Generated automatically by iced_lucide at build time.
 // Do not edit manually.
-// 8dae6056cb24e042c4b3b162d2241e6cac74b7fa285ad037216da7eb327e1f16
+// 332f1751580c27ccf95d3cebe0893d237e6c667fbccb2d4459fa102e6274d8c2
 use iced::Font;
 use iced::widget::{Text, text};
 
@@ -21,7 +21,8 @@ pub const ALL_ICONS: &[(&str, &str)] = &[
     ("folder", "\u{E0D7}"),
     ("left_arrow", "\u{E06E}"),
     ("link", "\u{E102}"),
-    ("map", "\u{E53D}"),
+    ("local", "\u{E6C1}"),
+    ("map", "\u{E110}"),
     ("menu", "\u{E115}"),
     ("minus", "\u{E11C}"),
     ("password", "\u{E4A3}"),
@@ -127,12 +128,20 @@ where
     icon("\u{E102}")
 }
 
+pub fn local<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
+where
+    Theme: iced::widget::text::Catalog + 'a,
+    Renderer: iced::advanced::text::Renderer<Font = Font>,
+{
+    icon("\u{E6C1}")
+}
+
 pub fn map<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
 where
     Theme: iced::widget::text::Catalog + 'a,
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
-    icon("\u{E53D}")
+    icon("\u{E110}")
 }
 
 pub fn menu<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>

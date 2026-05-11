@@ -7,16 +7,17 @@ use crate::icon;
 use crate::ui::Element;
 use crate::ui::components::metered_progress_bar;
 use crate::ui::components::notification::notification;
+use crate::ui::components::progress_bar::animated_progress_bar;
 use crate::ui::games::{SOURCE_GAMES, SourceGame};
 use crate::ui::server::ServerInfo;
-use crate::ui::themes::tf2;
-use iced::Font;
+use crate::ui::themes::{Theme, tf2};
 use iced::widget::{Row, float, rule, space, tooltip};
 use iced::{
     Alignment, ContentFit, Length, Task, padding,
     task::{Straw, sipper},
     widget::{button, center, column, container, row, svg, text, text_input},
 };
+use iced::{Color, Font, border, color};
 use iced_aw::number_input;
 use rfd::FileHandle;
 use snafu::{ResultExt, Snafu};
@@ -210,7 +211,7 @@ impl State {
         }
     }
 
-    pub fn view<'a>(&self) -> Element<'a, Message> {
+    pub fn view<'a>(&'a self) -> Element<'a, Message> {
         match self.form_page {
             FormSection::GameSelection => choose_game_view(&self.server),
             FormSection::Downloading => downloading_view(self.progress),
@@ -226,18 +227,18 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
         button_event: Message,
     ) -> Element<'a, Message> {
         if is_currently_selected {
-            float(
-                button(
+            button(
+                float(
                     svg(game.image.clone())
                         .content_fit(ContentFit::Contain)
                         .height(80)
                         .width(80),
                 )
-                .on_press(button_event)
-                .padding(0)
-                .style(|_theme, _status| tf2::button::text(_theme, _status)),
+                .scale(1.1),
             )
-            .scale(1.2)
+            .on_press(button_event)
+            .padding(padding::vertical(14).horizontal(12))
+            .style(|theme, _| tf2::button::default(theme, button::Status::Pressed))
             .into()
         } else {
             tooltip(
@@ -249,8 +250,8 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
                         .opacity(0.5),
                 )
                 .on_press(button_event)
-                .padding(0)
-                .style(|_theme, _status| tf2::button::text(_theme, _status)),
+                .padding(padding::vertical(14).horizontal(12))
+                .style(|theme, _| tf2::button::default(theme, button::Status::Active)),
                 container(text(game.game.to_string())).padding(10),
                 tooltip::Position::Bottom,
             )
@@ -274,71 +275,140 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
     .align_x(Alignment::Center);
 
     let header = {
-        let title = container(
-            text!("Server creation")
+        let title = container(column![
+            text("Create server")
                 .font(Font::new("TF2 Build"))
                 .line_height(1.0)
-                .size(40)
-                .align_x(Alignment::Center)
-                .align_y(Alignment::Center),
-        )
-        .padding(padding::top(3.0).bottom(-3.0))
-        .width(Length::FillPortion(2))
-        .align_x(Alignment::Center);
+                .size(30),
+            text("Configure and launch a new instance")
+                .size(12)
+                .style(tf2::text::muted)
+        ]);
 
-        let close_button = container(
-            button(
-                icon::close()
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .size(20)
-                    .center(),
-            )
-            .on_press(Message::CloseServerCreation)
-            .width(32)
-            .height(32),
+        let close_button = button(
+            icon::left_arrow()
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .size(20)
+                .center(),
         )
-        .align_right(Length::FillPortion(1));
+        .on_press(Message::CloseServerCreation)
+        .width(34)
+        .height(34);
 
         column![
-            row![
-                space::horizontal().width(Length::FillPortion(1)),
-                title,
-                close_button
-            ]
-            .align_y(Alignment::Center)
-            .padding(padding::all(10).bottom(0)),
-            container(rule::horizontal(3)).width(200),
-            text!("Select the game server").size(25)
+            row![close_button, title]
+                .align_y(Alignment::Center)
+                .spacing(14)
+                .width(Length::Fill),
+            rule::horizontal(1),
         ]
         .width(Length::Fill)
-        .align_x(Alignment::Center)
         .spacing(5)
+    };
+
+    let creation_progress_bar = {
+        let default = |theme: &Theme| {
+            let base = tf2::container::outlined(theme);
+
+            container::Style {
+                border: base.border.rounded(f32::INFINITY),
+                ..base
+            }
+        };
+
+        let active = |theme: &Theme| container::Style {
+            background: Some(theme.colors().primary.color.into()),
+            border: border::rounded(f32::INFINITY),
+            ..Default::default()
+        };
+
+        row![
+            row![
+                container(
+                    text("1")
+                        .size(11)
+                        .line_height(1.0)
+                        .width(20)
+                        .height(20)
+                        .center()
+                )
+                .align_y(Alignment::Center)
+                .align_x(Alignment::Center)
+                .style(active),
+                text("Configure").size(13)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(8),
+            rule::horizontal(1),
+            row![
+                container(
+                    text("2")
+                        .size(11)
+                        .line_height(1.0)
+                        .width(20)
+                        .height(20)
+                        .center()
+                        .style(tf2::text::muted)
+                )
+                .align_y(Alignment::Center)
+                .align_x(Alignment::Center)
+                .style(default),
+                text("Download").size(13).style(tf2::text::muted)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(8),
+            rule::horizontal(1),
+            row![
+                container(
+                    text("3")
+                        .size(11)
+                        .line_height(1.0)
+                        .width(20)
+                        .height(20)
+                        .center()
+                        .style(tf2::text::muted)
+                )
+                .align_y(Alignment::Center)
+                .align_x(Alignment::Center)
+                .style(default),
+                text("Options").size(13).style(tf2::text::muted)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(8),
+        ]
+        .align_y(Alignment::Center)
+        .spacing(10)
     };
 
     let body = {
         let name_input = column![
-            text!("Server Name"),
-            text_input("server name", &server.name)
+            text!("Server Name").style(tf2::text::secondary),
+            text_input("e.g. My Server", &server.name)
                 .on_input(Message::ServerNameInput)
-                .width(300)
-                .padding([5, 10])
+                .width(Length::Fill)
+                .padding(padding::vertical(10).horizontal(13))
         ]
         .spacing(5);
 
         let path_picker = {
             let path = server.path.display().to_string();
 
-            let path = (!path.is_empty()).then_some(
-                container(text(path))
-                    .padding(6)
-                    .style(|theme| tf2::container::surface_container_low(theme)),
-            );
+            let path = container(text(path))
+                .width(Length::Fill)
+                .padding(padding::vertical(10).horizontal(13))
+                .style(tf2::container::main);
 
             column![
-                text("Server Path"),
+                text("Server Path").style(tf2::text::secondary),
                 row![
-                    button("Click to pick a directory").on_press(Message::ChooseServerPath),
+                    button(
+                        row![icon::folder(), "Browse..."]
+                            .align_y(Alignment::Center)
+                            .spacing(7)
+                    )
+                    .on_press(Message::ChooseServerPath)
+                    .padding(padding::vertical(12).horizontal(14)),
                     path
                 ]
                 .align_y(Alignment::Center)
@@ -349,9 +419,9 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
 
         let game_section = container(column![
             row![
-                text("Server Game"),
+                text("Game").style(tf2::text::secondary),
                 tooltip(
-                    icon::warning(),
+                    icon::warning().style(tf2::text::secondary),
                     "Is your game missing? Feel free to open an issue on Github so it can be added!",
                     tooltip::Position::Top
                 )
@@ -365,35 +435,47 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
                 games
             )
             .center_x(Length::Fill)
-            .padding(20)
-            .style(|theme| tf2::container::outlined(theme)),
-            container(
-                button(text("Create").size(20)).on_press(Message::DownloadServer)
-            )
-            .width(Length::Fill)
-            .align_x(Alignment::Center)
-        ].spacing(10))
-        .center_x(Length::Fill);
+        ].spacing(10));
 
-        container(column![name_input, path_picker, game_section].spacing(30))
-            .padding(padding::all(50).top(0))
+        container(column![name_input, path_picker, rule::horizontal(1), game_section].spacing(30))
     };
 
     container(
-        container(column![header, body])
-            .width(1000)
-            .padding(padding::all(10))
-            .height(Length::Fill)
-            .style(|_theme| tf2::container::main(_theme)),
+        column![
+            header,
+            creation_progress_bar,
+            container(
+                column![
+                    body,
+                    rule::horizontal(1),
+                    container(
+                        button(
+                            row![text("Next").size(20), icon::right_arrow().size(20)].spacing(10)
+                        )
+                        .on_press(Message::DownloadServer)
+                        .padding(padding::vertical(10).horizontal(20))
+                        .style(tf2::button::primary)
+                    )
+                    .width(Length::Fill)
+                    .align_x(Alignment::End)
+                ]
+                .spacing(20)
+            )
+            .padding(24)
+            .style(tf2::container::card),
+        ]
+        .width(620)
+        .spacing(14),
     )
     .align_x(Alignment::Center)
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(|theme| tf2::container::surface(theme))
+    .style(tf2::container::main)
     .into()
 }
 
+// TODO: Finish styling this part
 fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
     let header = text!("Downloading the server...")
         .font(Font::new("TF2 Build"))
@@ -401,9 +483,7 @@ fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
         .width(Length::Fill)
         .align_x(Alignment::Center);
 
-    let progress = metered_progress_bar(0.0..=100.0, progress)
-        .bars(15)
-        .spacing(4)
+    let progress = animated_progress_bar(0.0..=100.0, progress)
         .length(500)
         .girth(50);
 
@@ -426,36 +506,130 @@ fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
     .into()
 }
 
-fn info_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
-    let header = text!("Server creation")
-        .font(Font::new("TF2 Build"))
-        .line_height(1.0)
-        .size(40)
-        .width(Length::Fill)
-        .align_x(Alignment::Center);
+fn info_view<'a>(server: &'a ServerInfo) -> Element<'a, Message> {
+    let header = {
+        let title = container(column![
+            text("Create server")
+                .font(Font::new("TF2 Build"))
+                .line_height(1.0)
+                .size(30),
+            text("Configure and launch a new instance")
+                .size(12)
+                .style(tf2::text::muted)
+        ])
+        .width(Length::Fill);
+
+        column![title, rule::horizontal(1),]
+            .width(Length::Fill)
+            .spacing(5)
+    };
+
+    let creation_progress_bar = {
+        let active = |theme: &Theme| container::Style {
+            background: Some(theme.colors().primary.color.into()),
+            border: border::rounded(f32::INFINITY),
+            ..Default::default()
+        };
+
+        row![
+            row![
+                container(
+                    text("1")
+                        .size(11)
+                        .line_height(1.0)
+                        .width(20)
+                        .height(20)
+                        .center()
+                        .style(tf2::text::muted)
+                )
+                .align_y(Alignment::Center)
+                .align_x(Alignment::Center)
+                .style(active),
+                text("Configure").size(13).style(tf2::text::muted)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(8),
+            rule::horizontal(1).style(tf2::rule::primary),
+            row![
+                container(
+                    text("2")
+                        .size(11)
+                        .line_height(1.0)
+                        .width(20)
+                        .height(20)
+                        .center()
+                        .style(tf2::text::muted)
+                )
+                .align_y(Alignment::Center)
+                .align_x(Alignment::Center)
+                .style(active),
+                text("Download").size(13).style(tf2::text::muted)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(8),
+            rule::horizontal(1).style(tf2::rule::primary),
+            row![
+                container(
+                    text("3")
+                        .size(11)
+                        .line_height(1.0)
+                        .width(20)
+                        .height(20)
+                        .center()
+                )
+                .align_y(Alignment::Center)
+                .align_x(Alignment::Center)
+                .style(active),
+                text("Options")
+            ]
+            .align_y(Alignment::Center)
+            .spacing(8),
+        ]
+        .align_y(Alignment::Center)
+        .spacing(10)
+    };
 
     let body = {
+        fn optional_tag<'a>() -> Element<'a, Message> {
+            container(text("optional").size(10).style(tf2::text::muted))
+                .padding(padding::vertical(1).horizontal(6))
+                .style(tf2::container::main)
+                .into()
+        }
+
         let description_input = column![
-            text!("Server Description").width(Length::FillPortion(1)),
+            row![
+                text("Server Description").style(tf2::text::secondary),
+                optional_tag()
+            ]
+            .align_y(Alignment::Center)
+            .spacing(5),
             text_input(
-                "Server Description",
+                "e.g. Testing Server",
                 &server.description.as_deref().unwrap_or_default()
             )
             .on_input(Message::MessageDescriptionUpdate)
-            .padding([5, 10])
+            .width(Length::Fill)
+            .padding(padding::vertical(10).horizontal(13))
         ]
-        .align_x(Alignment::Center)
         .spacing(5);
 
         let map_input = column![
-            text!("Map"),
+            text("Map").style(tf2::text::secondary),
             row![
-                container(button("Select Map").on_press(Message::SelectMap)),
-                (!server.map.is_empty()).then_some(
-                    container(text(server.map.clone()))
-                        .padding(6)
-                        .style(|theme| tf2::container::surface_container_low(theme))
-                )
+                container(
+                    button(
+                        row![icon::map(), "Select Map"]
+                            .align_y(Alignment::Center)
+                            .spacing(7)
+                    )
+                    .on_press(Message::SelectMap)
+                    .padding(padding::vertical(12).horizontal(14)),
+                ),
+                container(text(server.map.as_str()))
+                    .width(Length::Fill)
+                    .padding(padding::vertical(10).horizontal(13))
+                    .style(tf2::container::main)
             ]
             .spacing(10)
             .align_y(Alignment::Center)
@@ -463,33 +637,39 @@ fn info_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
         .spacing(5);
 
         let max_players_input = column![
-            text!("Max Players"),
+            text("Max Players").style(tf2::text::secondary),
             container(
                 number_input(&server.max_players, 0..=100, Message::MaxPlayersUpdate)
-                    .padding([5, 10])
+                    .padding(padding::vertical(10).horizontal(13))
             )
         ]
         .spacing(5);
 
         let password_input = column![
-            text!("Server Password"),
+            row![
+                text("Server Password").style(tf2::text::secondary),
+                optional_tag()
+            ]
+            .align_y(Alignment::Center)
+            .spacing(5),
             text_input(
-                "Server Password",
+                "e.g. password123",
                 &server.password.as_deref().unwrap_or_default()
             )
             .on_input(Message::PasswordUpdate)
             .secure(true)
-            .width(250)
-            .padding([5, 10])
+            .width(Length::Fill)
+            .padding(padding::vertical(10).horizontal(13))
         ]
         .spacing(5);
 
         let port_input = column![
             row![
-                text!("Port"),
+                text("Port").style(tf2::text::secondary),
+                optional_tag(),
                 tooltip(
-                    icon::warning(),
-                    text!("If it's left empty, the app will automatically find an available port.")
+                    icon::warning().style(tf2::text::secondary),
+                    text("If it's left empty, the app will automatically find an available port.")
                         .width(350),
                     tooltip::Position::Top
                 )
@@ -497,58 +677,78 @@ fn info_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
                 .padding(20)
                 .style(|_theme| tf2::container::tooltip(_theme))
             ]
-            .spacing(10),
+            .spacing(5)
+            .align_y(Alignment::Center),
             text_input(
-                "Port",
+                "27015",
                 &server.port.map(|port| port.to_string()).unwrap_or_default()
             )
             .on_input(Message::PortUpdate)
-            .width(70)
-            .padding([5, 10])
+            .width(150)
+            .padding(padding::vertical(10).horizontal(13))
         ]
         .spacing(5);
 
+        // TODO: put "Required to appear in the public server browser in some games. Get a token →"
         let gslt_input = column![
-            text!("GSLT"),
+            row![text("GSLT").style(tf2::text::secondary), optional_tag()]
+                .spacing(5)
+                .align_y(Alignment::Center),
             text_input("GSLT", &server.gslt.as_deref().unwrap_or_default())
                 .on_input(Message::GsltUpdate)
                 .secure(true)
-                .width(400)
-                .padding([5, 10])
+                .width(Length::Fill)
+                .padding(padding::vertical(10).horizontal(13))
         ]
         .spacing(5);
 
-        let submit_button =
-            container(button(text!("Finish").size(20)).on_press(Message::FinishServerCreation))
-                .width(Length::Fill)
-                .align_x(Alignment::Center);
-
-        column![
-            description_input,
-            map_input,
-            max_players_input,
-            row![password_input, port_input]
-                .align_y(Alignment::Center)
-                .spacing(20),
-            gslt_input,
-            submit_button
-        ]
-        .spacing(15)
-        .padding(padding::all(50).top(0))
+        container(
+            column![
+                description_input,
+                max_players_input,
+                map_input,
+                rule::horizontal(1),
+                row![password_input, port_input]
+                    .width(Length::Fill)
+                    .spacing(20),
+                gslt_input
+            ]
+            .spacing(30),
+        )
     };
 
     container(
-        container(column![header, rule::horizontal(0), body])
-            .width(1000)
-            .padding(padding::all(10))
-            .height(Length::Fill)
-            .style(|_theme| tf2::container::main(_theme)),
+        column![
+            header,
+            creation_progress_bar,
+            container(
+                column![
+                    body,
+                    rule::horizontal(1),
+                    container(
+                        button(
+                            row![text("Finish").size(20), icon::right_arrow().size(20)].spacing(10)
+                        )
+                        .on_press(Message::FinishServerCreation)
+                        .padding(padding::vertical(10).horizontal(20))
+                        .style(tf2::button::primary)
+                    )
+                    .width(Length::Fill)
+                    .align_x(Alignment::End)
+                ]
+                .spacing(20)
+            )
+            .padding(24)
+            .style(tf2::container::card),
+        ]
+        .width(620)
+        .spacing(14),
     )
     .align_x(Alignment::Center)
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(|theme| tf2::container::surface(theme))
+    .style(tf2::container::main)
     .into()
 }
 

@@ -202,8 +202,7 @@ impl State {
                         let Some(Server {
                             info,
                             console,
-                            is_port_forwarding,
-                            is_sdr,
+                            hosting_mode,
                             ..
                         }) = self.servers.get_mut(id)
                         else {
@@ -255,7 +254,7 @@ impl State {
                                 args.push_str(&format!(" +sv_setsteamaccount {token}"));
                             }
 
-                            if *is_sdr {
+                            if matches!(hosting_mode, server::HostingMode::Sdr) {
                                 args.push_str(" -enablefakeip")
                             }
 
@@ -270,13 +269,12 @@ impl State {
                         )
                         .abortable();
 
-                        let port_forward_task = if *is_port_forwarding {
-                            Task::perform(
+                        let port_forward_task = match hosting_mode {
+                            server::HostingMode::Upnp => Task::perform(
                                 Console::port_forward(info.name.clone(), port),
                                 move |_| Message::PortForward(id),
-                            )
-                        } else {
-                            Task::none()
+                            ),
+                            _ => Task::none(),
                         };
 
                         *console = Some(Console::from_handle(handle, port));
