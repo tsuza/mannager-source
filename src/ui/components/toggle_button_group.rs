@@ -1,12 +1,12 @@
 use iced::{
     border::radius,
-    widget::{Row, Text, button},
+    widget::{Row, button},
 };
 
 use crate::ui::{Element, themes::Theme};
 
 pub fn grouped_buttons<'a, Value, Message>(
-    items: impl IntoIterator<Item = (Text<'a, Theme>, Value)>,
+    items: impl IntoIterator<Item = (Element<'a, Message>, Value)>,
     active: Value,
     on_press: impl Fn(Value) -> Message + Clone + 'a,
     style: impl Fn(&Theme, button::Status) -> button::Style + Clone + 'a,

@@ -547,24 +547,29 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
     };
 
     let header_row = {
-        let server_name = text(info.name.as_str())
-            .wrapping(Wrapping::None)
-            .ellipsis(Ellipsis::End)
-            .size(25)
-            .line_height(1.0)
-            .width(Length::Fill)
-            .font(iced::Font {
-                weight: Weight::Bold,
-                ..Font::DEFAULT
-            });
+        let server_name = column![
+            text(info.name.as_str())
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End)
+                .size(23)
+                .line_height(1.0)
+                .width(Length::Fill)
+                .font(iced::Font {
+                    weight: Weight::Bold,
+                    ..Font::DEFAULT
+                }),
+            text!("{}", info.game)
+                .wrapping(Wrapping::None)
+                .ellipsis(Ellipsis::End)
+                .size(10)
+                .line_height(1.0)
+                .width(Length::Fill)
+                .style(tf2::text::muted)
+        ]
+        .spacing(5);
 
         let console_button = server.is_running().then_some(
-            tooltip(
-                button(icon::terminal().size(20).center()).on_press(ServerMessage::OpenTerminal),
-                "Open the terminal",
-                tooltip::Position::Top,
-            )
-            .delay(Duration::from_millis(500)),
+            button(icon::terminal().size(20).center()).on_press(ServerMessage::OpenTerminal),
         );
 
         let join_link_button = server.is_running().then_some(
@@ -577,23 +582,13 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
         );
 
         let running_button = if !server.is_running() {
-            tooltip(
-                button(icon::start().size(20).center())
-                    .on_press(ServerMessage::StartServer)
-                    .style(|theme, status| tf2::button::success(theme, status)),
-                "Start the server",
-                tooltip::Position::Top,
-            )
-            .delay(Duration::from_millis(500))
+            button(icon::start().size(20).center())
+                .on_press(ServerMessage::StartServer)
+                .style(|theme, status| tf2::button::success(theme, status))
         } else {
-            tooltip(
-                button(icon::stop().size(20).center())
-                    .on_press(ServerMessage::StopServer)
-                    .style(|theme, status| tf2::button::error(theme, status)),
-                "Stop the server",
-                tooltip::Position::Top,
-            )
-            .delay(Duration::from_millis(500))
+            button(icon::stop().size(20).center())
+                .on_press(ServerMessage::StopServer)
+                .style(|theme, status| tf2::button::error(theme, status))
         };
 
         row![
@@ -604,7 +599,6 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
             menu_settings,
         ]
         .spacing(7)
-        .align_y(Alignment::Center)
     };
 
     let info = {
@@ -615,13 +609,32 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
             .unwrap();
 
         let button_group = {
+            fn tooltip_icon<'a>(
+                icon: Text<'a, Theme>,
+                description: &'a str,
+            ) -> Element<'a, ServerMessage> {
+                tooltip(
+                    icon,
+                    container(text(description).size(13))
+                        .padding(padding::vertical(6).horizontal(10)),
+                    tooltip::Position::Top,
+                )
+                .delay(Duration::from_millis(150))
+                .gap(10)
+                .style(tf2::container::tooltip)
+                .into()
+            }
+
             let mut items = vec![
-                (icon::local(), HostingMode::Local),
-                (icon::port_forwarding(), HostingMode::Upnp),
+                (tooltip_icon(icon::local(), "Local"), HostingMode::Local),
+                (
+                    tooltip_icon(icon::port_forwarding(), "Port Forwarding"),
+                    HostingMode::Upnp,
+                ),
             ];
 
             if can_sdr {
-                items.push((icon::sdr(), HostingMode::Sdr));
+                items.push((tooltip_icon(icon::sdr(), "SDR"), HostingMode::Sdr));
             }
 
             grouped_buttons(
@@ -725,11 +738,14 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
                 .height(Length::Fill)
                 .width(Length::Fill)
                 .style(move |theme| {
-                    container::background(color(theme)).border(border::rounded(border::left(10)))
+                    container::background(color(theme)).border(
+                        border::rounded(border::left(8))
+                            .width(1)
+                            .color(color(theme)),
+                    )
                 }),
         )
-        .width(5)
-        .padding(padding::all(1).right(0))
+        .width(10)
     };
 
     let card = container(
@@ -766,44 +782,55 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
     }
 }
 
-fn editable_card<'a>(server: &Server) -> Element<'a, ServerMessage> {
+fn editable_card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
     let Server { info, .. } = &server;
 
-    // TODO: Remove the unwrap
-    let game_image = get_game_image(info.game).unwrap();
+    // TODO: Remove the unwrap.
+    let server_icon = {
+        let icon = get_game_image(info.game).unwrap();
 
-    let card = container(
+        svg(icon)
+            .content_fit(ContentFit::Contain)
+            .width(80)
+            .height(80)
+            .opacity(1.0)
+    };
+
+    let header_row = {
+        let server_name = text_input("Name", &info.name)
+            .on_input(|string| ServerMessage::EditServer(EditServer::ChangeName(string)))
+            .size(25)
+            .line_height(1.0)
+            .width(Length::Fill)
+            .font(iced::Font {
+                weight: Weight::Bold,
+                ..Font::DEFAULT
+            });
+
+        server_name
+    };
+
+    let info = {
         row![
-            stack![
-                svg(game_image)
-                    .content_fit(ContentFit::Contain)
-                    .width(94)
-                    .height(94),
-                button(icon::left_arrow()).on_press(ServerMessage::StopEditServer),
-            ],
-            rule::vertical(2),
-            column![
-                row![text_input("Server Name", &info.name).on_input(|string| {
-                    ServerMessage::EditServer(EditServer::ChangeName(string))
-                })]
-                .spacing(10)
-                .padding(padding::bottom(5))
-                .align_y(Alignment::Center),
-                rule::horizontal(0),
+            container(
                 column![
                     row![
-                        column![
+                        container(
                             row![
-                                icon::users(),
+                                icon::users().size(15),
                                 number_input(&info.max_players, 0..100, |num| {
                                     ServerMessage::EditServer(EditServer::ChangeMaxPlayers(num))
                                 })
-                                .width(Length::Fill)
+                                .set_size(15)
                             ]
                             .align_y(Alignment::Center)
-                            .spacing(5),
+                            .spacing(5)
+                        )
+                        .padding(padding::horizontal(10).vertical(6))
+                        .style(tf2::container::info_container),
+                        container(
                             row![
-                                icon::port(),
+                                icon::port().size(15),
                                 text_input(
                                     "Port",
                                     &info.port.map_or_else(String::new, |port| port.to_string())
@@ -811,23 +838,27 @@ fn editable_card<'a>(server: &Server) -> Element<'a, ServerMessage> {
                                 .on_input(|port| {
                                     ServerMessage::EditServer(EditServer::ChangePort(port))
                                 })
+                                .size(15)
                             ]
                             .align_y(Alignment::Center)
                             .spacing(5)
-                        ]
-                        .width(Length::FillPortion(1))
-                        .spacing(5),
-                        column![
+                        )
+                        .padding(padding::horizontal(10).vertical(6))
+                        .style(tf2::container::info_container),
+                        container(
                             row![
-                                icon::map(),
-                                button(text!("{}", info.map))
+                                icon::map().size(15),
+                                button(text(info.map.as_str()).size(15))
                                     .on_press(ServerMessage::EditServer(EditServer::ChangeMap))
-                                    .style(|theme, status| tf2::button::outlined(theme, status))
                             ]
                             .align_y(Alignment::Center)
-                            .spacing(5),
+                            .spacing(5)
+                        )
+                        .padding(padding::horizontal(10).vertical(6))
+                        .style(tf2::container::info_container),
+                        container(
                             row![
-                                icon::password(),
+                                icon::password().size(15),
                                 text_input(
                                     "Password",
                                     info.password.as_deref().unwrap_or_default()
@@ -836,45 +867,92 @@ fn editable_card<'a>(server: &Server) -> Element<'a, ServerMessage> {
                                     EditServer::ChangePassword(password)
                                 ))
                                 .secure(true)
-                                .width(200)
+                                .size(15)
                             ]
                             .align_y(Alignment::Center)
-                            .spacing(5)
-                        ]
-                        .width(Length::FillPortion(4))
-                        .spacing(5),
+                            .spacing(5),
+                        )
+                        .padding(padding::horizontal(10).vertical(6))
+                        .style(tf2::container::info_container)
                     ]
-                    .width(Length::Fill)
                     .spacing(20),
-                    row![
-                        text("GSLT"),
-                        text_input("GSLT", info.gslt.as_deref().unwrap_or_default())
-                            .on_input(|token| ServerMessage::EditServer(EditServer::ChangeGslt(
-                                token
-                            )))
-                            .secure(true)
-                            .width(320)
-                    ]
-                    .align_y(Alignment::Center)
-                    .spacing(5)
+                    container(
+                        row![
+                            text("GSLT").size(15),
+                            text_input("GSLT", info.gslt.as_deref().unwrap_or_default())
+                                .on_input(|token| ServerMessage::EditServer(
+                                    EditServer::ChangeGslt(token)
+                                ))
+                                .secure(true)
+                                .size(15)
+                        ]
+                        .spacing(5)
+                        .align_y(Alignment::Center)
+                    )
+                    .padding(padding::horizontal(10).vertical(6))
+                    .style(tf2::container::info_container)
                 ]
-                .width(Length::Fill)
-                .spacing(5)
-            ]
-            .padding(padding::left(10))
+                .spacing(12)
+            )
+            .width(Length::Fill),
         ]
+        .align_y(Alignment::End)
         .spacing(20)
-        .height(Length::Shrink),
-    )
-    .width(Length::Fill)
-    .padding(20)
-    .style(|theme| {
-        tf2::container::outlined(theme)
-            .background(theme.colors().surface.surface_container.lowest)
-            .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
-    });
+    };
 
-    card.into()
+    // TODO: Change the colors into the theme's, thus using the ones for the play/stop button
+    let status_bar = {
+        let color = |theme: &Theme| {
+            if server.is_running() {
+                theme.colors().success.color
+            } else {
+                theme.colors().error.color
+            }
+        };
+
+        container(
+            container(Space::new())
+                .height(Length::Fill)
+                .width(Length::Fill)
+                .style(move |theme| {
+                    container::background(color(theme)).border(
+                        border::rounded(border::left(8))
+                            .width(1)
+                            .color(color(theme)),
+                    )
+                }),
+        )
+        .width(10)
+    };
+
+    stack![
+        container(
+            row![
+                status_bar,
+                row![server_icon, column![header_row, info].spacing(10)]
+                    .align_y(Alignment::Center)
+                    .spacing(20)
+                    .padding(padding::vertical(12).horizontal(14)),
+            ]
+            .align_y(Alignment::Center),
+        )
+        .width(Length::Fill)
+        .style(tf2::container::card),
+        container(
+            button(
+                icon::left_arrow()
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .size(20)
+                    .center()
+            )
+            .on_press(ServerMessage::StopEditServer)
+        )
+        .width(Length::Shrink)
+        .height(Length::Shrink)
+        .padding(padding::vertical(12).horizontal(14))
+    ]
+    .into()
 }
 
 pub async fn setup_sourcemod(

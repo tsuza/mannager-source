@@ -324,7 +324,7 @@ impl ServerTerminal {
                         .size(40)
                         .line_height(1.0)
                 )
-                .padding(padding::top(4.0).bottom(-2.0)),
+                .padding(padding::top(4).bottom(-4.0)),
                 space::horizontal()
             ]
             .width(Length::Fill)
