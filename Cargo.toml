@@ -1,6 +1,6 @@
 [package]
 name = "mannager"
-version = "0.2.0"
+version = "0.1.9"
 license = "MIT"
 build = "build.rs"
 edition = "2024"
@@ -45,6 +45,7 @@ snafu = "0.8.6"
 igd = "0.12.1"
 iced_selection = { git = "git://git.pml68.dev/iced_selection" }
 lyon_algorithms = "1.0.19"
+velopack = { version = "0.0.1298", features = ["async"] }
 
 [build-dependencies]
 iced_lucide = { git = "https://github.com/A-Disruption/iced_lucide" }

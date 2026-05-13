@@ -5,6 +5,7 @@ use iced::{Font, Size};
 use iced::{advanced::graphics::image::image_rs::ImageFormat, window};
 
 use ui::State;
+use velopack::VelopackApp;
 
 pub mod core;
 pub mod icon;
@@ -18,6 +19,8 @@ const TF2_SECONDARY_FONT_BYTES: &[u8] = include_bytes!("../fonts/TF2secondary.tt
 const ROBOMONO_FONT_BYTES: &[u8] = include_bytes!("../fonts/robomono.ttf");
 
 fn main() -> iced::Result {
+    VelopackApp::build().run();
+
     let window_settings = iced::window::Settings {
         #[cfg(target_os = "linux")]
         platform_specific: iced::window::settings::PlatformSpecific {

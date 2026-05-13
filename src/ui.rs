@@ -49,6 +49,7 @@ pub enum Message {
     ServerList(serverlist::Message),
     ServerCreation(servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
+    AppUpdated,
 }
 
 #[derive(Debug, Clone)]
@@ -64,14 +65,17 @@ impl State {
                 screen: Screen::Loading,
                 servers: Servers::new(),
             },
-            Task::perform(
-                async {
-                    futures::future::ready(get_config_path())
-                        .and_then(|path| async move { Servers::fetch(path.as_path()).await })
-                        .await
-                },
-                Message::ServersLoaded,
-            ),
+            Task::batch([
+                Task::perform(
+                    async {
+                        futures::future::ready(get_config_path())
+                            .and_then(|path| async move { Servers::fetch(path.as_path()).await })
+                            .await
+                    },
+                    Message::ServersLoaded,
+                ),
+                Task::perform(update_my_app(), |_| Message::AppUpdated),
+            ]),
         )
     }
 
@@ -359,6 +363,7 @@ impl State {
 
                 Task::none()
             }
+            Message::AppUpdated => Task::none(),
         }
     }
 
@@ -399,4 +404,37 @@ fn get_config_path() -> Result<PathBuf, screen::serverlist::Error> {
     } else {
         Err(screen::serverlist::Error::NoServerListFile)
     }
+}
+
+// TODO: Improve the handling of updates by asking if the user wants to update ( if there is an available update ),
+//       and then let them know through a in-app toast / system notification once it has finished downloading
+async fn update_my_app() {
+    use velopack::*;
+
+    let source =
+        sources::HttpSource::new("https://github.com/tsuza/mannager-source/releases/latest");
+
+    let Ok(um) = UpdateManager::new(source, None, None) else {
+        println!("Couldn't find?");
+
+        return;
+    };
+
+    let Ok(update_check) = um.check_for_updates_async().await else {
+        return;
+    };
+
+    let UpdateCheck::UpdateAvailable(updates) = update_check else {
+        println!("No updates!");
+
+        return;
+    };
+
+    if um.download_updates_async(&updates, None).await.is_err() {
+        return;
+    }
+
+    println!("Errm, yes update!");
+
+    let _ = um.wait_exit_then_apply_updates(&updates, false, false, Vec::<String>::new());
 }
