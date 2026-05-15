@@ -21,18 +21,13 @@ use tokio::{
     select,
 };
 
-use iced::widget::text::LineHeight;
-
 use crate::{
     core::portforwarder::{self, PortForwarderIP},
     icon,
     ui::{
         Element,
         components::{notification::notification, textinput_terminal},
-        themes::{
-            elevation, shadow_from_elevation,
-            tf2::{self},
-        },
+        themes::tf2::{self},
     },
 };
 
@@ -312,7 +307,6 @@ impl ServerTerminal {
         }
     }
 
-    // TODO: Finish this
     pub fn view<'a>(title: &String, console: &Console) -> Element<'a, Message> {
         let header = container(
             row![

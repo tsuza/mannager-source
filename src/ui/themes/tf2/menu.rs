@@ -2,8 +2,6 @@ use iced::{Background, Color, Vector, border, color};
 use iced_aw::menu::{Catalog, Style};
 use iced_aw::style::{Status, StyleFn};
 
-use crate::ui::themes::tf2::container;
-
 use super::super::Theme;
 
 impl Catalog for Theme {

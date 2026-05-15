@@ -27,13 +27,12 @@ pub fn primary(theme: &Theme) -> Style {
     let primary = theme.colors().primary;
 
     Style {
-        background: Some(Background::Color(primary.color)),
+        background: Some(Background::Color(primary.color.scale_alpha(0.7))),
         text_color: Some(primary.on_primary),
-        border: border::rounded(12),
-        shadow: Shadow {
-            color: theme.colors().shadow,
-            offset: Vector::new(0.0, 10.0),
-            blur_radius: 24.0,
+        border: Border {
+            color: primary.color,
+            width: 1.0,
+            radius: 10.into(),
         },
         ..Style::default()
     }

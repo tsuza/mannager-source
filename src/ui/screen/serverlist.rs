@@ -1,6 +1,5 @@
 use core::str;
 use std::{
-    f32::consts::PI,
     io,
     net::Ipv4Addr,
     path::{Path, PathBuf},
@@ -8,40 +7,35 @@ use std::{
     time::Duration,
 };
 
+use iced::widget::{
+    Space,
+    text::{Ellipsis, Wrapping},
+};
 use iced::{
-    Alignment, Border, Color, ContentFit, Font, Function, Length, Task,
-    border::{self, radius},
-    clipboard, color,
+    Alignment, Color, ContentFit, Font, Function, Length, Task,
+    border::{self},
+    clipboard,
     font::Weight,
-    gradient, padding,
+    padding,
     widget::{
-        Button, Row, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
+        Button, Text, button, center, column, container, hover, opaque, row, rule, scrollable,
         space, stack, svg, text, text_input, tooltip,
     },
 };
-use iced::{
-    border::Radius,
-    widget::{
-        Space, image,
-        text::{Ellipsis, Wrapping},
-    },
-};
 use rfd::FileHandle;
-use sweeten::{toggler, widget::drag::DragEvent};
+use sweeten::widget::drag::DragEvent;
 
 use crate::{
-    core::get_arg_game_name,
     icon,
     ui::{
         components::{
-            metered_progress_bar,
             progress_bar::animated_progress_bar,
             spinner::{Circular, easing},
             toggle_button_group::grouped_buttons,
         },
         games::SOURCE_GAMES,
         server::{HostingMode, Server, Servers},
-        themes::{Theme, elevation, shadow_from_elevation, tf2},
+        themes::{Theme, tf2},
     },
 };
 
@@ -275,7 +269,7 @@ impl ServerList {
                     }
                     EditServer::ChangeMap => {
                         let path = PathBuf::from(info.path.display().to_string())
-                            .join(get_arg_game_name(&info.game.clone()))
+                            .join(&info.game.arg_name())
                             .join("maps");
 
                         Action::Run(

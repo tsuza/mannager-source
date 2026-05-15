@@ -1,5 +1,5 @@
 use iced::widget::button::{Catalog, Status, Style, StyleFn};
-use iced::{Background, Border, Color, Shadow, Vector, border, color};
+use iced::{Background, Border, Color, border};
 
 use super::super::Theme;
 use super::super::{

@@ -5,26 +5,27 @@ use std::time::Duration;
 
 use crate::icon;
 use crate::ui::Element;
-use crate::ui::components::metered_progress_bar;
 use crate::ui::components::notification::notification;
 use crate::ui::components::progress_bar::animated_progress_bar;
+use crate::ui::components::progress_stepper::stepper;
 use crate::ui::games::{SOURCE_GAMES, SourceGame};
 use crate::ui::server::ServerInfo;
 use crate::ui::themes::{Theme, tf2};
+use iced::widget::text::Wrapping;
 use iced::widget::{Row, float, rule, space, tooltip};
 use iced::{
     Alignment, ContentFit, Length, Task, padding,
     task::{Straw, sipper},
     widget::{button, center, column, container, row, svg, text, text_input},
 };
-use iced::{Color, Font, border, color};
+use iced::{Font, Shadow};
 use iced_aw::number_input;
 use rfd::FileHandle;
 use snafu::{ResultExt, Snafu};
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::core::depotdownloader::DepotDownloader;
-use crate::core::{self, Game, get_arg_game_name};
+use crate::core::{self, Game};
 
 pub struct State {
     form_page: FormSection,
@@ -41,7 +42,7 @@ pub enum Action {
     Run(Task<Message>),
 }
 
-#[derive(Default, PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq, Ord, PartialOrd)]
 pub enum FormSection {
     #[default]
     GameSelection,
@@ -145,7 +146,7 @@ impl State {
                 let path = self
                     .server
                     .path
-                    .join(get_arg_game_name(&self.server.game))
+                    .join(&self.server.game.arg_name())
                     .join("maps");
 
                 Action::Run(Task::perform(
@@ -308,77 +309,14 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
     };
 
     let creation_progress_bar = {
-        let default = |theme: &Theme| {
-            let base = tf2::container::outlined(theme);
-
-            container::Style {
-                border: base.border.rounded(f32::INFINITY),
-                ..base
-            }
-        };
-
-        let active = |theme: &Theme| container::Style {
-            background: Some(theme.colors().primary.color.into()),
-            border: border::rounded(f32::INFINITY),
-            ..Default::default()
-        };
-
-        row![
-            row![
-                container(
-                    text("1")
-                        .size(11)
-                        .line_height(1.0)
-                        .width(20)
-                        .height(20)
-                        .center()
-                )
-                .align_y(Alignment::Center)
-                .align_x(Alignment::Center)
-                .style(active),
-                text("Configure").size(13)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(8),
-            rule::horizontal(1),
-            row![
-                container(
-                    text("2")
-                        .size(11)
-                        .line_height(1.0)
-                        .width(20)
-                        .height(20)
-                        .center()
-                        .style(tf2::text::muted)
-                )
-                .align_y(Alignment::Center)
-                .align_x(Alignment::Center)
-                .style(default),
-                text("Download").size(13).style(tf2::text::muted)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(8),
-            rule::horizontal(1),
-            row![
-                container(
-                    text("3")
-                        .size(11)
-                        .line_height(1.0)
-                        .width(20)
-                        .height(20)
-                        .center()
-                        .style(tf2::text::muted)
-                )
-                .align_y(Alignment::Center)
-                .align_x(Alignment::Center)
-                .style(default),
-                text("Options").size(13).style(tf2::text::muted)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(8),
-        ]
-        .align_y(Alignment::Center)
-        .spacing(10)
+        stepper(
+            [
+                ("Configure", FormSection::GameSelection),
+                ("Download", FormSection::Downloading),
+                ("Options", FormSection::ServerInfo),
+            ],
+            FormSection::GameSelection,
+        )
     };
 
     let body = {
@@ -477,32 +415,59 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
 
 // TODO: Finish styling this part
 fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
-    let header = text!("Downloading the server...")
-        .font(Font::new("TF2 Build"))
-        .size(32)
-        .width(Length::Fill)
-        .align_x(Alignment::Center);
+    let header = container(
+        row![
+            text("Create Server")
+                .font(Font::new("TF2 Build"))
+                .wrapping(Wrapping::None)
+                .line_height(1.0)
+                .size(30)
+                .width(Length::Fill)
+                .align_y(Alignment::Center),
+            space::horizontal(),
+            container(stepper(
+                [
+                    ("Configure", FormSection::GameSelection),
+                    ("Download", FormSection::Downloading),
+                    ("Options", FormSection::ServerInfo),
+                ],
+                FormSection::Downloading,
+            ))
+            .width(400)
+        ]
+        .align_y(Alignment::Center),
+    )
+    .width(Length::Fill)
+    .padding(padding::vertical(12).horizontal(16))
+    .style(|theme: &Theme| {
+        let mut style = tf2::container::card(theme).shadow(Shadow::default());
+
+        style.border = style.border.rounded(0);
+
+        style
+    });
 
     let progress = animated_progress_bar(0.0..=100.0, progress)
-        .length(500)
+        .length(Length::Fill)
         .girth(50);
 
     container(
-        container(column![
+        column![
             header,
-            rule::horizontal(0),
-            center(progress).width(Length::Fill).height(Length::Fill)
-        ])
-        .width(1000)
-        .padding(padding::all(50).top(10))
-        .height(Length::Fill)
-        .style(|_theme| tf2::container::main(_theme)),
+            center(
+                container(progress)
+                    .width(620)
+                    .padding(24)
+                    .style(tf2::container::card),
+            )
+        ]
+        .width(Length::Fill)
+        .height(Length::Fill),
     )
-    .align_x(Alignment::Center)
     .width(Length::Fill)
     .height(Length::Fill)
-    .padding(40)
-    .style(|theme| tf2::container::surface(theme))
+    .align_x(Alignment::Center)
+    .style(tf2::container::main)
     .into()
 }
 
@@ -513,7 +478,7 @@ fn info_view<'a>(server: &'a ServerInfo) -> Element<'a, Message> {
                 .font(Font::new("TF2 Build"))
                 .line_height(1.0)
                 .size(30),
-            text("Configure and launch a new instance")
+            text!("{} · {}", server.game, server.path.display())
                 .size(12)
                 .style(tf2::text::muted)
         ])
@@ -525,68 +490,14 @@ fn info_view<'a>(server: &'a ServerInfo) -> Element<'a, Message> {
     };
 
     let creation_progress_bar = {
-        let active = |theme: &Theme| container::Style {
-            background: Some(theme.colors().primary.color.into()),
-            border: border::rounded(f32::INFINITY),
-            ..Default::default()
-        };
-
-        row![
-            row![
-                container(
-                    text("1")
-                        .size(11)
-                        .line_height(1.0)
-                        .width(20)
-                        .height(20)
-                        .center()
-                        .style(tf2::text::muted)
-                )
-                .align_y(Alignment::Center)
-                .align_x(Alignment::Center)
-                .style(active),
-                text("Configure").size(13).style(tf2::text::muted)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(8),
-            rule::horizontal(1).style(tf2::rule::primary),
-            row![
-                container(
-                    text("2")
-                        .size(11)
-                        .line_height(1.0)
-                        .width(20)
-                        .height(20)
-                        .center()
-                        .style(tf2::text::muted)
-                )
-                .align_y(Alignment::Center)
-                .align_x(Alignment::Center)
-                .style(active),
-                text("Download").size(13).style(tf2::text::muted)
-            ]
-            .align_y(Alignment::Center)
-            .spacing(8),
-            rule::horizontal(1).style(tf2::rule::primary),
-            row![
-                container(
-                    text("3")
-                        .size(11)
-                        .line_height(1.0)
-                        .width(20)
-                        .height(20)
-                        .center()
-                )
-                .align_y(Alignment::Center)
-                .align_x(Alignment::Center)
-                .style(active),
-                text("Options")
-            ]
-            .align_y(Alignment::Center)
-            .spacing(8),
-        ]
-        .align_y(Alignment::Center)
-        .spacing(10)
+        stepper(
+            [
+                ("Configure", FormSection::GameSelection),
+                ("Download", FormSection::Downloading),
+                ("Options", FormSection::ServerInfo),
+            ],
+            FormSection::ServerInfo,
+        )
     };
 
     let body = {

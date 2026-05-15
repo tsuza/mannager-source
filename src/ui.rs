@@ -1,24 +1,25 @@
-use std::{net::Ipv4Addr, path::PathBuf};
+use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
 
-use iced::{Function, Task, futures};
+use iced::{Function, Task, futures, widget::markdown};
 use screen::{
     Screen,
     serverboot::{
-        self, Console, DEFAULT_PORT, PORT_OFFSET, ServerCommunicationTwoWay, ServerTerminal,
-        find_available_port,
+        self, Console, PORT_OFFSET, ServerCommunicationTwoWay, ServerTerminal, find_available_port,
     },
     servercreation,
     serverlist::{self, ServerList},
 };
 
 use crate::{
-    core::{Game, SourceEngineVersion, get_arg_game_name},
+    core::{Game, SourceEngineVersion},
     ui::{
         games::SOURCE_GAMES,
         screen::servercreation::download_server,
         server::{Server, Servers},
-        themes::Theme,
+        themes::{Theme, tf2},
     },
+    update::{check_for_updates, update_app, update_dialog},
+    utils::NoDebug,
 };
 use futures::TryFutureExt;
 
@@ -30,11 +31,15 @@ pub mod themes;
 
 const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
 
-type Element<'a, Message> = iced::Element<'a, Message, Theme>;
+pub type Element<'a, Message> = iced::Element<'a, Message, Theme>;
 
 pub struct State {
     screen: Screen,
     servers: Servers,
+    um: Option<velopack::UpdateManager>,
+    update_info: Option<velopack::UpdateInfo>,
+    patch_notes: markdown::Content,
+    is_dialog_open: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +54,21 @@ pub enum Message {
     ServerList(serverlist::Message),
     ServerCreation(servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
-    AppUpdated,
+    CheckForUpdate(
+        Arc<
+            Result<
+                (
+                    NoDebug<velopack::UpdateManager>,
+                    NoDebug<velopack::UpdateCheck>,
+                ),
+                velopack::Error,
+            >,
+        >,
+    ),
+    UpdateApp,
+    UpdateAppFinished(Arc<Result<(), velopack::Error>>),
+    DialogClose,
+    LinkClicked(markdown::Uri),
 }
 
 #[derive(Debug, Clone)]
@@ -60,22 +79,29 @@ pub enum Update {
 
 impl State {
     pub fn new() -> (Self, Task<Message>) {
+        let config_task = Task::perform(
+            async {
+                futures::future::ready(get_config_path())
+                    .and_then(|path| async move { Servers::fetch(path.as_path()).await })
+                    .await
+            },
+            Message::ServersLoaded,
+        );
+
+        let update_task = Task::perform(check_for_updates(), |res| {
+            Message::CheckForUpdate(Arc::new(res.map(|(um, ui)| (um.into(), ui.into()))))
+        });
+
         (
             Self {
                 screen: Screen::Loading,
                 servers: Servers::new(),
+                um: None,
+                update_info: None,
+                patch_notes: markdown::Content::new(),
+                is_dialog_open: false,
             },
-            Task::batch([
-                Task::perform(
-                    async {
-                        futures::future::ready(get_config_path())
-                            .and_then(|path| async move { Servers::fetch(path.as_path()).await })
-                            .await
-                    },
-                    Message::ServersLoaded,
-                ),
-                Task::perform(update_my_app(), |_| Message::AppUpdated),
-            ]),
+            Task::batch([config_task, update_task]),
         )
     }
 
@@ -231,23 +257,22 @@ impl State {
                             .port
                             .unwrap_or_else(|| find_available_port(Ipv4Addr::UNSPECIFIED));
 
-                        println!("{port}");
-
                         let args = {
                             let mut args = match game_info.engine {
                                 SourceEngineVersion::Source1 => {
-                                    format!("-console -game {}", get_arg_game_name(&info.game))
+                                    format!("-console -game {}", &info.game.arg_name())
                                 }
                                 SourceEngineVersion::Source2 => "-dedicated".to_string(),
                             };
 
                             args.push_str(&format!(
-                                " +hostname \"{}\" +map {} +maxplayers {} -nohltv -strictportbind +ip 0.0.0.0 -port {} -clientport {}",
-                                info.name,
-                                info.map,
-                                info.max_players,
-                                port,
-                                port + PORT_OFFSET,
+                                " +hostname \"{name}\" +map {map} +maxplayers {max} \
+                                  -nohltv -strictportbind +ip 0.0.0.0 -port {port} -clientport {cport}",
+                                name = info.name,
+                                map = info.map,
+                                max = info.max_players,
+                                port = port,
+                                cport = port + PORT_OFFSET,
                             ));
 
                             if info.max_players > 32 && info.game == Game::TeamFortress2 {
@@ -358,30 +383,78 @@ impl State {
                     Action::Run(task) => task.map(Message::ServerTerminal.with(id)),
                 }
             }
-            Message::PortForward(_) => {
-                println!("test");
+            Message::PortForward(_) => Task::none(),
+            Message::CheckForUpdate(res) => {
+                let Ok((um, update_status)) = res.as_ref() else {
+                    return Task::none();
+                };
+
+                let um = um.clone().0;
+                let update_status = &update_status.0;
+
+                if let velopack::UpdateCheck::UpdateAvailable(update_info) = update_status {
+                    self.um = Some(um);
+                    self.update_info = Some(update_info.clone());
+                    self.patch_notes =
+                        markdown::Content::parse(&update_info.TargetFullRelease.NotesMarkdown);
+                    self.is_dialog_open = true;
+                };
 
                 Task::none()
             }
-            Message::AppUpdated => Task::none(),
+            Message::UpdateApp => {
+                let Some(um) = self.um.clone() else {
+                    return Task::none();
+                };
+
+                let Some(update_info) = self.update_info.clone() else {
+                    return Task::none();
+                };
+
+                Task::perform(async move { update_app(um, update_info).await }, |res| {
+                    Message::UpdateAppFinished(Arc::new(res))
+                })
+            }
+            Message::UpdateAppFinished(res) => {
+                let Ok(_) = *res else {
+                    return Task::none();
+                };
+
+                Task::none()
+            }
+            Message::DialogClose => {
+                self.is_dialog_open = false;
+
+                Task::none()
+            }
+            Message::LinkClicked(_) => todo!(),
         }
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        match &self.screen {
+        let screen = match &self.screen {
             Screen::Loading => screen::loading::loading(),
             Screen::ServerList => ServerList::view(&self.servers).map(Message::ServerList),
             Screen::ServerCreation(creation) => creation.view().map(Message::ServerCreation),
             Screen::ServerTerminal(index) => {
-                let index = index.clone();
-
                 // TODO: remove the unwrap
-                let Server { info, console, .. } = &self.servers[index];
+                let Server { info, console, .. } = &self.servers[*index];
 
                 ServerTerminal::view(&info.name, console.as_ref().unwrap())
-                    .map(move |msg| Message::ServerTerminal(index, msg))
+                    .map(move |msg| Message::ServerTerminal(*index, msg))
             }
-        }
+        };
+
+        iced_dialog::dialog(
+            self.is_dialog_open,
+            screen,
+            update_dialog(&self.patch_notes, self.update_info.as_ref()),
+        )
+        .on_press(Message::DialogClose)
+        .padding_inner(0)
+        .padding_outer(50)
+        .container_style(tf2::container::card)
+        .into()
     }
 }
 
@@ -404,37 +477,4 @@ fn get_config_path() -> Result<PathBuf, screen::serverlist::Error> {
     } else {
         Err(screen::serverlist::Error::NoServerListFile)
     }
-}
-
-// TODO: Improve the handling of updates by asking if the user wants to update ( if there is an available update ),
-//       and then let them know through a in-app toast / system notification once it has finished downloading
-async fn update_my_app() {
-    use velopack::*;
-
-    let source =
-        sources::HttpSource::new("https://github.com/tsuza/mannager-source/releases/latest");
-
-    let Ok(um) = UpdateManager::new(source, None, None) else {
-        println!("Couldn't find?");
-
-        return;
-    };
-
-    let Ok(update_check) = um.check_for_updates_async().await else {
-        return;
-    };
-
-    let UpdateCheck::UpdateAvailable(updates) = update_check else {
-        println!("No updates!");
-
-        return;
-    };
-
-    if um.download_updates_async(&updates, None).await.is_err() {
-        return;
-    }
-
-    println!("Errm, yes update!");
-
-    let _ = um.wait_exit_then_apply_updates(&updates, false, false, Vec::<String>::new());
 }

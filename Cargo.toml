@@ -1,6 +1,6 @@
 [package]
 name = "mannager"
-version = "0.1.9"
+version = "0.2.0"
 license = "MIT"
 build = "build.rs"
 edition = "2024"
@@ -16,7 +16,8 @@ iced = {
     "debug",
     "image",
     "advanced",
-    "sipper"
+    "sipper",
+    "markdown"
   ]
 }
 iced_aw = {
@@ -30,11 +31,18 @@ iced_aw = {
 notify-rust = { version = "4.11.3", features = ["async"] }
 open = "5.3.0"
 portforwarder-rs = "0.1.1"
-reqwest = "0.12.7"
+reqwest = {
+  version = "0.12.7",
+  default-features = false,
+  features = [
+    "rustls-tls",
+    "json"
+  ]
+}
 rfd = "0.15.0"
 scraper = "0.20.0"
 serde = { version = "1.0.210", features = ["derive"] }
-tokio = {version = "1.40.0", features = ["full"]}
+tokio = { version = "1.40.0" }
 toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
@@ -46,6 +54,7 @@ igd = "0.12.1"
 iced_selection = { git = "git://git.pml68.dev/iced_selection" }
 lyon_algorithms = "1.0.19"
 velopack = { version = "0.0.1298", features = ["async"] }
+iced_dialog = { git = "git://git.pml68.dev/iced_dialog" }
 
 [build-dependencies]
 iced_lucide = { git = "https://github.com/A-Disruption/iced_lucide" }

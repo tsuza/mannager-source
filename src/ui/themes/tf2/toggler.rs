@@ -2,7 +2,6 @@ use iced::{Background, Color};
 use sweeten::widget::toggler::{Catalog, Status, Style, StyleFn};
 
 use super::super::Theme;
-use super::super::{HOVERED_LAYER_OPACITY, disabled_container, disabled_text, mix};
 
 impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
@@ -69,7 +68,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
             }
         }
 
-        Status::Disabled { is_toggled } => Style {
+        Status::Disabled { .. } => Style {
             background: Background::Color(surface.surface_container.lowest),
             foreground: Background::Color(surface.on_surface_variant),
             text_color: Some(surface.on_surface_variant),

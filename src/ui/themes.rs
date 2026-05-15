@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use iced::{
     Color, Shadow, Vector,
     theme::{Base, Style},
+    widget::markdown,
 };
 
 #[allow(clippy::cast_precision_loss)]
@@ -144,6 +145,52 @@ impl From<Theme> for Custom {
                 colorscheme: theme.colors(),
             },
         }
+    }
+}
+
+impl From<&Theme> for markdown::Settings {
+    fn from(theme: &Theme) -> Self {
+        Self::with_style(theme)
+    }
+}
+
+impl From<Theme> for markdown::Settings {
+    fn from(theme: Theme) -> Self {
+        Self::with_style(theme)
+    }
+}
+
+impl From<&Theme> for markdown::Style {
+    fn from(theme: &Theme) -> Self {
+        let colors = theme.colors();
+
+        let seed = iced::theme::palette::Seed {
+            background: colors.surface.color,
+            text: colors.surface.on_surface,
+            primary: colors.primary.color,
+            success: colors.primary.primary_container,
+            warning: mix(from_argb!(0xffffff00), colors.primary.color, 0.25),
+            danger: colors.error.color,
+        };
+
+        Self::from_palette(seed)
+    }
+}
+
+impl From<Theme> for markdown::Style {
+    fn from(theme: Theme) -> Self {
+        let colors = theme.colors();
+
+        let seed = iced::theme::palette::Seed {
+            background: colors.surface.color,
+            text: colors.surface.on_surface,
+            primary: colors.primary.color,
+            success: colors.primary.primary_container,
+            warning: mix(from_argb!(0xffffff00), colors.primary.color, 0.25),
+            danger: colors.error.color,
+        };
+
+        Self::from_palette(seed)
     }
 }
 

@@ -23,6 +23,7 @@ pub fn default(theme: &Theme) -> Style {
     }
 }
 
+// TODO: Hardcoded...
 pub fn muted(theme: &Theme) -> Style {
     Style {
         color: Some(color!(0x574f47)),

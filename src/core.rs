@@ -41,6 +41,21 @@ pub enum Game {
 }
 
 impl Game {
+    pub fn arg_name(&self) -> &'static str {
+        match self {
+            Game::TeamFortress2 => "tf",
+            Game::TeamFortress2Classified => "tf2classified",
+            Game::CounterStrikeSource => "cstrike",
+            Game::CounterStrikeGlobalOffensive => "csgo",
+            Game::CounterStrike2 => "cs",
+            Game::LeftForDead1 => "left4dead",
+            Game::LeftForDead2 => "left4dead2",
+            Game::HalfLife2DM => "hl2mp",
+            Game::NoMoreRoomInHell => "nmrih",
+            Game::Deadlock => "deadlock",
+        }
+    }
+
     pub fn decode(value: Value) -> Result<Self, decoder::Error> {
         use decoder::decode::string;
 
@@ -85,7 +100,7 @@ impl std::fmt::Display for Game {
             Game::CounterStrikeGlobalOffensive => write!(f, "Counter-Strike: Global Offensive"),
             Game::LeftForDead1 => write!(f, "Left For Dead 1"),
             Game::LeftForDead2 => write!(f, "Left For Dead 2"),
-            Game::HalfLife2DM => write!(f, "Half Life 2: DM"),
+            Game::HalfLife2DM => write!(f, "Half-Life 2: DM"),
             Game::NoMoreRoomInHell => write!(f, "No More Room In Hell"),
             Game::CounterStrike2 => write!(f, "Counter-Strike: 2"),
             Game::Deadlock => write!(f, "Deadlock"),
@@ -107,21 +122,6 @@ impl From<Game> for u32 {
             Game::NoMoreRoomInHell => 317670,
             Game::Deadlock => 1422450,
         }
-    }
-}
-
-pub fn get_arg_game_name(game: &Game) -> &'static str {
-    match game {
-        Game::TeamFortress2 => "tf",
-        Game::TeamFortress2Classified => "tf2classified",
-        Game::CounterStrikeSource => "cstrike",
-        Game::CounterStrikeGlobalOffensive => "csgo",
-        Game::CounterStrike2 => "cs",
-        Game::LeftForDead1 => "left4dead",
-        Game::LeftForDead2 => "left4dead2",
-        Game::HalfLife2DM => "hl2mp",
-        Game::NoMoreRoomInHell => "nmrih",
-        Game::Deadlock => "deadlock",
     }
 }
 

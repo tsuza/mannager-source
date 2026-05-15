@@ -5,7 +5,7 @@ use snafu::ResultExt;
 
 use crate::core::ArchiveExtractionSnafu;
 
-use super::{DirectoryCreationSnafu, Error, Game, SourceEngineVersion, get_arg_game_name};
+use super::{DirectoryCreationSnafu, Error, Game, SourceEngineVersion};
 
 pub struct SourcemodDownloader;
 
@@ -70,10 +70,7 @@ impl SourcemodDownloader {
             let mut archive = tar::Archive::new(tar);
 
             archive
-                .unpack(
-                    path.to_path_buf()
-                        .join(format!("{}/", get_arg_game_name(game))),
-                ) // get_arg_game_name
+                .unpack(path.to_path_buf().join(format!("{}/", game.arg_name())))
                 .context(TarSnafu)
                 .context(ArchiveExtractionSnafu)?;
         }
@@ -98,6 +95,7 @@ impl SourcemodDownloader {
     }
 }
 
+// TODO: Maybe switch to ureq? Less deps
 /// Oh God, this is so annoying.
 async fn get_latest_sourcemod_version(
     branch: &SourcemodBranch,

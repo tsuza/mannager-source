@@ -6,9 +6,12 @@ use super::{
 };
 
 pub mod button;
+pub mod checkbox;
 pub mod circular_spinner;
 pub mod container;
+pub mod dialog;
 pub mod float;
+pub mod markdown;
 pub mod menu;
 pub mod metered_progress_bar;
 pub mod number_input;
@@ -18,6 +21,7 @@ pub mod scrollable;
 pub mod selectable_text;
 pub mod svg;
 pub mod sweeten_column;
+pub mod table;
 pub mod text;
 pub mod text_input;
 pub mod toggler;
