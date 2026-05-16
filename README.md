@@ -34,7 +34,7 @@
 
 </div>
 
-![overview](https://github.com/user-attachments/assets/a1ea7ce7-4d97-4457-97d4-6e59258af498)
+<img width="3468" height="1307" alt="overview(1)" src="https://github.com/user-attachments/assets/1916610d-f604-4b68-b52c-ccb888e84ff6" />
 
 ## Features
 - Easily download, update & setup a Source game's dedicated server from a wide range of selections.
