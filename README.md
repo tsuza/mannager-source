@@ -28,9 +28,8 @@
   <a href="#installation">Installation</a> •
   <a href="#configuration">Configuration</a> •
   <a href="#features">Features</a> •
-  <a href="#to-do">To-Do list</a> •
   <a href="#contributors">Contributors</a> •
-  <a href="https://tsuza.github.io/mannager-source/">Website</a>
+  <a href="https://apps.tsuza.net/mannager">Website</a>
 
 </div>
 
@@ -49,12 +48,12 @@
   - No More Room In Hell
   - ... if there any other ones you'd want just open an issue!
 - Easily download the stable or dev branch of Sourcemod ( and Metamod ).
-- Automatically port forward your server.
+- Automatically port forward your server ( or enable SDR if supported ).
 - Native terminal built into the app for server management.
 
 ## Installation
 1. Go to the [latest release](https://github.com/tsuza/mannager-source/releases/latest).
-2. If you're on Windows, pick the msi installer. If you're on Linux, feel free to pick between: flatpak, a tar and an appimage.
+2. If you're on Windows, pick the msi installer. If you're on Linux, install the AppImage ( use GearLever to easily manage AppImages if you don't already ).
 3. Enjoy!
 
 ## Configuration
@@ -64,16 +63,8 @@ The server list file, a file that contains all of the servers being tracked by t
 - In the same folder of the executable.
 - ( DEFAULT ) `$HOME/.config/mannager-source` on Linux & `%APPDATA%/Roaming/mannager-source` on Windows
 
-## To-Do
-The top priority for now is:
-- [ ] Finalize the custom title bar for the terminal.
-- [x] Finalize the support for Source 2 games ( CS2, Deadlock ).
-- [x] Finalize Windows support ( and its Workflow ).
-- [ ] Add support for configuring convars and admins within the app.
-
-For the full list, check out [the issue](https://github.com/tsuza/mannager-source/issues/1).
-
 ## Contributors
 <a href="https://github.com/tsuza/mannager-source/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=tsuza/mannager-source" alt="contrib.rocks image" />
 </a>
+
