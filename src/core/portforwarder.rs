@@ -15,6 +15,7 @@ pub enum PortForwarderIP {
     Ip(Ipv4Addr),
 }
 
+// TODO: Switch to igd_next
 impl PortForwarder {
     pub fn open(
         ip: PortForwarderIP,

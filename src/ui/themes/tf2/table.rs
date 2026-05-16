@@ -1,6 +1,9 @@
-use iced_selection::text::{Catalog, Style, StyleFn};
+use iced::{
+    Background,
+    widget::table::{Catalog, Style, StyleFn},
+};
 
-use super::super::Theme;
+use crate::ui::themes::Theme;
 
 impl Catalog for Theme {
     type Class<'a> = StyleFn<'a, Self>;
@@ -15,8 +18,10 @@ impl Catalog for Theme {
 }
 
 pub fn default(theme: &Theme) -> Style {
+    let separator = theme.colors().outline.variant;
+
     Style {
-        color: None,
-        selection: theme.colors().primary.color.scale_alpha(0.5),
+        separator_x: Background::Color(separator),
+        separator_y: Background::Color(separator),
     }
 }

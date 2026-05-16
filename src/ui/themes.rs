@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use iced::{
     Color, Shadow, Vector,
     theme::{Base, Style},
+    widget::markdown,
 };
 
 #[allow(clippy::cast_precision_loss)]
@@ -95,7 +96,7 @@ impl Base for Theme {
     fn base(&self) -> Style {
         Style {
             background_color: self.colors().surface.color,
-            text_color: self.colors().surface.on_surface,
+            text_color: self.colors().surface.text,
         }
     }
 
@@ -104,9 +105,9 @@ impl Base for Theme {
 
         Some(iced::theme::palette::Seed {
             background: colors.surface.color,
-            text: colors.surface.on_surface,
+            text: colors.surface.text,
             primary: colors.primary.color,
-            success: colors.primary.primary_container,
+            success: colors.primary.container,
             warning: mix(from_argb!(0xffffff00), colors.primary.color, 0.25),
             danger: colors.error.color,
         })
@@ -147,6 +148,35 @@ impl From<Theme> for Custom {
     }
 }
 
+impl From<&Theme> for markdown::Settings {
+    fn from(theme: &Theme) -> Self {
+        Self::with_style(theme)
+    }
+}
+
+impl From<Theme> for markdown::Settings {
+    fn from(theme: Theme) -> Self {
+        Self::with_style(theme)
+    }
+}
+
+// Seed will always return a Some so we can unwrap
+impl From<&Theme> for markdown::Style {
+    fn from(theme: &Theme) -> Self {
+        let seed = theme.seed().unwrap();
+
+        Self::from_palette(seed)
+    }
+}
+
+impl From<Theme> for markdown::Style {
+    fn from(theme: Theme) -> Self {
+        let seed = theme.seed().unwrap();
+
+        Self::from_palette(seed)
+    }
+}
+
 impl Clone for Custom {
     fn clone(&self) -> Self {
         Self {
@@ -164,23 +194,18 @@ impl Clone for Custom {
 }
 
 /// A [`Theme`]'s color scheme.
-///
-/// These color roles are base on Material Design 3. For more information about them, visit the
-/// official [M3 documentation](https://m3.material.io/styles/color/roles).
-///
-/// [M3 page]: https://m3.material.io/styles/color/roles
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ColorScheme {
     /// The primary colors.
-    pub primary: Primary,
+    pub primary: ColorQuartet,
     /// The secondary colors.
-    pub secondary: Secondary,
+    pub secondary: ColorQuartet,
     /// The tertiary colors.
-    pub tertiary: Tertiary,
-    // The success colors.
-    pub success: Success,
+    pub tertiary: ColorQuartet,
+    /// The success colors.
+    pub success: ColorQuartet,
     /// The error colors.
-    pub error: Error,
+    pub error: ColorQuartet,
     /// The surface colors.
     pub surface: Surface,
     /// The inverse colors.
@@ -194,51 +219,19 @@ pub struct ColorScheme {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Primary {
+pub struct ColorQuartet {
     pub color: Color,
-    pub on_primary: Color,
-    pub primary_container: Color,
-    pub on_primary_container: Color,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Secondary {
-    pub color: Color,
-    pub on_secondary: Color,
-    pub secondary_container: Color,
-    pub on_secondary_container: Color,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Tertiary {
-    pub color: Color,
-    pub on_tertiary: Color,
-    pub tertiary_container: Color,
-    pub on_tertiary_container: Color,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Success {
-    pub color: Color,
-    pub on_success: Color,
-    pub success_container: Color,
-    pub on_success_container: Color,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Error {
-    pub color: Color,
-    pub on_error: Color,
-    pub error_container: Color,
-    pub on_error_container: Color,
+    pub text: Color,
+    pub container: Color,
+    pub container_text: Color,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Surface {
     pub color: Color,
-    pub on_surface: Color,
-    pub on_surface_variant: Color,
-    pub surface_container: SurfaceContainer,
+    pub text: Color,
+    pub text_variant: Color,
+    pub container: SurfaceContainer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -253,7 +246,7 @@ pub struct SurfaceContainer {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Inverse {
     pub inverse_surface: Color,
-    pub inverse_on_surface: Color,
+    pub inverse_surface_text: Color,
     pub inverse_primary: Color,
 }
 

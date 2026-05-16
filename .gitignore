@@ -1,4 +1,7 @@
 /target
+/publish
+/releases
+/Releases
 /depotdownloader
 /servers
 /server

@@ -16,14 +16,21 @@ impl Catalog for Theme {
 }
 
 pub fn default(theme: &Theme) -> Style {
+    let primary = theme.colors().primary;
+    let secondary = theme.colors().secondary;
+    let outline = theme.colors().outline;
+
     Style {
-        moved_item_overlay: theme.colors().primary.primary_container.scale_alpha(0.2),
+        moved_item_overlay: primary.container.scale_alpha(0.18),
+
         ghost_border: Border {
-            width: 4.0,
-            color: theme.colors().outline.color,
-            radius: 0.0.into(),
+            width: 2.0,
+            color: outline.color,
+            radius: 10.0.into(),
         },
-        ghost_background: theme.colors().secondary.color.scale_alpha(0.2).into(),
+
+        ghost_background: secondary.container.scale_alpha(0.18).into(),
+
         scale: 1.0,
     }
 }

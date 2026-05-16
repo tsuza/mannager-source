@@ -1,5 +1,5 @@
+use iced::Border;
 use iced::widget::progress_bar::{Catalog, Style, StyleFn};
-use iced::{Background, border};
 
 use super::super::Theme;
 
@@ -16,9 +16,16 @@ impl Catalog for Theme {
 }
 
 pub fn default(theme: &Theme) -> Style {
+    let primary = theme.colors().primary;
+    let surface = theme.colors().surface;
+
     Style {
-        background: Background::Color(theme.colors().secondary.secondary_container),
-        bar: Background::Color(theme.colors().primary.color),
-        border: border::rounded(0),
+        background: surface.container.base.into(),
+        border: Border {
+            color: theme.colors().outline.color,
+            width: 1.0,
+            radius: 10.into(),
+        },
+        bar: primary.color.into(),
     }
 }

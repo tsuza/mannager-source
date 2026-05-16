@@ -5,8 +5,11 @@ use crate::ui::components::metered_progress_bar::MeteredProgressBar;
 pub mod metered_progress_bar;
 pub mod modal;
 pub mod notification;
+pub mod progress_bar;
+pub mod progress_stepper;
 pub mod spinner;
 pub mod textinput_terminal;
+pub mod toggle_button_group;
 pub mod typed_input;
 
 pub fn metered_progress_bar<'a, Theme>(

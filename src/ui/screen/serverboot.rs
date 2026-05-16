@@ -7,7 +7,7 @@ use std::{
 };
 
 use iced::{
-    Alignment, Color, Font, Length, Task,
+    Alignment, Color, Font, Length, Shadow, Task,
     futures::{SinkExt, Stream, StreamExt, channel::mpsc},
     keyboard, padding,
     stream::try_channel,
@@ -21,18 +21,13 @@ use tokio::{
     select,
 };
 
-use iced::widget::text::LineHeight;
-
 use crate::{
     core::portforwarder::{self, PortForwarderIP},
     icon,
     ui::{
         Element,
         components::{notification::notification, textinput_terminal},
-        themes::{
-            elevation, shadow_from_elevation,
-            tf2::{self},
-        },
+        themes::tf2::{self},
     },
 };
 
@@ -323,7 +318,7 @@ impl ServerTerminal {
                         .size(40)
                         .line_height(1.0)
                 )
-                .padding(padding::top(4.0).bottom(-2.0)),
+                .padding(padding::top(4).bottom(-4.0)),
                 space::horizontal()
             ]
             .width(Length::Fill)
@@ -332,21 +327,27 @@ impl ServerTerminal {
         )
         .align_x(Alignment::Center)
         .style(|theme| {
-            tf2::container::outlined(theme)
-                .background(theme.colors().surface.surface_container.lowest)
-                .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
+            let mut style = tf2::container::card(theme);
+
+            style.border = style.border.rounded(0);
+            style.shadow = Shadow::default();
+
+            style
         });
 
         let console_output = {
             let console_output_text = column(console.output.iter().map(|text| {
                 match text {
                     TextType::Input(string) => iced_selection::text(format!("{}", string))
+                        .font(Font::new("Roboto Mono"))
                         .style(|_theme| iced_selection::text::Style {
                             color: Some(Color::from_rgb8(120, 120, 120)),
                             ..Default::default()
                         })
                         .into(),
-                    TextType::Output(string) => iced_selection::text(format!("{}", string)).into(),
+                    TextType::Output(string) => iced_selection::text(format!("{}", string))
+                        .font(Font::new("Roboto Mono"))
+                        .into(),
                 }
             }))
             .padding(5);
@@ -364,26 +365,28 @@ impl ServerTerminal {
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(padding::left(10))
-            .style(|theme| {
-                tf2::container::outlined(theme)
-                    .background(theme.colors().surface.surface_container.lowest)
-                    .shadow(shadow_from_elevation(elevation(1), theme.colors().shadow))
-            })
         };
 
-        let console_input =
-            textinput_terminal::TextInput::new("Type your command...", &console.input)
-                .on_input(Message::ServerTerminalInput)
-                .on_submit(Message::SubmitServerTerminalInput)
-                .on_key_press(Message::OnKeyPress)
-                .width(Length::Fill)
-                .line_height(LineHeight::Relative(1.4));
+        let console_input = textinput_terminal::TextInput::new("Type a command...", &console.input)
+            .on_input(Message::ServerTerminalInput)
+            .on_submit(Message::SubmitServerTerminalInput)
+            .on_key_press(Message::OnKeyPress)
+            .line_height(1.4)
+            .width(Length::Fill)
+            .padding(padding::vertical(18).horizontal(14))
+            .font(Font::new("Roboto Mono"))
+            .style(|theme, status| {
+                let mut style = tf2::text_input::terminal(theme, status);
 
-        container(column![header, console_output, console_input].spacing(20))
+                style.border = style.border.rounded(0);
+
+                style
+            });
+
+        container(column![header, console_output, console_input])
             .width(Length::Fill)
             .height(Length::Fill)
-            .padding(20)
-            .style(|theme| tf2::container::surface(theme))
+            .style(|theme| tf2::container::base(theme))
             .into()
     }
 }

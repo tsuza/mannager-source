@@ -1,6 +1,6 @@
 // Generated automatically by iced_lucide at build time.
 // Do not edit manually.
-// 8dae6056cb24e042c4b3b162d2241e6cac74b7fa285ad037216da7eb327e1f16
+// bc8c05cc206f237e1a8e9fb94dcbd119f2201886e807a25a5b1b00dfe564cc26
 use iced::Font;
 use iced::widget::{Text, text};
 
@@ -13,6 +13,7 @@ pub const ALL_ICONS: &[(&str, &str)] = &[
     ("book", "\u{E54A}"),
     ("bug", "\u{E20C}"),
     ("check", "\u{E06C}"),
+    ("circle", "\u{E076}"),
     ("close", "\u{E1B2}"),
     ("copy", "\u{E09E}"),
     ("down_arrow", "\u{E06D}"),
@@ -21,9 +22,11 @@ pub const ALL_ICONS: &[(&str, &str)] = &[
     ("folder", "\u{E0D7}"),
     ("left_arrow", "\u{E06E}"),
     ("link", "\u{E102}"),
-    ("map", "\u{E53D}"),
+    ("local", "\u{E6C1}"),
+    ("map", "\u{E110}"),
     ("menu", "\u{E115}"),
     ("minus", "\u{E11C}"),
+    ("move_right", "\u{E490}"),
     ("password", "\u{E4A3}"),
     ("plus", "\u{E13D}"),
     ("port", "\u{E620}"),
@@ -61,6 +64,14 @@ where
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
     icon("\u{E06C}")
+}
+
+pub fn circle<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
+where
+    Theme: iced::widget::text::Catalog + 'a,
+    Renderer: iced::advanced::text::Renderer<Font = Font>,
+{
+    icon("\u{E076}")
 }
 
 pub fn close<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
@@ -127,12 +138,20 @@ where
     icon("\u{E102}")
 }
 
+pub fn local<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
+where
+    Theme: iced::widget::text::Catalog + 'a,
+    Renderer: iced::advanced::text::Renderer<Font = Font>,
+{
+    icon("\u{E6C1}")
+}
+
 pub fn map<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
 where
     Theme: iced::widget::text::Catalog + 'a,
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
-    icon("\u{E53D}")
+    icon("\u{E110}")
 }
 
 pub fn menu<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
@@ -149,6 +168,14 @@ where
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
     icon("\u{E11C}")
+}
+
+pub fn move_right<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
+where
+    Theme: iced::widget::text::Catalog + 'a,
+    Renderer: iced::advanced::text::Renderer<Font = Font>,
+{
+    icon("\u{E490}")
 }
 
 pub fn password<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
