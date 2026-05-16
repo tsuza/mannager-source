@@ -11,7 +11,7 @@ impl Catalog for Theme {
     }
 
     fn default_container<'a>() -> <Self as container::Catalog>::Class<'a> {
-        Box::new(|theme| container::background(theme.colors().surface.surface_container.base))
+        Box::new(|theme| container::background(theme.colors().surface.container.base))
     }
 
     fn style(&self, class: &<Self as Catalog>::Class<'_>) -> Style {

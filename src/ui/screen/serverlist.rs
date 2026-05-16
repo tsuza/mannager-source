@@ -1,7 +1,7 @@
 use core::str;
 use std::{
     io,
-    net::Ipv4Addr,
+    net::{IpAddr, Ipv4Addr, UdpSocket},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -30,10 +30,11 @@ use crate::{
     ui::{
         components::{
             progress_bar::animated_progress_bar,
-            spinner::{Circular, easing},
+            spinner::{self, Circular, easing},
             toggle_button_group::grouped_buttons,
         },
         games::SOURCE_GAMES,
+        screen::servercreation::DownloadPhase,
         server::{HostingMode, Server, Servers},
         themes::{Theme, tf2},
     },
@@ -225,6 +226,7 @@ impl ServerList {
             Message::ServerMessage(id, ServerMessage::CopyLink) => {
                 let Some(Server {
                     console: Some(console),
+                    hosting_mode,
                     ..
                 }) = servers.get(id)
                 else {
@@ -232,14 +234,12 @@ impl ServerList {
                 };
 
                 let port = console.hosted_port;
+                let hosting_mode = hosting_mode.clone();
 
-                // TODO: This does not account for SDR.
                 Action::Run(
                     Task::perform(
                         async move {
-                            let Ok(ip) = get_public_ip().await else {
-                                return None;
-                            };
+                            let ip = resolve_ip(hosting_mode).await?;
 
                             Some(format!("{ip}:{port}"))
                         },
@@ -249,9 +249,11 @@ impl ServerList {
                 )
             }
             Message::ServerMessage(_, ServerMessage::CopyLinkFinished(string_opt)) => {
-                let Some(string) = string_opt else {
-                    return Action::None;
-                };
+                // TODO: Dirty lazy way. In the future, parse the console and get the IP yourself.
+                let string = string_opt.unwrap_or_else(|| {
+                    "Couldn't get the IP. If it's SDR, retrieve it manually from the terminal"
+                        .to_string()
+                });
 
                 Action::Run(clipboard::write(clipboard::Content::Text(string)).discard())
             }
@@ -407,7 +409,7 @@ impl ServerList {
             .padding(padding::all(50).top(20)),
         )
         .center(Length::Fill)
-        .style(|theme| tf2::container::main(theme))
+        .style(|theme| tf2::container::main(theme).border(border::width(0)))
         .into()
     }
 }
@@ -752,22 +754,83 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
         ]
         .align_y(Alignment::Center),
     )
-    .width(Length::Fill) // TODO: make it 550 and put two per row
+    .width(Length::Fill)
     .style(tf2::container::card);
 
-    if let Some(percent) = server.updating_percent {
+    // TODO: Should put this into its own function to not clutter
+    if let Some(phase) = &server.update_phase {
+        let progress_section = {
+            let status_label = {
+                let label = match phase {
+                    DownloadPhase::Connecting => "Connecting to Steam…",
+                    DownloadPhase::ResolvingDepots => "Resolving depot manifests…",
+                    DownloadPhase::Downloading => "Downloading server files…",
+                    DownloadPhase::Validating => "Validating files…",
+                    DownloadPhase::Done => "Download complete!",
+                };
+
+                row![
+                    if *phase != DownloadPhase::Done {
+                        Element::from(spinner::Circular::new().size(14.0))
+                    } else {
+                        icon::check().size(14).style(tf2::text::success).into()
+                    },
+                    text(label).size(14).style(tf2::text::secondary),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+            };
+
+            let progress_bars: Element<'a, ServerMessage> = if server.update_depot_status.is_empty()
+            {
+                container(
+                    animated_progress_bar(0.0..=100.0, 0.0)
+                        .length(Length::Fill)
+                        .girth(8),
+                )
+                .into()
+            } else {
+                let depots = server.update_depot_status.iter().map(|depot| {
+                    row![
+                        text(depot.id)
+                            .width(90)
+                            .size(11)
+                            .line_height(1.0)
+                            .style(tf2::text::muted),
+                        animated_progress_bar(0.0..=100.0, depot.progress)
+                            .length(Length::Fill)
+                            .girth(8),
+                        text!("{:.0}%", depot.progress)
+                            .font(Font::MONOSPACE)
+                            .size(11)
+                            .width(36)
+                            .line_height(1.0)
+                            .style(tf2::text::primary)
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center)
+                    .into()
+                });
+
+                scrollable(column(depots).spacing(8).width(Length::Fill)).into()
+            };
+
+            column![status_label, progress_bars]
+                .spacing(8)
+                .width(Length::Fill)
+        };
+
         stack![
             card,
             opaque(
-                center(
-                    animated_progress_bar(0.0..=100.0, percent)
-                        .length(Length::Fill)
-                        .girth(Length::Fill)
-                )
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .padding(padding::all(30).horizontal(50))
-                .style(|_theme| container::background(Color::BLACK.scale_alpha(0.8)))
+                center(progress_section)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .padding(padding::horizontal(30).vertical(10))
+                    .style(
+                        |_theme| container::background(Color::BLACK.scale_alpha(0.8))
+                            .border(border::rounded(4))
+                    )
             ),
         ]
         .into()
@@ -973,7 +1036,29 @@ pub fn get_game_image(game: Game) -> Option<svg::Handle> {
         .map(|game_info| game_info.image.clone())
 }
 
-pub async fn get_public_ip() -> Result<Ipv4Addr, Error> {
+async fn resolve_ip(mode: HostingMode) -> Option<Ipv4Addr> {
+    match mode {
+        HostingMode::Local => match get_local_ip().await {
+            Ok(IpAddr::V4(ip)) => Some(ip),
+            _ => None,
+        },
+        HostingMode::Sdr => None,
+        HostingMode::Upnp => match get_public_ip().await.ok()? {
+            IpAddr::V4(ip) => Some(ip),
+            _ => None,
+        },
+    }
+}
+
+async fn get_local_ip() -> Result<IpAddr, Error> {
+    let socket = UdpSocket::bind((Ipv4Addr::new(0, 0, 0, 0), 0)).context(IoSnafu)?;
+
+    socket.connect("192.0.2.1:80").context(IoSnafu)?;
+
+    Ok(socket.local_addr().context(IoSnafu)?.ip())
+}
+
+async fn get_public_ip() -> Result<IpAddr, Error> {
     let url = "https://api.ipify.org";
 
     let public_ip = reqwest::get(url)
@@ -985,7 +1070,7 @@ pub async fn get_public_ip() -> Result<Ipv4Addr, Error> {
 
     public_ip
         .trim()
-        .parse::<Ipv4Addr>()
+        .parse::<IpAddr>()
         .map_err(|_| Error::NoPublicIp)
 }
 

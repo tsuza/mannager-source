@@ -21,8 +21,8 @@ pub fn default(theme: &Theme) -> Style {
     let primary = theme.colors().primary;
 
     Style {
-        background: iced::Background::Color(surface.surface_container.lowest),
-        bar: iced::Background::Color(primary.color),
+        background: surface.container.lowest.into(),
+        bar: primary.color.into(),
         border: border::Border {
             color: outline.color,
             width: 1.5,

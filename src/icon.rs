@@ -1,6 +1,6 @@
 // Generated automatically by iced_lucide at build time.
 // Do not edit manually.
-// 638b961b988fb0c7d90c167fb63f560619a9f7292fa07ffc239a84bf2d22074a
+// bc8c05cc206f237e1a8e9fb94dcbd119f2201886e807a25a5b1b00dfe564cc26
 use iced::Font;
 use iced::widget::{Text, text};
 
@@ -13,6 +13,7 @@ pub const ALL_ICONS: &[(&str, &str)] = &[
     ("book", "\u{E54A}"),
     ("bug", "\u{E20C}"),
     ("check", "\u{E06C}"),
+    ("circle", "\u{E076}"),
     ("close", "\u{E1B2}"),
     ("copy", "\u{E09E}"),
     ("down_arrow", "\u{E06D}"),
@@ -63,6 +64,14 @@ where
     Renderer: iced::advanced::text::Renderer<Font = Font>,
 {
     icon("\u{E06C}")
+}
+
+pub fn circle<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>
+where
+    Theme: iced::widget::text::Catalog + 'a,
+    Renderer: iced::advanced::text::Renderer<Font = Font>,
+{
+    icon("\u{E076}")
 }
 
 pub fn close<'a, Theme, Renderer>() -> Text<'a, Theme, Renderer>

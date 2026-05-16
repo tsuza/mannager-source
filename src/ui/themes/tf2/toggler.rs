@@ -1,4 +1,4 @@
-use iced::{Background, Color};
+use iced::Color;
 use sweeten::widget::toggler::{Catalog, Status, Style, StyleFn};
 
 use super::super::Theme;
@@ -25,9 +25,9 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         Status::Active { is_toggled } => {
             if is_toggled {
                 Style {
-                    background: Background::Color(primary.color),
-                    foreground: Background::Color(primary.on_primary),
-                    text_color: Some(primary.on_primary),
+                    background: primary.color.into(),
+                    foreground: primary.text.into(),
+                    text_color: Some(primary.text),
                     background_border_color: Color::TRANSPARENT,
                     foreground_border_color: Color::TRANSPARENT,
                     background_border_width: 0.0,
@@ -37,9 +37,9 @@ pub fn default(theme: &Theme, status: Status) -> Style {
                 }
             } else {
                 Style {
-                    background: Background::Color(secondary.secondary_container),
-                    foreground: Background::Color(surface.on_surface_variant),
-                    text_color: Some(surface.on_surface),
+                    background: secondary.container.into(),
+                    foreground: surface.text_variant.into(),
+                    text_color: Some(surface.text),
                     background_border_color: outline.color,
                     foreground_border_color: Color::TRANSPARENT,
                     background_border_width: 1.0,
@@ -53,25 +53,25 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         Status::Hovered { is_toggled } => {
             if is_toggled {
                 Style {
-                    background: Background::Color(primary.primary_container),
-                    foreground: Background::Color(primary.color),
-                    text_color: Some(primary.on_primary),
+                    background: primary.container.into(),
+                    foreground: primary.color.into(),
+                    text_color: Some(primary.text),
                     ..default(theme, Status::Active { is_toggled })
                 }
             } else {
                 Style {
-                    background: Background::Color(surface.surface_container.high),
-                    foreground: Background::Color(surface.on_surface_variant),
-                    text_color: Some(surface.on_surface),
+                    background: surface.container.high.into(),
+                    foreground: surface.text_variant.into(),
+                    text_color: Some(surface.text),
                     ..default(theme, Status::Active { is_toggled })
                 }
             }
         }
 
         Status::Disabled { .. } => Style {
-            background: Background::Color(surface.surface_container.lowest),
-            foreground: Background::Color(surface.on_surface_variant),
-            text_color: Some(surface.on_surface_variant),
+            background: surface.container.lowest.into(),
+            foreground: surface.text_variant.into(),
+            text_color: Some(surface.text_variant),
             background_border_color: outline.variant,
             foreground_border_color: Color::TRANSPARENT,
             background_border_width: 1.0,

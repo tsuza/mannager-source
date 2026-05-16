@@ -23,7 +23,7 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let outline = theme.colors().outline;
 
     let base_scroller = Scroller {
-        background: Background::Color(surface.on_surface_variant),
+        background: surface.text_variant.into(),
         border: border::rounded(400),
     };
 
@@ -34,28 +34,28 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     };
 
     let disabled_rail = Rail {
-        background: Some(Background::Color(disabled_container(surface.on_surface))),
+        background: Some(disabled_container(surface.text).into()),
         scroller: Scroller {
-            background: Background::Color(disabled_text(surface.on_surface_variant)),
+            background: disabled_text(surface.text_variant).into(),
             border: border::rounded(400),
         },
         ..active_rail
     };
 
     let hovered_scroller = Scroller {
-        background: Background::Color(mix(surface.on_surface_variant, accent.color, 0.6)),
+        background: mix(surface.text_variant, accent.color, 0.6).into(),
         border: border::rounded(400),
     };
 
     let dragged_scroller = Scroller {
-        background: Background::Color(accent.color),
+        background: accent.color.into(),
         border: border::rounded(400),
     };
 
     let auto_scroll = AutoScroll {
         background: surface.color.into(),
         border: border::rounded(500).width(1).color(outline.color),
-        icon: surface.on_surface_variant,
+        icon: surface.text_variant,
         shadow: Shadow {
             color: theme.colors().shadow,
             offset: iced::Vector::new(0.0, 6.0),

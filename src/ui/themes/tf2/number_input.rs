@@ -26,14 +26,14 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let surface = theme.colors().surface;
 
     let active = Style {
-        button_background: Some(surface.surface_container.lowest.into()),
-        icon_color: primary.on_primary,
+        button_background: Some(surface.container.lowest.into()),
+        icon_color: primary.text,
     };
 
     match status {
         Status::Disabled => Style {
-            button_background: Some(Background::Color(Color::TRANSPARENT)),
-            icon_color: disabled_text(surface.on_surface),
+            button_background: Some(Color::TRANSPARENT.into()),
+            icon_color: disabled_text(surface.text),
         },
         _ => active,
     }

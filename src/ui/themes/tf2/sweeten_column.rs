@@ -21,7 +21,7 @@ pub fn default(theme: &Theme) -> Style {
     let outline = theme.colors().outline;
 
     Style {
-        moved_item_overlay: primary.primary_container.scale_alpha(0.18),
+        moved_item_overlay: primary.container.scale_alpha(0.18),
 
         ghost_border: Border {
             width: 2.0,
@@ -29,7 +29,7 @@ pub fn default(theme: &Theme) -> Style {
             radius: 10.0.into(),
         },
 
-        ghost_background: secondary.secondary_container.scale_alpha(0.18).into(),
+        ghost_background: secondary.container.scale_alpha(0.18).into(),
 
         scale: 1.0,
     }

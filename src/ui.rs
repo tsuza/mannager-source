@@ -3,9 +3,7 @@ use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
 use iced::{Function, Task, futures, widget::markdown};
 use screen::{
     Screen,
-    serverboot::{
-        self, Console, PORT_OFFSET, ServerCommunicationTwoWay, ServerTerminal, find_available_port,
-    },
+    serverboot::{self, Console, ServerCommunicationTwoWay, ServerTerminal, find_available_port},
     servercreation,
     serverlist::{self, ServerList},
 };
@@ -14,7 +12,7 @@ use crate::{
     core::{Game, SourceEngineVersion},
     ui::{
         games::SOURCE_GAMES,
-        screen::servercreation::download_server,
+        screen::servercreation::{DownloadUpdate, download_server},
         server::{Server, Servers},
         themes::{Theme, tf2},
     },
@@ -73,7 +71,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 pub enum Update {
-    Downloading(f32),
+    Downloading(DownloadUpdate),
     Finished(Result<(), servercreation::Error>),
 }
 
@@ -128,16 +126,23 @@ impl State {
             }
             Message::UpdateServer(id, update) => {
                 let Some(Server {
-                    updating_percent: percent,
+                    update_depot_status,
+                    update_phase,
                     ..
                 }) = self.servers.get_mut(id)
                 else {
                     return Task::none();
                 };
 
-                *percent = match update {
-                    Update::Downloading(_percent) => Some(_percent),
-                    Update::Finished(_) => None,
+                match update {
+                    Update::Downloading(update) => {
+                        *update_depot_status = update.depots;
+                        *update_phase = Some(update.phase);
+                    }
+                    Update::Finished(_) => {
+                        update_depot_status.clear();
+                        *update_phase = None;
+                    }
                 };
 
                 Task::none()
@@ -189,16 +194,9 @@ impl State {
                         Task::none()
                     }
                     Action::UpdateServer(id) => {
-                        let Some(Server {
-                            info,
-                            updating_percent,
-                            ..
-                        }) = self.servers.get_mut(id)
-                        else {
+                        let Some(Server { info, .. }) = self.servers.get_mut(id) else {
                             return Task::none();
                         };
-
-                        *updating_percent = Some(0.0);
 
                         let server_path = info.path.clone();
                         let source_game = info.game.clone();
@@ -267,12 +265,11 @@ impl State {
 
                             args.push_str(&format!(
                                 " +hostname \"{name}\" +map {map} +maxplayers {max} \
-                                  -nohltv -strictportbind +ip 0.0.0.0 -port {port} -clientport {cport}",
+                                  -nohltv +ip 0.0.0.0 -port {port}",
                                 name = info.name,
                                 map = info.map,
                                 max = info.max_players,
                                 port = port,
-                                cport = port + PORT_OFFSET,
                             ));
 
                             if info.max_players > 32 && info.game == Game::TeamFortress2 {
@@ -427,7 +424,7 @@ impl State {
 
                 Task::none()
             }
-            Message::LinkClicked(_) => todo!(),
+            Message::LinkClicked(_) => Task::none(),
         }
     }
 

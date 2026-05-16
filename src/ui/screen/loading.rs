@@ -1,5 +1,5 @@
 use iced::{
-    Length, padding,
+    Length, border, padding,
     widget::{center, container},
 };
 
@@ -13,6 +13,6 @@ pub fn loading<'a, Message: 'a>() -> Element<'a, Message> {
     )
     .width(Length::Fill)
     .height(Length::Fill)
-    .style(tf2::container::main)
+    .style(|theme| tf2::container::main(theme).border(border::width(0)))
     .into()
 }

@@ -17,6 +17,6 @@ impl Catalog for Theme {
 pub fn default(theme: &Theme) -> Style {
     Style {
         color: None,
-        selection: theme.colors().inverse.inverse_surface.scale_alpha(0.5),
+        selection: theme.colors().primary.color.scale_alpha(0.5),
     }
 }

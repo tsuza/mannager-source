@@ -20,7 +20,7 @@ pub fn default(theme: &Theme) -> Style {
     let surface = theme.colors().surface;
 
     Style {
-        background: surface.surface_container.base.into(),
+        background: surface.container.base.into(),
         border: Border {
             color: theme.colors().outline.color,
             width: 1.0,

@@ -24,67 +24,67 @@ pub fn default(theme: &Theme, status: Status) -> Style {
 
     match status {
         Status::Active { is_checked: false } => Style {
-            background: Background::Color(surface.surface_container.lowest),
-            icon_color: surface.surface_container.lowest, // invisible
+            background: surface.container.lowest.into(),
+            icon_color: surface.container.lowest,
             border: Border {
                 color: outline.color,
-                width: 1.5,
-                radius: 4.0.into(),
+                width: 1.0,
+                radius: 8.0.into(),
             },
-            text_color: Some(surface.on_surface_variant),
+            text_color: Some(surface.text_variant),
         },
 
         Status::Active { is_checked: true } => Style {
-            background: Background::Color(primary.color),
-            icon_color: primary.on_primary,
+            background: primary.color.into(),
+            icon_color: primary.text,
             border: Border {
                 color: primary.color,
-                width: 1.5,
-                radius: 4.0.into(),
+                width: 1.0,
+                radius: 8.0.into(),
             },
-            text_color: Some(surface.on_surface),
+            text_color: Some(surface.text),
         },
 
         Status::Hovered { is_checked: false } => Style {
-            background: Background::Color(surface.surface_container.base),
-            icon_color: surface.surface_container.base, // invisible
+            background: surface.container.base.into(),
+            icon_color: surface.container.base,
             border: Border {
                 color: outline.variant,
-                width: 1.5,
-                radius: 4.0.into(),
+                width: 1.0,
+                radius: 8.0.into(),
             },
-            text_color: Some(surface.on_surface),
+            text_color: Some(surface.text),
         },
 
         Status::Hovered { is_checked: true } => Style {
-            background: Background::Color(primary.on_primary_container),
-            icon_color: primary.on_primary,
+            background: primary.container.into(),
+            icon_color: primary.text,
             border: Border {
-                color: primary.on_primary_container,
-                width: 1.5,
-                radius: 4.0.into(),
+                color: primary.container_text,
+                width: 1.0,
+                radius: 8.0.into(),
             },
-            text_color: Some(surface.on_surface),
+            text_color: Some(surface.text),
         },
 
         Status::Disabled { is_checked: false } => Style {
-            background: Background::Color(surface.surface_container.lowest),
-            icon_color: surface.surface_container.lowest, // invisible
+            background: surface.container.lowest.into(),
+            icon_color: surface.container.lowest,
             border: Border {
-                color: surface.surface_container.base,
-                width: 1.5,
-                radius: 4.0.into(),
+                color: surface.container.base,
+                width: 1.0,
+                radius: 8.0.into(),
             },
             text_color: Some(secondary.color),
         },
 
         Status::Disabled { is_checked: true } => Style {
-            background: Background::Color(primary.primary_container),
-            icon_color: secondary.on_secondary_container,
+            background: Background::Color(primary.container),
+            icon_color: secondary.container_text,
             border: Border {
-                color: primary.primary_container,
-                width: 1.5,
-                radius: 4.0.into(),
+                color: primary.container,
+                width: 1.0,
+                radius: 8.0.into(),
             },
             text_color: Some(secondary.color),
         },

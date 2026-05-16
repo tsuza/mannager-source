@@ -10,7 +10,7 @@ impl StyleSheet for Theme {
 
         Appearance {
             background: None,
-            track_color: colors.surface.on_surface_variant,
+            track_color: colors.surface.container.base,
             bar_color: colors.primary.color,
         }
     }

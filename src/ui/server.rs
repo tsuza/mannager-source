@@ -8,7 +8,11 @@ use decoder::Value;
 
 use crate::{
     core::Game,
-    ui::screen::{serverboot::Console, serverlist::Error},
+    ui::screen::{
+        serverboot::Console,
+        servercreation::{DepotStatus, DownloadPhase},
+        serverlist::Error,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -87,7 +91,8 @@ pub struct Server {
     pub info: ServerInfo,
     pub console: Option<Console>,
     pub is_downloading_sourcemod: bool,
-    pub updating_percent: Option<f32>,
+    pub update_depot_status: Vec<DepotStatus>,
+    pub update_phase: Option<DownloadPhase>,
     pub is_editing: bool,
     pub hosting_mode: HostingMode,
 }
@@ -105,7 +110,8 @@ impl Server {
             info: ServerInfo::default(),
             console: None,
             is_downloading_sourcemod: false,
-            updating_percent: None,
+            update_depot_status: vec![],
+            update_phase: None,
             is_editing: false,
             hosting_mode: HostingMode::Local,
         }
@@ -116,7 +122,8 @@ impl Server {
             info,
             console: None,
             is_downloading_sourcemod: false,
-            updating_percent: None,
+            update_depot_status: vec![],
+            update_phase: None,
             is_editing: false,
             hosting_mode: HostingMode::Local,
         }
@@ -127,7 +134,7 @@ impl Server {
     }
 
     pub fn is_updating(&self) -> bool {
-        self.updating_percent.is_some()
+        self.update_phase.is_some()
     }
 }
 

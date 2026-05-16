@@ -1,4 +1,4 @@
-use iced::{Background, Color, Vector, border, color};
+use iced::{Color, Vector, border, color};
 use iced_aw::menu::{Catalog, Style};
 use iced_aw::style::{Status, StyleFn};
 
@@ -21,10 +21,10 @@ pub fn default(theme: &Theme, _status: Status) -> Style {
     let outline = theme.colors().outline;
 
     Style {
-        bar_background: Background::Color(Color::TRANSPARENT),
+        bar_background: Color::TRANSPARENT.into(),
         bar_border: border::rounded(10),
 
-        menu_background: Background::Color(surface.surface_container.base),
+        menu_background: surface.container.base.into(),
         menu_border: border::Border {
             color: outline.color,
             width: 1.0,

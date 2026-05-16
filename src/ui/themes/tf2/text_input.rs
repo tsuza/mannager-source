@@ -1,5 +1,5 @@
 use iced::widget::text_input::{Catalog, Status, Style, StyleFn};
-use iced::{Background, Border, Color};
+use iced::{Border, Color};
 
 use super::super::{Theme, disabled_container, disabled_text};
 
@@ -29,11 +29,11 @@ pub fn default(theme: &Theme, status: Status) -> Style {
     let focused_border = active_border.color(primary.color);
 
     let active = Style {
-        background: Background::Color(surface.surface_container.lowest),
+        background: surface.container.lowest.into(),
         border: active_border,
-        icon: surface.on_surface_variant,
-        placeholder: surface.on_surface_variant,
-        value: primary.on_primary,
+        icon: surface.text_variant,
+        placeholder: surface.text_variant,
+        value: primary.text,
         selection: primary.color.scale_alpha(0.35),
     };
 
@@ -48,14 +48,14 @@ pub fn default(theme: &Theme, status: Status) -> Style {
         Status::Disabled => Style {
             background: Color::TRANSPARENT.into(),
             border: Border {
-                color: disabled_container(surface.on_surface),
+                color: disabled_container(surface.text),
                 width: 1.5,
                 radius: 10.into(),
             },
-            icon: disabled_text(surface.on_surface),
-            placeholder: disabled_text(surface.on_surface),
-            value: disabled_text(surface.on_surface),
-            selection: disabled_text(surface.on_surface),
+            icon: disabled_text(surface.text),
+            placeholder: disabled_text(surface.text),
+            value: disabled_text(surface.text),
+            selection: disabled_text(surface.text),
         },
     }
 }
@@ -72,11 +72,11 @@ pub fn terminal(theme: &Theme, status: Status) -> Style {
     };
 
     let active = Style {
-        background: Background::Color(surface.surface_container.base),
+        background: surface.container.base.into(),
         border: active_border,
-        icon: surface.on_surface_variant,
-        placeholder: surface.on_surface_variant,
-        value: surface.on_surface,
+        icon: surface.text_variant,
+        placeholder: surface.text_variant,
+        value: surface.text,
         selection: primary.color.scale_alpha(0.35),
     };
 
@@ -86,14 +86,14 @@ pub fn terminal(theme: &Theme, status: Status) -> Style {
         Status::Disabled => Style {
             background: Color::TRANSPARENT.into(),
             border: Border {
-                color: disabled_container(surface.on_surface),
+                color: disabled_container(surface.text),
                 width: 1.5,
                 radius: 10.into(),
             },
-            icon: disabled_text(surface.on_surface),
-            placeholder: disabled_text(surface.on_surface),
-            value: disabled_text(surface.on_surface),
-            selection: disabled_text(surface.on_surface),
+            icon: disabled_text(surface.text),
+            placeholder: disabled_text(surface.text),
+            value: disabled_text(surface.text),
+            selection: disabled_text(surface.text),
         },
     }
 }

@@ -2996,7 +2996,7 @@ dependencies = [
 
 [[package]]
 name = "mannager"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "decoder",
  "directories",
@@ -4293,7 +4293,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]

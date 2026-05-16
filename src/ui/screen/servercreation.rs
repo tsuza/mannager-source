@@ -8,17 +8,18 @@ use crate::ui::Element;
 use crate::ui::components::notification::notification;
 use crate::ui::components::progress_bar::animated_progress_bar;
 use crate::ui::components::progress_stepper::stepper;
+use crate::ui::components::spinner;
 use crate::ui::games::{SOURCE_GAMES, SourceGame};
 use crate::ui::server::ServerInfo;
 use crate::ui::themes::{Theme, tf2};
 use iced::widget::text::Wrapping;
-use iced::widget::{Row, float, rule, space, tooltip};
+use iced::widget::{Row, float, rule, scrollable, space, tooltip};
 use iced::{
     Alignment, ContentFit, Length, Task, padding,
     task::{Straw, sipper},
     widget::{button, center, column, container, row, svg, text, text_input},
 };
-use iced::{Font, Shadow};
+use iced::{Font, Shadow, border};
 use iced_aw::number_input;
 use rfd::FileHandle;
 use snafu::{ResultExt, Snafu};
@@ -27,11 +28,85 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::core::depotdownloader::DepotDownloader;
 use crate::core::{self, Game};
 
+#[derive(Clone, Debug)]
+pub struct DepotStatus {
+    pub id: u32,
+    pub progress: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct DownloadUpdate {
+    pub depots: Vec<DepotStatus>,
+    pub phase: DownloadPhase,
+    pub raw_line: String,
+}
+
 pub struct State {
     form_page: FormSection,
     server: ServerInfo,
     is_downloading: bool,
-    progress: f32,
+    download_depot_status: Vec<DepotStatus>,
+    download_phase: DownloadPhase,
+    download_log: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum DownloadPhase {
+    #[default]
+    Connecting,
+    ResolvingDepots,
+    Downloading,
+    Validating,
+    Done,
+}
+
+impl DownloadPhase {
+    fn advance(self, trimmed: &str) -> Self {
+        let next = if trimmed.starts_with("Connecting to Steam")
+            || trimmed.starts_with("Logging")
+            || trimmed.starts_with("Got AppInfo")
+            || trimmed.starts_with("Got depot key")
+        {
+            DownloadPhase::Connecting
+        } else if trimmed.starts_with("Processing depot")
+            || trimmed.starts_with("Downloading depot")
+            || trimmed.starts_with("Got manifest")
+            || trimmed.starts_with("Manifest ")
+            || trimmed.starts_with("Pre-allocating")
+        {
+            DownloadPhase::ResolvingDepots
+        } else if trimmed.find('%').is_some()
+            && trimmed
+                .find('%')
+                .and_then(|i| trimmed[..i].trim().parse::<f32>().ok())
+                .is_some()
+        {
+            DownloadPhase::Downloading
+        } else if trimmed.starts_with("Depot ") && trimmed.contains("Downloaded") {
+            DownloadPhase::Downloading
+        } else if trimmed.starts_with("Total downloaded") {
+            DownloadPhase::Validating
+        } else if trimmed == "Disconnected from Steam" {
+            DownloadPhase::Done
+        } else {
+            return self;
+        };
+
+        next.max(self)
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            form_page: FormSection::GameSelection,
+            server: ServerInfo::default(),
+            is_downloading: false,
+            download_depot_status: vec![],
+            download_log: Vec::new(),
+            download_phase: DownloadPhase::Connecting,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -118,8 +193,12 @@ impl State {
                 )
             }
             Message::Downloading(progress) => match progress {
-                Update::Downloading(percent) => {
-                    self.progress = percent;
+                Update::Downloading(status) => {
+                    self.download_depot_status = status.depots;
+
+                    self.download_log.push(status.raw_line);
+
+                    self.download_phase = status.phase;
 
                     Action::None
                 }
@@ -215,7 +294,12 @@ impl State {
     pub fn view<'a>(&'a self) -> Element<'a, Message> {
         match self.form_page {
             FormSection::GameSelection => choose_game_view(&self.server),
-            FormSection::Downloading => downloading_view(self.progress),
+            FormSection::Downloading => downloading_view(
+                &self.download_depot_status,
+                &self.download_phase,
+                &self.download_log,
+                &self.server.game,
+            ),
             FormSection::ServerInfo => info_view(&self.server),
         }
     }
@@ -409,21 +493,25 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(tf2::container::main)
+    .style(|theme| tf2::container::main(theme).border(border::width(0)))
     .into()
 }
 
-// TODO: Finish styling this part
-fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
+fn downloading_view<'a>(
+    depot_status: &'a [DepotStatus],
+    phase: &'a DownloadPhase,
+    log: &'a [String],
+    game: &'a Game,
+) -> Element<'a, Message> {
     let header = container(
         row![
             text("Create Server")
                 .font(Font::new("TF2 Build"))
+                .width(Length::Fill)
+                .align_y(Alignment::Center)
                 .wrapping(Wrapping::None)
                 .line_height(1.0)
-                .size(30)
-                .width(Length::Fill)
-                .align_y(Alignment::Center),
+                .size(30),
             space::horizontal(),
             container(stepper(
                 [
@@ -441,33 +529,221 @@ fn downloading_view<'a>(progress: f32) -> Element<'a, Message> {
     .padding(padding::vertical(12).horizontal(16))
     .style(|theme: &Theme| {
         let mut style = tf2::container::card(theme).shadow(Shadow::default());
-
         style.border = style.border.rounded(0);
-
         style
     });
 
-    let progress = animated_progress_bar(0.0..=100.0, progress)
-        .length(Length::Fill)
-        .girth(50);
+    let game_logo = {
+        let svg_handle = SOURCE_GAMES
+            .iter()
+            .find(|g| g.game == *game)
+            .map(|g| g.image.clone());
+
+        let logo_inner: Element<'a, Message> = if let Some(handle) = svg_handle {
+            svg(handle)
+                .content_fit(ContentFit::Contain)
+                .width(50)
+                .height(50)
+                .into()
+        } else {
+            space::horizontal().width(50).height(50).into()
+        };
+
+        container(logo_inner).center(72)
+    };
+
+    let progress_section = {
+        let status_label = {
+            let label = match phase {
+                DownloadPhase::Connecting => "Connecting to Steam…",
+                DownloadPhase::ResolvingDepots => "Resolving depot manifests…",
+                DownloadPhase::Downloading => "Downloading server files…",
+                DownloadPhase::Validating => "Validating files…",
+                DownloadPhase::Done => "Download complete!",
+            };
+
+            row![
+                if *phase != DownloadPhase::Done {
+                    Element::from(spinner::Circular::new().size(14.0))
+                } else {
+                    icon::check().size(14).style(tf2::text::success).into()
+                },
+                text(label).size(14).style(tf2::text::secondary),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center)
+        };
+
+        let progress_bars: Element<'a, Message> = if depot_status.is_empty() {
+            container(
+                animated_progress_bar(0.0..=100.0, 0.0)
+                    .length(Length::Fill)
+                    .girth(8),
+            )
+            .into()
+        } else {
+            let depots = depot_status.iter().map(|depot| {
+                row![
+                    text(depot.id).width(90).size(11).style(tf2::text::muted),
+                    animated_progress_bar(0.0..=100.0, depot.progress)
+                        .length(Length::Fill)
+                        .girth(8),
+                    text!("{:.0}%", depot.progress)
+                        .size(11)
+                        .font(Font::MONOSPACE)
+                        .style(tf2::text::primary)
+                        .width(36)
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+                .into()
+            });
+
+            column(depots).spacing(8).width(Length::Fill).into()
+        };
+
+        column![status_label, progress_bars]
+            .spacing(8)
+            .width(Length::Fill)
+    };
+
+    let log_tail = {
+        let lines: Vec<Element<Message>> = log
+            .iter()
+            .rev()
+            .take(60)
+            .rev()
+            .map(|line| {
+                let (label, style): (&str, fn(&Theme) -> iced::widget::text::Style) =
+                    if line.contains('%') {
+                        ("DL", tf2::text::primary)
+                    } else if line.contains("Done") || line.contains("Downloaded") {
+                        ("OK", tf2::text::success)
+                    } else {
+                        ("SYS", tf2::text::muted)
+                    };
+
+                row![
+                    container(text(label).center().size(9).font(Font::MONOSPACE))
+                        .width(40)
+                        .align_x(Alignment::Center)
+                        .padding(padding::vertical(1))
+                        .style(tf2::container::main),
+                    text(line.trim())
+                        .size(11)
+                        .font(Font::MONOSPACE)
+                        .style(style)
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+                .into()
+            })
+            .collect();
+
+        container(
+            scrollable(column(lines).width(Length::Fill))
+                .anchor_bottom()
+                .spacing(3),
+        )
+        .width(Length::Fill)
+        .height(160)
+        .padding(padding::all(10))
+        .style(tf2::container::main)
+    };
+
+    let steps = {
+        fn step_row<'a>(label: &'a str, done: bool, active: bool) -> Element<'a, Message> {
+            let icon: Element<Message> = if done {
+                icon::check().size(12).style(tf2::text::success).into()
+            } else if active {
+                spinner::Circular::new().size(12.0).into()
+            } else {
+                icon::circle().size(12).style(tf2::text::muted).into()
+            };
+
+            let label_style = if done {
+                tf2::text::secondary
+            } else if active {
+                tf2::text::primary
+            } else {
+                tf2::text::muted
+            };
+
+            row![
+                container(icon).width(18).center(18),
+                text(label).size(12).style(label_style),
+            ]
+            .spacing(10)
+            .align_y(Alignment::Center)
+            .into()
+        }
+
+        let connecting_done = *phase > DownloadPhase::Connecting;
+        let connecting_active = *phase == DownloadPhase::Connecting;
+
+        let resolving_done = *phase > DownloadPhase::ResolvingDepots;
+        let resolving_active = *phase == DownloadPhase::ResolvingDepots;
+
+        let dl_done = *phase > DownloadPhase::Downloading;
+        let dl_active = *phase == DownloadPhase::Downloading;
+
+        let val_done = *phase >= DownloadPhase::Done;
+        let val_active = *phase == DownloadPhase::Validating;
+
+        column![
+            step_row(
+                "Authenticating with Steam",
+                connecting_done,
+                connecting_active
+            ),
+            step_row(
+                "Resolving depot manifests",
+                resolving_done,
+                resolving_active
+            ),
+            step_row("Downloading server files", dl_done, dl_active),
+            step_row("Validating & writing files", val_done, val_active),
+        ]
+        .spacing(6)
+        .width(Length::Fill)
+    };
+
+    let card = container(
+        column![
+            container(
+                column![
+                    game_logo,
+                    text(game.to_string())
+                        .size(20)
+                        .font(Font::new("TF2 Build"))
+                        .line_height(1.0),
+                ]
+                .spacing(14)
+                .align_x(Alignment::Center),
+            )
+            .width(Length::Fill)
+            .align_x(Alignment::Center),
+            rule::horizontal(1),
+            progress_section,
+            log_tail,
+            rule::horizontal(1),
+            steps,
+        ]
+        .spacing(16),
+    )
+    .width(520)
+    .padding(24)
+    .style(tf2::container::card);
 
     container(
-        column![
-            header,
-            center(
-                container(progress)
-                    .width(620)
-                    .padding(24)
-                    .style(tf2::container::card),
-            )
-        ]
-        .width(Length::Fill)
-        .height(Length::Fill),
+        column![header, center(card).padding(50)]
+            .width(Length::Fill)
+            .height(Length::Fill),
     )
     .width(Length::Fill)
     .height(Length::Fill)
     .align_x(Alignment::Center)
-    .style(tf2::container::main)
+    .style(|theme| tf2::container::main(theme).border(border::width(0)))
     .into()
 }
 
@@ -659,20 +935,17 @@ fn info_view<'a>(server: &'a ServerInfo) -> Element<'a, Message> {
     .width(Length::Fill)
     .height(Length::Fill)
     .padding(40)
-    .style(tf2::container::main)
+    .style(|theme| tf2::container::main(theme).border(border::width(0)))
     .into()
 }
 
-pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), f32, Error> {
-    let testun = path.to_str().unwrap_or("server").to_string();
-
+pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), DownloadUpdate, Error> {
+    let install_path = path.to_str().unwrap_or("server").to_string();
     let appid = appid.clone();
 
     sipper(async move |mut progress| {
         #[cfg(target_os = "windows")]
         {
-            // It was quicker to implement it here. I should move this in its own thingy down the line.
-
             const SRCDS_FIX_LINK: &str = "https://github.com/tsuza/srcds-pipe-passthrough-fix/releases/latest/download/srcds-fix-x86.exe";
 
             let srcds_fix_contents = reqwest::get(SRCDS_FIX_LINK)
@@ -682,26 +955,115 @@ pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), f32, Error>
                 .await
                 .unwrap();
 
-            let _ = std::fs::write(format!("{}/srcds-fix.exe", testun), srcds_fix_contents);
+            let _ = std::fs::write(
+                format!("{}/srcds-fix.exe", install_path),
+                srcds_fix_contents,
+            );
         }
 
-        let mut depot = DepotDownloader::new("./depotdownloader")
+        // TODO: Port SteamKit to Rust and use that instead
+        let mut depot_downloader = DepotDownloader::new("./depotdownloader")
             .await
             .context(ServerDownloadSnafu)?;
 
-        let stdout = depot
-            .download_app(&testun, appid.into())
+        let stdout = depot_downloader
+            .download_app(&install_path, appid.into())
             .await
             .context(ServerDownloadSnafu)?;
 
         if let Some(stdout) = stdout {
             let mut reader = BufReader::new(stdout).lines();
 
+            let mut depots: Vec<DepotStatus> = Vec::new();
+            let mut current_depot: Option<u32> = None;
+            let mut phase = DownloadPhase::Connecting;
+
             while let Some(line) = reader.next_line().await.context(IoSnafu)? {
-                if let Some(percent) = line.split("%").next() {
-                    if let Ok(percent) = percent.trim().parse::<f32>() {
-                        let _ = progress.send(percent).await;
+                let trimmed = line.trim();
+
+                phase = phase.advance(trimmed);
+
+                if let Some(rest) = trimmed.strip_prefix("Processing depot ") {
+                    if let Ok(id) = rest.trim().parse::<u32>() {
+                        if !depots.iter().any(|depot| depot.id == id) {
+                            depots.push(DepotStatus { id, progress: 0.0 });
+                        }
+                        current_depot = Some(id);
+                        let _ = progress
+                            .send(DownloadUpdate {
+                                depots: depots.clone(),
+                                phase: phase.clone(),
+                                raw_line: line.clone(),
+                            })
+                            .await;
                     }
+                    continue;
+                }
+
+                if trimmed.starts_with("Downloading depot ") {
+                    if let Some(id) = trimmed
+                        .split("depot ")
+                        .nth(1)
+                        .and_then(|s| s.split_whitespace().next())
+                        .and_then(|s| s.parse::<u32>().ok())
+                    {
+                        current_depot = Some(id);
+                        let _ = progress
+                            .send(DownloadUpdate {
+                                depots: depots.clone(),
+                                phase: phase.clone(),
+                                raw_line: line.clone(),
+                            })
+                            .await;
+                    }
+                    continue;
+                }
+
+                if let Some(rest) = trimmed.strip_prefix("Depot ") {
+                    if let Some(dash) = rest.find(" - Downloaded ") {
+                        if let Ok(id) = rest[..dash].trim().parse::<u32>() {
+                            if let Some(depot) = depots.iter_mut().find(|depot| depot.id == id) {
+                                depot.progress = 100.0;
+                            }
+
+                            let _ = progress
+                                .send(DownloadUpdate {
+                                    depots: depots.clone(),
+                                    phase: phase.clone(),
+                                    raw_line: line.clone(),
+                                })
+                                .await;
+                        }
+                    }
+                    continue;
+                }
+
+                if let Some(pct_end) = trimmed.find('%') {
+                    if let Ok(pct) = trimmed[..pct_end].trim().parse::<f32>() {
+                        if let Some(id) = current_depot {
+                            if let Some(d) = depots.iter_mut().find(|d| d.id == id) {
+                                d.progress = pct;
+                            }
+                        }
+                        let _ = progress
+                            .send(DownloadUpdate {
+                                depots: depots.clone(),
+                                phase: phase.clone(),
+                                raw_line: line.clone(),
+                            })
+                            .await;
+                    }
+                    continue;
+                }
+
+                if !trimmed.starts_with("Pre-allocating") {
+                    let _ = progress
+                        .send(DownloadUpdate {
+                            depots: depots.clone(),
+                            phase: phase.clone(),
+                            raw_line: line.clone(),
+                        })
+                        .await;
                 }
             }
         }
@@ -712,19 +1074,8 @@ pub fn download_server(path: PathBuf, appid: Game) -> impl Straw<(), f32, Error>
 
 #[derive(Debug, Clone)]
 pub enum Update {
-    Downloading(f32),
+    Downloading(DownloadUpdate),
     Finished(Result<(), Error>),
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            form_page: FormSection::GameSelection,
-            server: ServerInfo::default(),
-            is_downloading: false,
-            progress: 0.0,
-        }
-    }
 }
 
 #[derive(Snafu, Debug, Clone)]
