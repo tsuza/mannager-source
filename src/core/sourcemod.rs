@@ -83,12 +83,9 @@ impl SourcemodDownloader {
                 .context(ZipSnafu)
                 .context(ArchiveExtractionSnafu)?;
 
-            zip.extract(
-                path.to_path_buf()
-                    .join(format!("{}/", get_arg_game_name(game))),
-            )
-            .context(ZipSnafu)
-            .context(ArchiveExtractionSnafu)?;
+            zip.extract(path.to_path_buf().join(format!("{}/", game.arg_name())))
+                .context(ZipSnafu)
+                .context(ArchiveExtractionSnafu)?;
         }
 
         Ok(())
