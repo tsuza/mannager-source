@@ -1,180 +1,77 @@
-name: "Release"
+name: Deploy to GitHub Releases
+
+on:
+  workflow_dispatch:
 
 permissions:
   contents: write
-  
-on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Specify tag to create"
-        required: true
 
 jobs:
   build:
-    name: Build
     strategy:
       matrix:
-        target:
-          - target: windows
-            os: windows-latest
-            make: bash scripts/build-windows-installer.sh
-            artifact_path: |
-              echo "ARTIFACT_PATH=target/release/mannager-installer.msi" >> $env:GITHUB_ENV
-          - target: linux
-            os: ubuntu-latest
-            make: bash scripts/package-linux.sh
-            artifact_path: |
-              echo "ARTIFACT_PATH=.temp" >> "$GITHUB_ENV"
-    runs-on: ${{ matrix.target.os }}
+        include:
+          - os: windows-latest
+            exe: mannager.exe
+          - os: ubuntu-latest
+            exe: mannager
+
+    runs-on: ${{ matrix.os }}
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install linux deps
-        if: matrix.target.target == 'linux'
-        run: |
-          sudo apt update
-          sudo apt install \
-            build-essential \
-            git \
-            pkg-config \
-            libdbus-1-dev \
-            libudev-dev \
-            libxkbcommon-dev \
-            libfontconfig1-dev \
-            libasound2-dev \
-            flatpak-builder
+      - name: Get version from Cargo.toml
+        id: get-version
+        shell: bash
+        run: echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/version = \"//;s/\"//')" >> $GITHUB_OUTPUT
 
-      - name: Install deps with Chocolatey
-        if: matrix.target.target == 'windows'
-        run: |
-          choco install pandoc -y
-          choco install imagemagick -y
-
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.target.target }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v3
+      - name: Cache Rust build
+        uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
+            ~/.cargo/registry
+            ~/.cargo/git
             target
-          key: ${{ matrix.target.target }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Build
-        run: ${{ matrix.target.make }}
+        run: cargo build --release
 
-      - name: Set artifact path
-        run: ${{ matrix.target.artifact_path }}
-
-      - name: Upload artifact
-        if: matrix.target.target == 'linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.target.target }}
-          path: |
-            .temp/mannager-*linux.tar.gz
-            .temp/MANNager*.AppImage
-            .temp/mannager*.flatpak
-          if-no-files-found: error
-          include-hidden-files: true
-
-      - name: Upload artifact
-        if: matrix.target.target == 'windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.target.target }}
-          path: ${{ env.ARTIFACT_PATH }}
-          if-no-files-found: error
-          include-hidden-files: true
-
-  create-release:
-    needs: build
-    name: Create Release
-    outputs:
-      upload_url: ${{ steps.create-release.outputs.upload_url }}
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      - name: Create Release
-        id: create-release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          release_name: ${{ github.event.inputs.tag }}
-          draft: true
-          prerelease: false
-
-  add-assets:
-    needs: create-release
-    name: Add Assets
-
-    strategy:
-      matrix:
-        target:
-          - artifact: windows
-            os: windows
-            artifact_name: "mannager-installer.msi" 
-            asset_type: application/x-dosexec
-          - artifact: linux_tar
-            os: linux
-            artifact_name: "mannager-*linux.tar.gz"  
-            asset_type: application/gzip
-          - artifact: linux_appimage
-            os: linux
-            artifact_name: "MANNager*.AppImage" 
-            asset_type: application/octet-stream
-          - artifact: linux_flatpak
-            os: linux
-            artifact_name: "mannager*.flatpak"  
-            asset_type: application/octet-stream
-
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ matrix.target.os }}
-          path: ${{ matrix.target.os }}
-
-      - name: Set artifact name for linux
-        if: matrix.target.os == 'linux'
+      - name: Stage release files
+        shell: bash
         run: |
-          echo "ARTIFACT_NAME=$(ls ./linux/${{ matrix.target.artifact_name }} | head -n 1)" >> "$GITHUB_ENV"
+          mkdir staging
+          cp target/release/${{ matrix.exe }} staging/
 
-      - name: Set artifact name for windows
-        if: matrix.target.os == 'windows'
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Pack
+        shell: bash
         run: |
-          echo "ARTIFACT_NAME=mannager-installer.msi" >> "$GITHUB_ENV"
+          mkdir Releases
 
-      - name: Upload asset
-        if: matrix.target.os == 'linux'
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.ARTIFACT_NAME }}
-          asset_name: ${{ env.ARTIFACT_NAME }}
-          asset_content_type: ${{ matrix.target.asset_type }}
+          vpk pack \
+            -u net.tsuza.mannager \
+            -v ${{ steps.get-version.outputs.version }} \
+            -p staging \
+            -o ./Releases
+            -e ${{ matrix.exe }}
+            --packTitle mannager
+            --packAuthors "tsuza"
+            --icon assets/app_icon.png
+            --releaseNotes CHANGELOG.md
 
-      - name: Upload asset
-        if: matrix.target.os == 'windows'
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ matrix.target.os }}/${{ env.ARTIFACT_NAME }}
-          asset_name: ${{ env.ARTIFACT_NAME }}
-          asset_content_type: ${{ matrix.target.asset_type }}
+      - name: Upload
+        shell: bash
+        run: |
+          vpk upload github \
+            --repoUrl https://github.com/${{ github.repository }} \
+            --publish \
+            --releaseName "v${{ steps.get-version.outputs.version }}" \
+            --tag v${{ steps.get-version.outputs.version }} \
+            --token ${{ secrets.GITHUB_TOKEN }}
