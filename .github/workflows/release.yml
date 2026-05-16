@@ -42,9 +42,19 @@ jobs:
           name: binary-${{ matrix.os }}
           path: target/release/${{ matrix.exe }}
 
-  release:
+  pack:
     needs: build
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            exe: mannager.exe
+            binary-artifact: binary-windows-latest
+          - os: ubuntu-latest
+            exe: mannager
+            binary-artifact: binary-ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -55,52 +65,81 @@ jobs:
         shell: bash
         run: echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/version = \"//;s/\"//')" >> $GITHUB_OUTPUT
 
-      - name: Download Windows binary
+      - name: Download binary
         uses: actions/download-artifact@v4
         with:
-          name: binary-windows-latest
-          path: staging/windows
+          name: ${{ matrix.binary-artifact }}
+          path: staging
 
-      - name: Download Linux binary
-        uses: actions/download-artifact@v4
-        with:
-          name: binary-ubuntu-22.04
-          path: staging/linux
+      - name: Fix binary permissions
+        if: matrix.os == 'ubuntu-latest'
+        run: chmod +x staging/${{ matrix.exe }}
 
       - name: Install vpk
         run: dotnet tool install -g vpk
 
       - name: Pack Windows
+        if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           vpk pack \
             -u net.tsuza.mannager \
             -v ${{ steps.get-version.outputs.version }} \
-            -p staging/windows \
+            -p staging \
             --mainExe mannager.exe \
             --packTitle mannager \
             --packAuthors "tsuza" \
             --icon assets/app_icon.ico \
-            --releaseNotes CHANGELOG.md
+            --splashImage assets/splash.gif \
+            --releaseNotes CHANGELOG.md \
+            --delta BestSize
 
       - name: Pack Linux
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           vpk pack \
             -u net.tsuza.mannager \
             -v ${{ steps.get-version.outputs.version }} \
-            -p staging/linux \
+            -p staging \
             --mainExe mannager \
             --packTitle mannager \
             --packAuthors "tsuza" \
-            --releaseNotes CHANGELOG.md
+            --releaseNotes CHANGELOG.md \
+            --delta BestSize
 
-      - name: Upload
+      - name: Upload release files as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: Releases/
+
+  release:
+    needs: pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get version from Cargo.toml
+        id: get-version
         shell: bash
-        run: |
-          vpk upload github \
-            --repoUrl https://github.com/${{ github.repository }} \
-            --publish \
-            --releaseName "v${{ steps.get-version.outputs.version }}" \
-            --tag v${{ steps.get-version.outputs.version }} \
-            --token ${{ secrets.GITHUB_TOKEN }}
+        run: echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/version = \"//;s/\"//')" >> $GITHUB_OUTPUT
+
+      - name: Download Windows release files
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-latest
+          path: release-files
+
+      - name: Download Linux release files
+        uses: actions/download-artifact@v4
+        with:
+          name: release-ubuntu-latest
+          path: release-files
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get-version.outputs.version }}
+          name: v${{ steps.get-version.outputs.version }}
+          body_path: CHANGELOG.md
+          files: release-files/*
