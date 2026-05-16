@@ -92,6 +92,7 @@ jobs:
             --packTitle mannager \
             --packAuthors "tsuza" \
             --icon assets/windows/mannager.ico \
+            --splashImage assets/windows/banner.png \
             --releaseNotes CHANGELOG.md \
             --delta BestSize
 
@@ -121,6 +122,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Get version from Cargo.toml
         id: get-version
         shell: bash
