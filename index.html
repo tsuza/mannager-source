@@ -2,221 +2,1173 @@
 <html lang="en">
 
 <head>
-   <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>MANNager</title>
-   <script src="https://cdn.tailwindcss.com"></script>
-   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-   <script>
-      tailwind.config = {
-         theme: {
-            extend: {
-               colors: {
-                  'warm-black-light': 'rgb(43, 42, 39)',
-                  'warm-black-dark': 'rgb(33, 32, 29)',
-                  'custom-orange': '#ff6600',
-               }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MANNager — Source Engine Server Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #1c1a17;
+            --bg-card: #272320;
+            --bg-inset: #1a1815;
+            --border: #38322b;
+            --border-l: #46403a;
+            --orange: #cf6229;
+            --amber: #e08830;
+            --red: #c0392b;
+            --green: #4caf50;
+            --text: #ede4d4;
+            --text-2: #96897a;
+            --text-m: #574f47;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Barlow', sans-serif;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+            opacity: .4;
+        }
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 48px;
+            background: rgba(28, 26, 23, .85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: .02em;
+            color: var(--text);
+        }
+
+        .nav-logo span {
+            color: var(--orange);
+        }
+
+        .nav-logo img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 6px rgba(207, 98, 41, .4));
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-2);
+            text-decoration: none;
+            border: 1px solid var(--border);
+            transition: all .15s;
+        }
+
+        .nav-link:hover {
+            border-color: var(--orange);
+            color: var(--orange);
+        }
+
+        .nav-link svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .btn-dl {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 8px;
+            background: var(--orange);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: background .15s, transform .15s;
+        }
+
+        .btn-dl:hover {
+            background: var(--amber);
+            transform: translateY(-1px);
+        }
+
+        .btn-dl svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding: 120px 48px 80px;
+            overflow: hidden;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            right: -200px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 700px;
+            height: 700px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(207, 98, 41, .12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 64px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--orange);
+            background: rgba(207, 98, 41, .1);
+            border: 1px solid rgba(207, 98, 41, .25);
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-bottom: 20px;
+            animation: fadeUp .6s ease both;
+        }
+
+        .hero-label::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--orange);
+            animation: pulse 2s infinite;
+        }
+
+        .hero-screenshot {
+            background: var(--bg-inset);
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        .hero-screenshot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
             }
-         }
-      }
-   </script>
-   <style>
-      body {
-         font-family: 'Poppins', sans-serif;
-      }
 
-      img {
-         max-width: 100%;
-         object-fit: contain;
-      }
+            50% {
+                opacity: .3
+            }
+        }
 
-      .perspective-container {
-         perspective: 1000px;
-      }
+        .hero-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: clamp(52px, 7vw, 88px);
+            font-weight: 900;
+            line-height: .95;
+            letter-spacing: -.01em;
+            margin-bottom: 24px;
+            animation: fadeUp .6s .1s ease both;
+        }
 
-      .image-3d {
-         transform: rotateY(-20deg) rotateX(5deg);
-         transition: transform 0.3s ease, box-shadow 0.3s ease;
-         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
-      }
+        .hero-title em {
+            font-style: normal;
+            color: var(--orange);
+            display: block;
+        }
 
-      .image-3d:hover {
-         transform: rotateY(-15deg) rotateX(3deg) scale(1.05) translateZ(20px);
-         box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6);
-      }
+        .hero-sub {
+            font-size: 17px;
+            font-weight: 400;
+            color: var(--text-2);
+            line-height: 1.6;
+            max-width: 440px;
+            margin-bottom: 36px;
+            animation: fadeUp .6s .2s ease both;
+        }
 
-      /* Make sure the swiper-container is relative */
-      .swiper-container {
-         width: 100%;
-         overflow: hidden;
-         position: relative;
-         /* Added to make pagination positioning possible */
-      }
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: fadeUp .6s .3s ease both;
+        }
 
-      .swiper-wrapper {
-         display: flex;
-         align-items: center;
-      }
+        .btn-big {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 13px 28px;
+            border-radius: 9px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all .15s;
+        }
 
-      .swiper-slide {
-         text-align: center;
-         height: 500px;
-         min-height: 500px;
-         max-height: 500px;
-         display: flex;
-         justify-content: center;
-         align-items: center;
-         padding: 20px;
-      }
+        .btn-big-primary {
+            background: var(--orange);
+            color: #fff;
+        }
 
-      /* Ensure pagination is positioned correctly */
-      .swiper-pagination {
-         position: absolute;
-         top: 40px;
-         /* This positions it at the bottom */
-         left: 0;
-         right: 0;
-         text-align: center;
-         z-index: 10;
-         /* Ensure it's above other elements */
-      }
+        .btn-big-primary:hover {
+            background: var(--amber);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(207, 98, 41, .35);
+        }
 
-      /* Custom bullet style */
-      .swiper-pagination-bullet {
-         background-color: #ff6600 !important;
-         height: 15px !important;
-         width: 15px !important;
-         opacity: 1;
-      }
+        .btn-big-ghost {
+            background: transparent;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
 
-      .swiper-pagination-bullet-active {
-         background-color: #ffa500 !important;
-      }
-   </style>
-   <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+        .btn-big-ghost:hover {
+            border-color: var(--border-l);
+            color: var(--text);
+        }
+
+        .btn-big svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 28px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-m);
+            animation: fadeUp .6s .4s ease both;
+        }
+
+        .hero-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hero-meta-item svg {
+            width: 13px;
+            height: 13px;
+            color: var(--orange);
+        }
+
+        .hero-visual {
+            position: relative;
+            animation: fadeUp .7s .15s ease both;
+        }
+
+        .screen-frame {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .04);
+            transform: perspective(1000px) rotateY(-6deg) rotateX(3deg);
+            transition: transform .4s ease;
+        }
+
+        .screen-frame:hover {
+            transform: perspective(1000px) rotateY(-2deg) rotateX(1deg);
+        }
+
+        .screen-titlebar {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 14px;
+            background: var(--bg-inset);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .screen-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .section-divider {
+            height: 1px;
+            background: var(--border);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features {
+            padding: 100px 48px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-label-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .section-eyebrow {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--orange);
+        }
+
+        .section-line {
+            height: 1px;
+            flex: 1;
+            background: var(--border);
+        }
+
+        .section-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: clamp(40px, 5vw, 60px);
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 64px;
+        }
+
+        .section-title span {
+            color: var(--orange);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .feature-cell {
+            background: var(--bg-card);
+            padding: 36px 28px;
+            position: relative;
+            transition: background .2s;
+        }
+
+        .feature-cell:hover {
+            background: #2c2824;
+        }
+
+        .feature-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(207, 98, 41, .1);
+            border: 1px solid rgba(207, 98, 41, .2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: var(--orange);
+        }
+
+        .feature-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .feature-name {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: .02em;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+
+        .feature-desc {
+            font-size: 13px;
+            color: var(--text-2);
+            line-height: 1.65;
+        }
+
+        .how {
+            padding: 80px 48px 100px;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .how-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            margin-top: 60px;
+            position: relative;
+        }
+
+        .steps::before {
+            content: '';
+            position: absolute;
+            top: 28px;
+            left: calc(16.67% + 20px);
+            right: calc(16.67% + 20px);
+            height: 1px;
+            background: linear-gradient(90deg, var(--orange), var(--border), var(--orange));
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 0 24px;
+        }
+
+        .step-num {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 2px solid var(--orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--orange);
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 0 0 6px var(--bg-card);
+        }
+
+        .step-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: .02em;
+            margin-bottom: 8px;
+        }
+
+        .step-desc {
+            font-size: 13px;
+            color: var(--text-2);
+            line-height: 1.65;
+        }
+
+        .screenshots {
+            padding: 100px 48px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .screenshot-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--bg-inset);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 4px;
+            width: fit-content;
+            margin-bottom: 40px;
+        }
+
+        .tab-btn {
+            padding: 7px 18px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-m);
+            transition: all .15s;
+        }
+
+        .tab-btn.active {
+            background: var(--orange);
+            color: #fff;
+        }
+
+        .tab-btn:not(.active):hover {
+            color: var(--text-2);
+        }
+
+        .screenshot-pane {
+            display: none;
+        }
+
+        .screenshot-pane.active {
+            display: flex;
+            gap: 48px;
+            align-items: center;
+        }
+
+        .screenshot-img-wrap {
+            flex: 1;
+            max-width: 720px;
+            posiiton: relative;
+        }
+
+        .screenshot-img-wrap img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+            aspect-ratio: 16 / 10;
+            object-fit: cover;
+        }
+
+        .screenshot-img-wrap::before {
+            content: '';
+            position: absolute;
+            inset: -20px;
+            background: radial-gradient(ellipse at center, rgba(207, 98, 41, .1), transparent 70%);
+            pointer-events: none;
+        }
+
+        .screenshot-text {
+            flex: 1;
+        }
+
+        .screenshot-num {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 80px;
+            font-weight: 900;
+            color: var(--border);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .screenshot-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 12px;
+            letter-spacing: -.01em;
+        }
+
+        .screenshot-desc {
+            font-size: 15px;
+            color: var(--text-2);
+            line-height: 1.7;
+        }
+
+        .platforms {
+            padding: 60px 48px 100px;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 80px;
+            flex-wrap: wrap;
+        }
+
+        .platform-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            opacity: .6;
+            transition: opacity .2s;
+        }
+
+        .platform-item:hover {
+            opacity: 1;
+        }
+
+        .platform-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-2);
+        }
+
+        .platform-icon svg {
+            width: 48px;
+            height: 48px;
+        }
+
+        .platform-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-2);
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .cta {
+            padding: 80px 48px;
+            text-align: center;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+        }
+
+        .cta-inner {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cta-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: clamp(44px, 6vw, 72px);
+            font-weight: 900;
+            line-height: .95;
+            margin-bottom: 20px;
+        }
+
+        .cta-title span {
+            color: var(--orange);
+        }
+
+        .cta-sub {
+            font-size: 16px;
+            color: var(--text-2);
+            margin-bottom: 36px;
+            line-height: 1.6;
+        }
+
+        footer {
+            padding: 32px 48px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .footer-logo {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: .02em;
+            color: var(--text-m);
+        }
+
+        .footer-logo span {
+            color: var(--orange);
+        }
+
+        .footer-copy {
+            font-size: 12px;
+            color: var(--text-m);
+        }
+
+        .fade-in {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity .6s ease, transform .6s ease;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media(max-width:900px) {
+            nav {
+                padding: 14px 20px;
+            }
+
+            .hero {
+                padding: 100px 20px 60px;
+            }
+
+            .hero-inner {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .features {
+                padding: 60px 20px;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .how {
+                padding: 60px 20px;
+            }
+
+            .steps {
+                grid-template-columns: 1fr;
+            }
+
+            .steps::before {
+                display: none;
+            }
+
+            .screenshots {
+                padding: 60px 20px;
+            }
+
+            .screenshot-pane.active {
+                flex-direction: column;
+            }
+
+            .platforms {
+                padding: 40px 20px 60px;
+                gap: 40px;
+            }
+
+            .cta {
+                padding: 60px 20px;
+            }
+
+            footer {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+        }
+    </style>
 </head>
 
-<body class="bg-gradient-to-br from-warm-black-light to-warm-black-dark text-gray-200 min-h-screen">
-   <div class="container mx-auto px-4 py-12">
-      <header class="flex justify-between items-center mb-12">
-         <div class="text-3xl font-bold text-custom-orange">MANNager</div>
-         <nav>
-            <a href="https://github.com/tsuza/mannager-source" target="_blank"
-               class="ml-4 border-2 border-custom-orange text-custom-orange px-3 py-2 rounded hover:bg-custom-orange hover:text-white transition duration-300 flex items-center">
-               <!-- GitHub Icon from Heroicons -->
-               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                     d="M12 2C6.477 2 2 6.484 2 12.008c0 4.42 2.865 8.166 6.839 9.487.5.091.682-.216.682-.482 0-.237-.008-.868-.012-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.464-1.11-1.464-.908-.621.068-.608.068-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.529 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.22-.253-4.555-1.115-4.555-4.959 0-1.094.39-1.988 1.029-2.688-.104-.253-.447-1.272.097-2.65 0 0 .84-.269 2.75 1.025A9.548 9.548 0 0112 6.844c.85.004 1.704.115 2.503.338 1.909-1.294 2.748-1.025 2.748-1.025.546 1.378.203 2.397.1 2.65.64.7 1.028 1.594 1.028 2.688 0 3.853-2.338 4.702-4.566 4.949.36.311.679.92.679 1.854 0 1.338-.012 2.419-.012 2.747 0 .267.18.576.688.479C19.138 20.168 22 16.422 22 12.008 22 6.484 17.523 2 12 2z" />
-               </svg>
-               GitHub
+<body>
+    <nav>
+        <div class="nav-logo">
+            <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/app_icon.png"
+                alt="logo">
+            MANNager
+        </div>
+        <div class="nav-right">
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#screenshots" class="nav-link">Screenshots</a>
+            <a href="#" class="nav-link">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2C6.477 2 2 6.484 2 12.008c0 4.42 2.865 8.166 6.839 9.487.5.091.682-.216.682-.482 0-.237-.008-.868-.012-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.464-1.11-1.464-.908-.621.068-.608.068-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.529 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.22-.253-4.555-1.115-4.555-4.959 0-1.094.39-1.988 1.029-2.688-.104-.253-.447-1.272.097-2.65 0 0 .84-.269 2.75 1.025A9.548 9.548 0 0112 6.844c.85.004 1.704.115 2.503.338 1.909-1.294 2.748-1.025 2.748-1.025.546 1.378.203 2.397.1 2.65.64.7 1.028 1.594 1.028 2.688 0 3.853-2.338 4.702-4.566 4.949.36.311.679.92.679 1.854 0 1.338-.012 2.419-.012 2.747 0 .267.18.576.688.479C19.138 20.168 22 16.422 22 12.008 22 6.484 17.523 2 12 2z" />
+                </svg>
+                GitHub
             </a>
-         </nav>
-      </header>
-      <main class="flex flex-col md:flex-row items-center justify-between">
-         <div class="md:w-1/2 mb-8 md:mb-0">
-            <h1 class="text-5xl font-bold mb-4">Host Your <span class="text-custom-orange">Source Engine Dedicated
-                  Server</span> With Ease</h1>
-            <p class="text-xl mb-6">Easily create, download, manage, port forward, and test your server.</p>
-            <button onclick="window.location.href='https://github.com/tsuza/mannager-source/releases/latest'"
-               class="bg-custom-orange hover:bg-orange-700 text-white font-bold py-2 px-4 rounded flex items-center space-x-2">
-               <span>Download Now</span>
-            </button>
-         </div>
-         <div class="md:w-1/2 perspective-container">
-            <img
-               src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/overview.png"
-               class="rounded-lg image-3d w-full">
-         </div>
-      </main>
-      <section class="mt-20">
-         <h2 class="text-3xl font-bold mb-8 text-center">Why Choose <span class="text-custom-orange">MANNager</span>?
-         </h2>
-         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
-               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Setup</h3>
-               <p>Quickly download & setup your server.</p>
+            <a href="#" class="btn-dl">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="8 17 12 21 16 17" />
+                    <line x1="12" y1="12" x2="12" y2="21" />
+                    <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+                </svg>
+                Download
+            </a>
+        </div>
+    </nav>
+    <section class="hero">
+        <div class="hero-inner">
+            <div class="hero-copy">
+                <div class="hero-label">
+                    <span></span>Source Engine Server Manager
+                </div>
+                <h1 class="hero-title">
+                    Host your own<br>
+                    <em>server.</em>
+                    Easily.
+                </h1>
+                <p class="hero-sub">Create, download, manage, port-forward, and monitor your Source Engine dedicated
+                    servers — all from one clean interface.</p>
+                <div class="hero-actions">
+                    <a href="#" class="btn-big btn-big-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="8 17 12 21 16 17" />
+                            <line x1="12" y1="12" x2="12" y2="21" />
+                            <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+                        </svg>
+                        Download Free
+                    </a>
+                    <a href="#features" class="btn-big btn-big-ghost">See Features →</a>
+                </div>
+                <div class="hero-meta">
+                    <div class="hero-meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Free &amp; open source
+                    </div>
+                    <div class="hero-meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Linux &amp; Windows
+                    </div>
+                    <div class="hero-meta-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        TF2, CS:GO &amp; more
+                    </div>
+                </div>
             </div>
-            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
-               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Automatic Port Forwarding</h3>
-               <p>Pain-free port forwarding to allow outside people join your server.</p>
+            <div class="hero-visual">
+                <div class="screen-frame">
+                    <div class="screen-titlebar">
+                        <div class="screen-dot" style="background:#e05252"></div>
+                        <div class="screen-dot" style="background:#e0a052"></div>
+                        <div class="screen-dot" style="background:#52e052"></div>
+                    </div>
+                    <div class="hero-screenshot">
+                        <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/overview.png"
+                            alt="MANNager Screenshot">
+                    </div>
+                </div>
             </div>
-            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
-               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Sourcemod</h3>
-               <p>Integrated Sourcemod download that is one click away.</p>
+    </section>
+    <section id="features" class="features">
+        <div class="section-label-wrap fade-in">
+            <span class="section-eyebrow">Why MANNager</span>
+            <div class="section-line"></div>
+        </div>
+        <h2 class="section-title fade-in">Everything you need to<br><span>run a server.</span></h2>
+        <div class="features-grid fade-in">
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="8 17 12 21 16 17" />
+                        <line x1="12" y1="12" x2="12" y2="21" />
+                        <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+                    </svg>
+                </div>
+                <div class="feature-name">One-click Setup</div>
+                <div class="feature-desc">Download and configure any Source Engine server in minutes. DepotDownloader is
+                    handled for you automatically.</div>
             </div>
-            <div class="bg-warm-black-light bg-opacity-50 p-6 rounded-lg">
-               <h3 class="text-xl font-semibold mb-2 text-custom-orange">Cross-Platform</h3>
-               <p>Use it both on Linux & Windows.</p>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                        <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                        <line x1="12" y1="20" x2="12.01" y2="20" />
+                    </svg>
+                </div>
+                <div class="feature-name">Port Forwarding</div>
+                <div class="feature-desc">Automatic UPnP and SDR relay support so players around the world can connect
+                    without router headaches.</div>
             </div>
-         </div>
-      </section>
-   </div>
-   <section class="mt-20">
-      <h2 class="text-3xl font-bold mb-8 text-center">Screenshots</h2>
-      <div class="swiper-container">
-         <div class="swiper-wrapper">
-            <!-- Slide 1 -->
-            <div class="swiper-slide flex items-center justify-center bg-warm-black-light p-8 rounded-lg">
-               <div class="flex flex-col md:flex-row items-center">
-                  <div class="md:w-1/2">
-                     <img
-                        src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/overview.png"
-                        class="rounded-lg w-[600px] image-3d" alt="Image 1">
-                  </div>
-                  <div class="md:w-1/2 md:ml-8 text-gray-200 text-left">
-                     <h3 class="text-2xl font-semibold text-custom-orange mb-4">Overview</h3>
-                     <p>Overview of the main app page with a few servers being showcased, including a server that is
-                        currently running and the context menu</p>
-                  </div>
-               </div>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="4 17 10 11 4 5" />
+                        <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
+                </div>
+                <div class="feature-name">Live Console</div>
+                <div class="feature-desc">Built-in server terminal, command history.</div>
             </div>
-            <!-- Slide 2 -->
-            <div class="swiper-slide flex items-center justify-center bg-warm-black-light p-8 rounded-lg">
-               <div class="flex flex-col md:flex-row items-center">
-                  <div class="md:w-1/2">
-                     <img
-                        src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_creation.png"
-                        class="rounded-lg w-[600px] image-3d" alt="Image 2">
-                  </div>
-                  <div class="md:w-1/2 md:ml-8 text-gray-200 text-left">
-                     <h3 class="text-2xl font-semibold text-custom-orange mb-4">Server Creation</h3>
-                     <p>Showcase of ( a portion of ) the server creation.</p>
-                  </div>
-               </div>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                        <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
+                    </svg>
+                </div>
+                <div class="feature-name">Sourcemod</div>
+                <div class="feature-desc">Download Sourcemod stable or dev branch with a single click, directly
+                    integrated into the manager.</div>
             </div>
-            <!-- Slide 3 -->
-            <div class="swiper-slide flex items-center justify-center bg-warm-black-light p-8 rounded-lg">
-               <div class="flex flex-col md:flex-row items-center">
-                  <div class="md:w-1/2">
-                     <img
-                        src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_terminal.png"
-                        class="rounded-lg w-[600px] image-3d" alt="Image 3">
-                  </div>
-                  <div class="md:w-1/2 md:ml-8 text-gray-200 text-left">
-                     <h3 class="text-2xl font-semibold text-custom-orange mb-4">Server Terminal</h3>
-                     <p>Built-in native server terminal.</p>
-                  </div>
-               </div>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                </div>
+                <div class="feature-name">Live Editing</div>
+                <div class="feature-desc">Edit server name, password, map, max players, port, and GSLT token inline. No
+                    config files needed.</div>
             </div>
-         </div>
-         <!-- Add Pagination -->
-         <div class="swiper-pagination mt-4"></div>
-      </div>
-   </section>
-   <div style="height: 200px"></div>
-   <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
-   <script>
-      const swiper = new Swiper('.swiper-container', {
-         grabCursor: true,
-         centeredSlides: true,
-         pagination: {
-            el: '.swiper-pagination',
-            bulletActiveClass: 'swiper-pagination-bullet-active',
-            dynamicBullets: true,
-            clickable: true,
-         },
-      });
-   </script>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="2" width="20" height="8" rx="2" />
+                        <rect x="2" y="14" width="20" height="8" rx="2" />
+                        <line x1="6" y1="6" x2="6.01" y2="6" />
+                        <line x1="6" y1="18" x2="6.01" y2="18" />
+                    </svg>
+                </div>
+                <div class="feature-name">Multi-Server</div>
+                <div class="feature-desc">Run and monitor multiple server instances simultaneously with per-server
+                    status and controls.</div>
+            </div>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                </div>
+                <div class="feature-name">Auto-Update</div>
+                <div class="feature-desc">Keep your server files up to date with the built-in update panel: progress
+                    bar, live logs included.</div>
+            </div>
+            <div class="feature-cell">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                </div>
+                <div class="feature-name">Cross-Platform</div>
+                <div class="feature-desc">Native support for Linux and Windows. One app, wherever you run your server.
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="how">
+        <div class="how-inner">
+            <div class="section-label-wrap fade-in">
+                <span class="section-eyebrow">How it works</span>
+                <div class="section-line"></div>
+            </div>
+            <h2 class="section-title fade-in">Up and running in<br><span>three steps.</span></h2>
+            <div class="steps">
+                <div class="step fade-in">
+                    <div class="step-num">1</div>
+                    <div class="step-title">Configure</div>
+                    <div class="step-desc">Give your server a name, pick a game (TF2, CS:GO, CS:S and more), and choose
+                        where to install it.</div>
+                </div>
+                <div class="step fade-in">
+                    <div class="step-num">2</div>
+                    <div class="step-title">Download</div>
+                    <div class="step-desc">MANNager runs DepotDownloader for you & streams the progress.</div>
+                </div>
+                <div class="step fade-in">
+                    <div class="step-num">3</div>
+                    <div class="step-title">Launch</div>
+                    <div class="step-desc">Hit play. Your server is live, and if selected, with automatic port
+                        forwarding ( or SDR ).</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section id="screenshots" class="screenshots">
+        <div class="section-label-wrap fade-in">
+            <span class="section-eyebrow">Screenshots</span>
+            <div class="section-line"></div>
+        </div>
+        <h2 class="section-title fade-in">See it in <span>action.</span></h2>
+        <div class="screenshot-tabs fade-in">
+            <button class="tab-btn active" onclick="switchTab(this,'tab-overview')">Server List</button>
+            <button class="tab-btn" onclick="switchTab(this,'tab-create')">Server Creation</button>
+            <button class="tab-btn" onclick="switchTab(this,'tab-terminal')">Terminal</button>
+        </div>
+        <div class="screenshot-pane active" id="tab-overview">
+            <div class="screenshot-img-wrap fade-in">
+                <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/overview.png"
+                    alt="Server List Screenshot">
+            </div>
+            <div class="screenshot-text">
+                <div class="screenshot-num">01</div>
+                <div class="screenshot-title">Server List</div>
+                <div class="screenshot-desc">
+                    See all your servers at a glance. Running status, the default server settings, and network mode.
+                    Open the context menu to edit, update, install SourceMod or delete any server.
+                </div>
+            </div>
+        </div>
+        <div class="screenshot-pane" id="tab-create">
+            <div class="screenshot-img-wrap fade-in">
+                <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_creation.png"
+                    alt="Server Creation Screenshot">
+            </div>
+            <div class="screenshot-text">
+                <div class="screenshot-num">02</div>
+                <div class="screenshot-title">Server Creation</div>
+                <div class="screenshot-desc">
+                    A guided three-step wizard walks you through picking a game, setting a path, configuring options
+                    like password, port,
+                    GSLT and map, and then downloads everything automagically.
+                </div>
+            </div>
+        </div>
+        <div class="screenshot-pane" id="tab-terminal">
+            <div class="screenshot-img-wrap fade-in">
+                <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_terminal.png"
+                    alt="Live Console Screenshot">
+            </div>
+            <div class="screenshot-text">
+                <div class="screenshot-num">03</div>
+                <div class="screenshot-title">Live Console</div>
+                <div class="screenshot-desc">
+                    Full real-time server terminal & command input with history navigation.
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="platforms fade-in">
+        <div class="platform-item">
+            <img class="platform-icon" alt="Windows"
+                src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/windows8/windows8-original.svg">
+            <div class="platform-name">Windows</div>
+        </div>
+        <div style="width:1px;height:48px;background:var(--border);align-self:center;"></div>
+        <div class="platform-item">
+            <img class="platform-icon" alt="Linux"
+                src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg">
+            <div class="platform-name">Linux</div>
+        </div>
+    </section>
+    <section class="cta">
+        <div class="cta-inner fade-in">
+            <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+                <a href="#" class="btn-big btn-big-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16"
+                        height="16">
+                        <polyline points="8 17 12 21 16 17" />
+                        <line x1="12" y1="12" x2="12" y2="21" />
+                        <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+                    </svg>
+                    Download Free
+                </a>
+                <a href="#" class="btn-big btn-big-ghost">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                        <path
+                            d="M12 2C6.477 2 2 6.484 2 12.008c0 4.42 2.865 8.166 6.839 9.487.5.091.682-.216.682-.482 0-.237-.008-.868-.012-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.464-1.11-1.464-.908-.621.068-.608.068-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.529 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.22-.253-4.555-1.115-4.555-4.959 0-1.094.39-1.988 1.029-2.688-.104-.253-.447-1.272.097-2.65 0 0 .84-.269 2.75 1.025A9.548 9.548 0 0112 6.844c.85.004 1.704.115 2.503.338 1.909-1.294 2.748-1.025 2.748-1.025.546 1.378.203 2.397.1 2.65.64.7 1.028 1.594 1.028 2.688 0 3.853-2.338 4.702-4.566 4.949.36.311.679.92.679 1.854 0 1.338-.012 2.419-.012 2.747 0 .267.18.576.688.479C19.138 20.168 22 16.422 22 12.008 22 6.484 17.523 2 12 2z" />
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+    <footer>
+        <div class="footer-logo">MANNager</div>
+        <div class="footer-copy">MIT License.</div>
+        <a href="#"
+            style="color:var(--text-m);font-size:12px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M12 2C6.477 2 2 6.484 2 12.008c0 4.42 2.865 8.166 6.839 9.487.5.091.682-.216.682-.482 0-.237-.008-.868-.012-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.464-1.11-1.464-.908-.621.068-.608.068-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.529 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.22-.253-4.555-1.115-4.555-4.959 0-1.094.39-1.988 1.029-2.688-.104-.253-.447-1.272.097-2.65 0 0 .84-.269 2.75 1.025A9.548 9.548 0 0112 6.844c.85.004 1.704.115 2.503.338 1.909-1.294 2.748-1.025 2.748-1.025.546 1.378.203 2.397.1 2.65.64.7 1.028 1.594 1.028 2.688 0 3.853-2.338 4.702-4.566 4.949.36.311.679.92.679 1.854 0 1.338-.012 2.419-.012 2.747 0 .267.18.576.688.479C19.138 20.168 22 16.422 22 12.008 22 6.484 17.523 2 12 2z" />
+            </svg>
+            GitHub
+        </a>
+    </footer>
+    <script>
+        function switchTab(btn, id) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.screenshot-pane').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(id).classList.add('active');
+        }
+
+        const obs = new IntersectionObserver((entries) => {
+            entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+        }, { threshold: 0.12 });
+
+        document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
+
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('nav a.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) current = s.id; });
+            navLinks.forEach(a => {
+                a.style.color = a.getAttribute('href') === '#' + current ? 'var(--orange)' : '';
+                a.style.borderColor = a.getAttribute('href') === '#' + current ? 'rgba(207,98,41,.3)' : '';
+            });
+        });
+
+    </script>
 </body>
 
 </html>
