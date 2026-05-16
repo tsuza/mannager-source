@@ -22,11 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get version from Cargo.toml
-        id: get-version
-        shell: bash
-        run: echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/version = \"//;s/\"//')" >> $GITHUB_OUTPUT
-
       - name: Cache Rust build
         uses: actions/cache@v4
         with:
@@ -41,29 +36,63 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Stage release files
+      - name: Upload binary as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}
+          path: target/release/${{ matrix.exe }}
+
+  release:
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version from Cargo.toml
+        id: get-version
         shell: bash
-        run: |
-          mkdir staging
-          cp target/release/${{ matrix.exe }} staging/
+        run: echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/version = \"//;s/\"//')" >> $GITHUB_OUTPUT
+
+      - name: Download Windows binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-windows-latest
+          path: staging/windows
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-ubuntu-22.04
+          path: staging/linux
 
       - name: Install vpk
         run: dotnet tool install -g vpk
 
-      - name: Pack
+      - name: Pack Windows
         shell: bash
         run: |
-          mkdir Releases
-
           vpk pack \
             -u net.tsuza.mannager \
             -v ${{ steps.get-version.outputs.version }} \
-            -p staging \
-            -o ./Releases \
-            -e ${{ matrix.exe }} \
+            -p staging/windows \
+            --mainExe mannager.exe \
             --packTitle mannager \
             --packAuthors "tsuza" \
-            --icon assets/app_icon.png \
+            --icon assets/app_icon.ico \
+            --releaseNotes CHANGELOG.md
+
+      - name: Pack Linux
+        shell: bash
+        run: |
+          vpk pack \
+            -u net.tsuza.mannager \
+            -v ${{ steps.get-version.outputs.version }} \
+            -p staging/linux \
+            --mainExe mannager \
+            --packTitle mannager \
+            --packAuthors "tsuza" \
             --releaseNotes CHANGELOG.md
 
       - name: Upload
@@ -72,7 +101,6 @@ jobs:
           vpk upload github \
             --repoUrl https://github.com/${{ github.repository }} \
             --publish \
-            --merge \
             --releaseName "v${{ steps.get-version.outputs.version }}" \
             --tag v${{ steps.get-version.outputs.version }} \
             --token ${{ secrets.GITHUB_TOKEN }}
