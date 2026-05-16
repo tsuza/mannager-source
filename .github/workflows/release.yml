@@ -1,180 +1,153 @@
-name: "Release"
+name: Deploy to GitHub Releases
+
+on:
+  workflow_dispatch:
 
 permissions:
   contents: write
-  
-on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Specify tag to create"
-        required: true
 
 jobs:
   build:
-    name: Build
     strategy:
       matrix:
-        target:
-          - target: windows
-            os: windows-latest
-            make: bash scripts/build-windows-installer.sh
-            artifact_path: |
-              echo "ARTIFACT_PATH=target/release/mannager-installer.msi" >> $env:GITHUB_ENV
-          - target: linux
-            os: ubuntu-latest
-            make: bash scripts/package-linux.sh
-            artifact_path: |
-              echo "ARTIFACT_PATH=.temp" >> "$GITHUB_ENV"
-    runs-on: ${{ matrix.target.os }}
+        include:
+          - os: windows-latest
+            exe: mannager.exe
+          - os: ubuntu-latest
+            exe: mannager
+
+    runs-on: ${{ matrix.os }}
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install linux deps
-        if: matrix.target.target == 'linux'
-        run: |
-          sudo apt update
-          sudo apt install \
-            build-essential \
-            git \
-            pkg-config \
-            libdbus-1-dev \
-            libudev-dev \
-            libxkbcommon-dev \
-            libfontconfig1-dev \
-            libasound2-dev \
-            flatpak-builder
-
-      - name: Install deps with Chocolatey
-        if: matrix.target.target == 'windows'
-        run: |
-          choco install pandoc -y
-          choco install imagemagick -y
-
-      - name: Cache cargo registry
-        uses: actions/cache@v3
-        with:
-          path: ~/.cargo/registry
-          key: ${{ matrix.target.target }}-cargo-registry-${{ hashFiles('Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v3
+      - name: Cache Rust build
+        uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
+            ~/.cargo/registry
+            ~/.cargo/git
             target
-          key: ${{ matrix.target.target }}-cargo-build-target-${{ hashFiles('Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Build
-        run: ${{ matrix.target.make }}
+        run: cargo build --release
 
-      - name: Set artifact path
-        run: ${{ matrix.target.artifact_path }}
-
-      - name: Upload artifact
-        if: matrix.target.target == 'linux'
+      - name: Upload binary as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target.target }}
-          path: |
-            .temp/mannager-*linux.tar.gz
-            .temp/MANNager*.AppImage
-            .temp/mannager*.flatpak
-          if-no-files-found: error
-          include-hidden-files: true
+          name: binary-${{ matrix.os }}
+          path: target/release/${{ matrix.exe }}
 
-      - name: Upload artifact
-        if: matrix.target.target == 'windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.target.target }}
-          path: ${{ env.ARTIFACT_PATH }}
-          if-no-files-found: error
-          include-hidden-files: true
-
-  create-release:
+  pack:
     needs: build
-    name: Create Release
-    outputs:
-      upload_url: ${{ steps.create-release.outputs.upload_url }}
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      - name: Create Release
-        id: create-release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          release_name: ${{ github.event.inputs.tag }}
-          draft: true
-          prerelease: false
-
-  add-assets:
-    needs: create-release
-    name: Add Assets
-
     strategy:
       matrix:
-        target:
-          - artifact: windows
-            os: windows
-            artifact_name: "mannager-installer.msi" 
-            asset_type: application/x-dosexec
-          - artifact: linux_tar
-            os: linux
-            artifact_name: "mannager-*linux.tar.gz"  
-            asset_type: application/gzip
-          - artifact: linux_appimage
-            os: linux
-            artifact_name: "MANNager*.AppImage" 
-            asset_type: application/octet-stream
-          - artifact: linux_flatpak
-            os: linux
-            artifact_name: "mannager*.flatpak"  
-            asset_type: application/octet-stream
+        include:
+          - os: windows-latest
+            exe: mannager.exe
+            binary-artifact: binary-windows-latest
+          - os: ubuntu-latest
+            exe: mannager
+            binary-artifact: binary-ubuntu-latest
 
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Download artifact
+      - name: Get version from Cargo.toml
+        id: get-version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d '"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download binary
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.target.os }}
-          path: ${{ matrix.target.os }}
+          name: ${{ matrix.binary-artifact }}
+          path: staging
 
-      - name: Set artifact name for linux
-        if: matrix.target.os == 'linux'
+      - name: Fix binary permissions
+        if: matrix.os == 'ubuntu-latest'
+        run: chmod +x staging/${{ matrix.exe }}
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      - name: Pack Windows
+        if: matrix.os == 'windows-latest'
+        shell: bash
         run: |
-          echo "ARTIFACT_NAME=$(ls ./linux/${{ matrix.target.artifact_name }} | head -n 1)" >> "$GITHUB_ENV"
+          vpk pack \
+            -u net.tsuza.mannager \
+            -v ${{ steps.get-version.outputs.version }} \
+            -p staging \
+            --mainExe mannager.exe \
+            --packTitle mannager \
+            --packAuthors "tsuza" \
+            --icon assets/windows/mannager.ico \
+            --splashImage assets/windows/banner.png \
+            --releaseNotes CHANGELOG.md \
+            --delta BestSize
 
-      - name: Set artifact name for windows
-        if: matrix.target.os == 'windows'
+      - name: Pack Linux
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
         run: |
-          echo "ARTIFACT_NAME=mannager-installer.msi" >> "$GITHUB_ENV"
+          vpk pack \
+            -u net.tsuza.mannager \
+            -v ${{ steps.get-version.outputs.version }} \
+            -p staging \
+            --mainExe mannager \
+            --packTitle mannager \
+            --packAuthors "tsuza" \
+            --icon assets/app_icon.png  \
+            --releaseNotes CHANGELOG.md \
+            --delta BestSize
 
-      - name: Upload asset
-        if: matrix.target.os == 'linux'
-        uses: actions/upload-release-asset@v1
+      - name: Upload release files as artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.ARTIFACT_NAME }}
-          asset_name: ${{ env.ARTIFACT_NAME }}
-          asset_content_type: ${{ matrix.target.asset_type }}
+          name: release-${{ matrix.os }}
+          path: Releases/
 
-      - name: Upload asset
-        if: matrix.target.os == 'windows'
-        uses: actions/upload-release-asset@v1
+  release:
+    needs: pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version from Cargo.toml
+        id: get-version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d '"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Windows release files
+        uses: actions/download-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ matrix.target.os }}/${{ env.ARTIFACT_NAME }}
-          asset_name: ${{ env.ARTIFACT_NAME }}
-          asset_content_type: ${{ matrix.target.asset_type }}
+          name: release-windows-latest
+          path: release-files
+
+      - name: Download Linux release files
+        uses: actions/download-artifact@v4
+        with:
+          name: release-ubuntu-latest
+          path: release-files
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get-version.outputs.version }}
+          name: v${{ steps.get-version.outputs.version }}
+          body_path: CHANGELOG.md
+          files: release-files/*

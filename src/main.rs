@@ -1,8 +1,9 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
 use iced::{Font, Size};
+
 #[cfg(target_os = "windows")]
-use iced::{advanced::graphics::image::image_rs::ImageFormat, window};
+use iced::window;
 
 use ui::State;
 use velopack::VelopackApp;
@@ -32,7 +33,7 @@ fn main() -> iced::Result {
             override_redirect: false,
         },
         #[cfg(target_os = "windows")]
-        icon: window::icon::from_file_data(APP_ICON_BYTES, Some(ImageFormat::Png)).ok(),
+        icon: window::icon::from_file_data(APP_ICON_BYTES, None).ok(),
         ..Default::default()
     };
 
