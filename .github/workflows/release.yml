@@ -59,11 +59,11 @@ jobs:
             -u net.tsuza.mannager \
             -v ${{ steps.get-version.outputs.version }} \
             -p staging \
-            -o ./Releases
-            -e ${{ matrix.exe }}
-            --packTitle mannager
-            --packAuthors "tsuza"
-            --icon assets/app_icon.png
+            -o ./Releases \
+            -e ${{ matrix.exe }} \
+            --packTitle mannager \
+            --packAuthors "tsuza" \
+            --icon assets/app_icon.png \
             --releaseNotes CHANGELOG.md
 
       - name: Upload
