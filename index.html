@@ -210,7 +210,7 @@
         .hero-screenshot {
             background: var(--bg-inset);
             width: 100%;
-            aspect-ratio: 16 / 10;
+            aspect-ratio: contain;
             overflow: hidden;
             border-radius: 10px;
         }
@@ -602,7 +602,7 @@
         .screenshot-img-wrap {
             flex: 1;
             max-width: 720px;
-            posiiton: relative;
+            position: relative;
         }
 
         .screenshot-img-wrap img {
@@ -613,7 +613,7 @@
             border: 1px solid var(--border);
             box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
             aspect-ratio: 16 / 10;
-            object-fit: cover;
+            object-fit: contain;
         }
 
         .screenshot-img-wrap::before {
