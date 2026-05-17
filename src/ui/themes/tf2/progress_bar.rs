@@ -1,5 +1,5 @@
 use iced::Border;
-use iced::widget::progress_bar::{Catalog, Style, StyleFn};
+use sweeten::widget::progress_bar::{Catalog, Style, StyleFn};
 
 use super::super::Theme;
 

@@ -23,13 +23,12 @@ use iced::{
     },
 };
 use rfd::FileHandle;
-use sweeten::widget::drag::DragEvent;
+use sweeten::{progress_bar, widget::drag::DragEvent};
 
 use crate::{
     icon,
     ui::{
         components::{
-            progress_bar::animated_progress_bar,
             spinner::{self, Circular, easing},
             toggle_button_group::grouped_buttons,
         },
@@ -783,12 +782,7 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
 
             let progress_bars: Element<'a, ServerMessage> = if server.update_depot_status.is_empty()
             {
-                container(
-                    animated_progress_bar(0.0..=100.0, 0.0)
-                        .length(Length::Fill)
-                        .girth(8),
-                )
-                .into()
+                container(progress_bar(0.0..=100.0, 0.0).length(Length::Fill).girth(8)).into()
             } else {
                 let depots = server.update_depot_status.iter().map(|depot| {
                     row![
@@ -797,7 +791,7 @@ fn card<'a>(server: &'a Server) -> Element<'a, ServerMessage> {
                             .size(11)
                             .line_height(1.0)
                             .style(tf2::text::muted),
-                        animated_progress_bar(0.0..=100.0, depot.progress)
+                        progress_bar(0.0..=100.0, depot.progress)
                             .length(Length::Fill)
                             .girth(8),
                         text!("{:.0}%", depot.progress)

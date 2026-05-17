@@ -1,5 +1,5 @@
 use super::super::{Theme, disabled_text};
-use iced::{Background, Color};
+use iced::Color;
 use iced_aw::style::number_input::{Catalog, ExtendedCatalog, Style};
 use iced_aw::style::{Status, StyleFn};
 

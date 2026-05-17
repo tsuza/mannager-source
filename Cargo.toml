@@ -8,7 +8,7 @@ edition = "2024"
 [dependencies]
 directories = "5.0.1"
 flate2 = "1.0.33"
-iced = { version = "0.15.0-dev", features = ["svg", "tokio", "debug", "image", "advanced", "sipper", "markdown"] }
+iced = { version = "0.15.0-dev", features = ["svg", "tokio", "image", "advanced", "sipper", "markdown"] }
 iced_aw = { git = "https://github.com/mytdragon/iced_aw", branch = "0.14-dev", features = ["number_input", "menu"] }
 reqwest = { version = "0.12.7", default-features = false, features = ["rustls-tls", "json"] }
 notify-rust = { version = "4.11.3", features = ["async"] }
@@ -17,11 +17,11 @@ portforwarder-rs = "0.1.1"
 rfd = "0.15.0"
 scraper = "0.20.0"
 serde = { version = "1.0.210", features = ["derive"] }
-tokio = { version = "1.40.0", features = ["process", "fs"] }
+tokio = { version = "1.40.0", features = ["process", "fs", "macros"] }
 toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
-sweeten = { git = "https://github.com/tsuza/sweeten.git", branch = "fix/z-order-dragged-item" }
+sweeten = { git = "https://github.com/airstrike/sweeten.git" }
 num-traits = { version = "0.2.19" }
 decoder = "0.0.3"
 snafu = "0.8.6"

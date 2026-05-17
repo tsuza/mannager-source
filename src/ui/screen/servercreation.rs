@@ -6,14 +6,13 @@ use std::time::Duration;
 use crate::icon;
 use crate::ui::Element;
 use crate::ui::components::notification::notification;
-use crate::ui::components::progress_bar::animated_progress_bar;
 use crate::ui::components::progress_stepper::stepper;
 use crate::ui::components::spinner;
 use crate::ui::games::{SOURCE_GAMES, SourceGame};
 use crate::ui::server::ServerInfo;
 use crate::ui::themes::{Theme, tf2};
 use iced::widget::text::Wrapping;
-use iced::widget::{Row, float, rule, scrollable, space, tooltip};
+use iced::widget::{Row, rule, scrollable, space, tooltip};
 use iced::{
     Alignment, ContentFit, Length, Task, padding,
     task::{Straw, sipper},
@@ -23,6 +22,7 @@ use iced::{Font, Shadow, border};
 use iced_aw::number_input;
 use rfd::FileHandle;
 use snafu::{ResultExt, Snafu};
+use sweeten::progress_bar;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::core::depotdownloader::DepotDownloader;
@@ -313,13 +313,10 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
     ) -> Element<'a, Message> {
         if is_currently_selected {
             button(
-                float(
-                    svg(game.image.clone())
-                        .content_fit(ContentFit::Contain)
-                        .height(80)
-                        .width(80),
-                )
-                .scale(1.1),
+                svg(game.image.clone())
+                    .content_fit(ContentFit::Contain)
+                    .height(80)
+                    .width(80),
             )
             .on_press(button_event)
             .padding(padding::vertical(14).horizontal(12))
@@ -347,17 +344,24 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
         }
     }
 
-    let games = Row::with_children(SOURCE_GAMES.iter().map(|game| {
-        game_entry(
-            game,
-            server.game == game.game,
-            Message::GameChosen(game.game),
+    let games = scrollable(
+        container(
+            Row::with_children(SOURCE_GAMES.iter().map(|game| {
+                game_entry(
+                    game,
+                    server.game == game.game,
+                    Message::GameChosen(game.game),
+                )
+            }))
+            .spacing(20)
+            .align_y(Alignment::Center)
+            .wrap()
+            .align_x(Alignment::Center),
         )
-    }))
-    .spacing(20)
-    .align_y(Alignment::Center)
-    .wrap()
-    .align_x(Alignment::Center);
+        .width(Length::Fill)
+        .align_x(Alignment::Center),
+    )
+    .width(Length::Fill);
 
     let header = {
         let title = container(column![
@@ -466,25 +470,33 @@ fn choose_game_view<'a>(server: &ServerInfo) -> Element<'a, Message> {
         column![
             header,
             creation_progress_bar,
-            container(
-                column![
-                    body,
-                    rule::horizontal(1),
-                    container(
-                        button(
-                            row![text("Next").size(20), icon::right_arrow().size(20)].spacing(10)
+            scrollable(
+                container(
+                    column![
+                        body,
+                        rule::horizontal(1),
+                        container(
+                            button(
+                                row![
+                                    text("Next").size(20).height(Length::Fill),
+                                    icon::right_arrow().size(20).height(Length::Fill)
+                                ]
+                                .spacing(10)
+                                .align_y(Alignment::Center)
+                            )
+                            .on_press(Message::DownloadServer)
+                            .height(50)
+                            .padding(padding::vertical(10).horizontal(20))
+                            .style(tf2::button::primary)
                         )
-                        .on_press(Message::DownloadServer)
-                        .padding(padding::vertical(10).horizontal(20))
-                        .style(tf2::button::primary)
-                    )
-                    .width(Length::Fill)
-                    .align_x(Alignment::End)
-                ]
-                .spacing(20)
-            )
-            .padding(24)
-            .style(tf2::container::card),
+                        .width(Length::Fill)
+                        .align_x(Alignment::End)
+                    ]
+                    .spacing(20)
+                )
+                .padding(24)
+                .style(tf2::container::card)
+            ),
         ]
         .width(620)
         .spacing(14),
@@ -575,17 +587,12 @@ fn downloading_view<'a>(
         };
 
         let progress_bars: Element<'a, Message> = if depot_status.is_empty() {
-            container(
-                animated_progress_bar(0.0..=100.0, 0.0)
-                    .length(Length::Fill)
-                    .girth(8),
-            )
-            .into()
+            container(progress_bar(0.0..=100.0, 0.0).length(Length::Fill).girth(8)).into()
         } else {
             let depots = depot_status.iter().map(|depot| {
                 row![
                     text(depot.id).width(90).size(11).style(tf2::text::muted),
-                    animated_progress_bar(0.0..=100.0, depot.progress)
+                    progress_bar(0.0..=100.0, depot.progress)
                         .length(Length::Fill)
                         .girth(8),
                     text!("{:.0}%", depot.progress)
@@ -908,25 +915,28 @@ fn info_view<'a>(server: &'a ServerInfo) -> Element<'a, Message> {
         column![
             header,
             creation_progress_bar,
-            container(
-                column![
-                    body,
-                    rule::horizontal(1),
-                    container(
-                        button(
-                            row![text("Finish").size(20), icon::right_arrow().size(20)].spacing(10)
+            scrollable(
+                container(
+                    column![
+                        body,
+                        rule::horizontal(1),
+                        container(
+                            button(
+                                row![text("Finish").size(20), icon::right_arrow().size(20)]
+                                    .spacing(10)
+                            )
+                            .on_press(Message::FinishServerCreation)
+                            .padding(padding::vertical(10).horizontal(20))
+                            .style(tf2::button::primary)
                         )
-                        .on_press(Message::FinishServerCreation)
-                        .padding(padding::vertical(10).horizontal(20))
-                        .style(tf2::button::primary)
-                    )
-                    .width(Length::Fill)
-                    .align_x(Alignment::End)
-                ]
-                .spacing(20)
+                        .width(Length::Fill)
+                        .align_x(Alignment::End)
+                    ]
+                    .spacing(20)
+                )
+                .padding(24)
+                .style(tf2::container::card)
             )
-            .padding(24)
-            .style(tf2::container::card),
         ]
         .width(620)
         .spacing(14),
