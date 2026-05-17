@@ -64,7 +64,7 @@ pub fn update_dialog<'a>(
                     .padding(padding::horizontal(10).vertical(6))
                     .style(tf2::container::info_container),
                 icon::move_right(),
-                container(text(new_version).size(15))
+                container(text!("v{}", new_version).size(15))
                     .padding(padding::horizontal(10).vertical(6))
                     .style(tf2::container::primary),
                 space::horizontal(),
