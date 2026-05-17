@@ -195,15 +195,11 @@ impl ServerList {
                 let server_name = server.info.name.clone();
 
                 Action::Run(
-                    Task::future(async move {
-                        notification(
-                            "MANNager",
-                            format!(
-                                "Sourcemod has been successfully downloaded for '{server_name}'."
-                            ),
-                            Duration::from_secs(5),
-                        )
-                    })
+                    Task::future(notification(
+                        "MANNager",
+                        format!("Sourcemod has been successfully downloaded for '{server_name}'."),
+                        Duration::from_secs(5),
+                    ))
                     .discard(),
                 )
             }
