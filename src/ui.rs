@@ -1,4 +1,4 @@
-use std::{net::Ipv4Addr, path::PathBuf, sync::Arc};
+use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
 
 use iced::{Function, Task, futures, widget::markdown};
 use screen::{
@@ -11,6 +11,7 @@ use screen::{
 use crate::{
     core::{Game, SourceEngineVersion},
     ui::{
+        components::notification::notification,
         games::SOURCE_GAMES,
         screen::servercreation::{DownloadUpdate, download_server},
         server::{Server, Servers},
@@ -408,16 +409,19 @@ impl State {
                     return Task::none();
                 };
 
+                self.is_dialog_open = false;
+
                 Task::perform(async move { update_app(um, update_info).await }, |res| {
                     Message::UpdateAppFinished(Arc::new(res))
                 })
             }
             Message::UpdateAppFinished(res) => {
-                let Ok(_) = *res else {
-                    return Task::none();
+                let body =  match (*res).as_ref() {
+                    Ok(_) => "The app has been successfully updated. It'll be applied the next time you open the app.".to_string(),
+                    Err(err) => format!("Oh no! The app was unable to get updated. ERR: {}", err.to_string()),
                 };
 
-                Task::none()
+                Task::future(notification("MANNager", body, Duration::from_secs(5))).discard()
             }
             Message::DialogClose => {
                 self.is_dialog_open = false;
