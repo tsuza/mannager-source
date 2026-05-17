@@ -1,3 +1,8 @@
+# 1.0.3
+## Fixed
+- Correctly initialize the server list config file if it doesn't exist ( regression ).
+  - Now you don't have to re-make the server every time. If the file existed already, this wasn't a problem.
+
 # 1.0.2
 ## Fixed
 - Port forwarding now actually works
