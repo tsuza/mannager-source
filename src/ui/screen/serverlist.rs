@@ -58,6 +58,8 @@ use crate::{
     ui::components::notification::notification,
 };
 
+const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
+
 pub struct ServerList;
 
 pub enum Action {
@@ -1066,6 +1068,44 @@ async fn get_public_ip() -> Result<IpAddr, Error> {
         .trim()
         .parse::<IpAddr>()
         .map_err(|_| Error::NoPublicIp)
+}
+
+pub fn get_config_path() -> Result<PathBuf, Error> {
+    if let Ok(executable_directory) = std::env::current_dir() {
+        let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
+
+        if config_path.try_exists().unwrap_or(false) {
+            return Ok(config_path);
+        }
+    }
+
+    let project_path = directories::ProjectDirs::from("", "MANNager", "mannager-source")
+        .ok_or(Error::NoServerListFile)?;
+
+    let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
+
+    if config_path.try_exists().unwrap_or(false) {
+        Ok(config_path)
+    } else {
+        Err(Error::NoServerListFile)
+    }
+}
+
+pub async fn create_config_file_path() -> Result<PathBuf, Error> {
+    let project_path = directories::ProjectDirs::from("", "MANNager", "mannager-source")
+        .ok_or(Error::NoServerListFile)?;
+
+    tokio::fs::create_dir_all(&project_path.config_dir())
+        .await
+        .context(IoSnafu)?;
+
+    let config_file = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
+
+    tokio::fs::File::create_new(&config_file)
+        .await
+        .context(IoSnafu)?;
+
+    Ok(config_file)
 }
 
 #[derive(Snafu, Debug, Clone)]

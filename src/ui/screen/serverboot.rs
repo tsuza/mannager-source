@@ -3,7 +3,6 @@ use std::{
     net::{Ipv4Addr, UdpSocket},
     path::PathBuf,
     sync::Arc,
-    time::Duration,
 };
 
 use iced::{
@@ -26,7 +25,7 @@ use crate::{
     icon,
     ui::{
         Element,
-        components::{notification::notification, textinput_terminal},
+        components::textinput_terminal,
         themes::tf2::{self},
     },
 };

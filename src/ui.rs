@@ -1,6 +1,10 @@
-use std::{net::Ipv4Addr, path::PathBuf, sync::Arc, time::Duration};
+use std::{net::Ipv4Addr, sync::Arc, time::Duration};
 
-use iced::{Function, Task, futures, widget::markdown};
+use iced::{
+    Function, Task,
+    futures::{self, FutureExt},
+    widget::markdown,
+};
 use screen::{
     Screen,
     serverboot::{self, Console, ServerCommunicationTwoWay, ServerTerminal, find_available_port},
@@ -13,7 +17,10 @@ use crate::{
     ui::{
         components::notification::notification,
         games::SOURCE_GAMES,
-        screen::servercreation::{DownloadUpdate, download_server},
+        screen::{
+            servercreation::{DownloadUpdate, download_server},
+            serverlist::{create_config_file_path, get_config_path},
+        },
         server::{Server, Servers},
         themes::{Theme, tf2},
     },
@@ -27,8 +34,6 @@ pub mod games;
 pub mod screen;
 pub mod server;
 pub mod themes;
-
-const SERVER_LIST_FILE_NAME: &str = "server_list.toml";
 
 pub type Element<'a, Message> = iced::Element<'a, Message, Theme>;
 
@@ -84,6 +89,12 @@ impl State {
         let config_task = Task::perform(
             async {
                 futures::future::ready(get_config_path())
+                    .then(|res| async move {
+                        match res {
+                            Ok(path) => Ok(path),
+                            Err(_) => create_config_file_path().await,
+                        }
+                    })
                     .and_then(|path| async move { Servers::fetch(path.as_path()).await })
                     .await
             },
@@ -187,6 +198,12 @@ impl State {
 
                         Task::future(async {
                             futures::future::ready(get_config_path())
+                                .then(|res| async move {
+                                    match res {
+                                        Ok(path) => Ok(path),
+                                        Err(_) => create_config_file_path().await,
+                                    }
+                                })
                                 .and_then(|path| async move { servers.save(&path).await })
                                 .await
                         })
@@ -233,6 +250,12 @@ impl State {
                         // TODO: This shouldn't be here, but I'm lazy right now
                         Task::future(async {
                             futures::future::ready(get_config_path())
+                                .then(|res| async move {
+                                    match res {
+                                        Ok(path) => Ok(path),
+                                        Err(_) => create_config_file_path().await,
+                                    }
+                                })
                                 .and_then(|path| async move { servers.save(&path).await })
                                 .await
                         })
@@ -363,6 +386,12 @@ impl State {
 
                         Task::future(async {
                             futures::future::ready(get_config_path())
+                                .then(|res| async move {
+                                    match res {
+                                        Ok(path) => Ok(path),
+                                        Err(_) => create_config_file_path().await,
+                                    }
+                                })
                                 .and_then(|path| async move { servers.save(&path).await })
                                 .await
                         })
@@ -491,26 +520,5 @@ impl State {
         .padding_outer(50)
         .container_style(tf2::container::card)
         .into()
-    }
-}
-
-fn get_config_path() -> Result<PathBuf, screen::serverlist::Error> {
-    if let Ok(executable_directory) = std::env::current_dir() {
-        let config_path = executable_directory.join(SERVER_LIST_FILE_NAME);
-
-        if config_path.try_exists().unwrap_or(false) {
-            return Ok(config_path);
-        }
-    }
-
-    let project_path = directories::ProjectDirs::from("", "MANNager", "mannager-source")
-        .ok_or(screen::serverlist::Error::NoServerListFile)?;
-
-    let config_path = project_path.config_dir().join(SERVER_LIST_FILE_NAME);
-
-    if config_path.try_exists().unwrap_or(false) {
-        Ok(config_path)
-    } else {
-        Err(screen::serverlist::Error::NoServerListFile)
     }
 }
