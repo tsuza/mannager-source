@@ -1,9 +1,10 @@
-use std::{io, net::Ipv4Addr};
+use std::{io, net::Ipv4Addr, sync::Arc};
 
 use igd::{AddPortError, RemovePortError, SearchError};
 use portforwarder_rs::port_forwarder::{Forwarder, PortMappingProtocol};
 use snafu::{ResultExt, Snafu};
 
+#[derive(Debug)]
 pub struct PortForwarder {
     forwarder: Forwarder,
     remote_port: u16,
@@ -59,23 +60,35 @@ impl PortForwarder {
     }
 }
 // TODO improve display errors
-#[derive(Snafu, Debug)]
+#[derive(Snafu, Debug, Clone)]
 pub enum Error {
     #[snafu(display("No network interfaces found"))]
-    NoInterfacesError { source: io::Error },
+    NoInterfacesError {
+        #[snafu(source(from(io::Error, Arc::new)))]
+        source: Arc<io::Error>,
+    },
 
     #[snafu(display("No gateway found"))]
-    NoGatewayFoundError { source: SearchError },
+    NoGatewayFoundError {
+        #[snafu(source(from(SearchError, Arc::new)))]
+        source: Arc<SearchError>,
+    },
 
     #[snafu(display("Port forwarding failed"))]
     PortForwardingFailed { source: PortForwardingError },
 }
 
-#[derive(Snafu, Debug)]
+#[derive(Snafu, Debug, Clone)]
 pub enum PortForwardingError {
     #[snafu(display("Failed to add port mapping"))]
-    AddPortError { source: AddPortError },
+    AddPortError {
+        #[snafu(source(from(AddPortError, Arc::new)))]
+        source: Arc<AddPortError>,
+    },
 
     #[snafu(display("Failed to remove port mapping"))]
-    RemovePortError { source: RemovePortError },
+    RemovePortError {
+        #[snafu(source(from(RemovePortError, Arc::new)))]
+        source: Arc<RemovePortError>,
+    },
 }

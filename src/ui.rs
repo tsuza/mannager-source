@@ -9,7 +9,7 @@ use screen::{
 };
 
 use crate::{
-    core::{Game, SourceEngineVersion},
+    core::{Game, SourceEngineVersion, portforwarder},
     ui::{
         components::notification::notification,
         games::SOURCE_GAMES,
@@ -49,7 +49,10 @@ pub enum Message {
         usize,
         Result<ServerCommunicationTwoWay, screen::serverboot::Error>,
     ),
-    PortForward(usize),
+    PortForward(
+        usize,
+        Result<Arc<portforwarder::PortForwarder>, portforwarder::Error>,
+    ),
     ServerList(serverlist::Message),
     ServerCreation(servercreation::Message),
     ServerTerminal(usize, serverboot::Message),
@@ -225,7 +228,15 @@ impl State {
 
                         server.is_editing = false;
 
-                        Task::none()
+                        let servers = self.servers.clone();
+
+                        // TODO: This shouldn't be here, but I'm lazy right now
+                        Task::future(async {
+                            futures::future::ready(get_config_path())
+                                .and_then(|path| async move { servers.save(&path).await })
+                                .await
+                        })
+                        .discard()
                     }
                     Action::RunServer(id) => {
                         let Some(Server {
@@ -266,7 +277,7 @@ impl State {
 
                             args.push_str(&format!(
                                 " +hostname \"{name}\" +map {map} +maxplayers {max} \
-                                  -nohltv +ip 0.0.0.0 -port {port}",
+                                  -nohltv +ip 0.0.0.0 -strictportbind -port {port}",
                                 name = info.name,
                                 map = info.map,
                                 max = info.max_players,
@@ -296,10 +307,12 @@ impl State {
                         )
                         .abortable();
 
+                        let name = info.name.clone();
+
                         let port_forward_task = match hosting_mode {
                             server::HostingMode::Upnp => Task::perform(
-                                Console::port_forward(info.name.clone(), port),
-                                move |_| Message::PortForward(id),
+                                async move { Console::port_forward(name, port) },
+                                move |res| Message::PortForward(id, res.map(|pf| Arc::new(pf))),
                             ),
                             _ => Task::none(),
                         };
@@ -381,7 +394,29 @@ impl State {
                     Action::Run(task) => task.map(Message::ServerTerminal.with(id)),
                 }
             }
-            Message::PortForward(_) => Task::none(),
+            Message::PortForward(id, res) => {
+                let Some(Server { console, .. }) = self.servers.get_mut(id) else {
+                    return Task::none();
+                };
+
+                let Some(Console { port_forwarder, .. }) = console else {
+                    return Task::none();
+                };
+
+                let body = match res {
+                    Ok(pf) => {
+                        *port_forwarder = Some(pf);
+
+                        "Successfully port forwarded the server".to_string()
+                    }
+                    Err(err) => format!(
+                        "Unable to port forward the server. ERR: {}",
+                        err.to_string()
+                    ),
+                };
+
+                Task::future(notification("MANNager", body, Duration::from_secs(5))).discard()
+            }
             Message::CheckForUpdate(res) => {
                 let Ok((um, update_status)) = res.as_ref() else {
                     return Task::none();

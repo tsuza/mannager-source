@@ -2,12 +2,13 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Arc,
 };
 
 use decoder::Value;
 
 use crate::{
-    core::Game,
+    core::{Game, portforwarder::PortForwarder},
     ui::screen::{
         serverboot::Console,
         servercreation::{DepotStatus, DownloadPhase},

@@ -22,7 +22,7 @@ use tokio::{
 };
 
 use crate::{
-    core::portforwarder::{self, PortForwarderIP},
+    core::portforwarder::{self, PortForwarder, PortForwarderIP},
     icon,
     ui::{
         Element,
@@ -42,6 +42,7 @@ pub struct Console {
     pub handle: task::Handle,
     pub sender: Option<mpsc::Sender<String>>,
     pub hosted_port: u16,
+    pub port_forwarder: Option<Arc<PortForwarder>>,
 }
 
 impl Console {
@@ -54,6 +55,7 @@ impl Console {
             handle: handle.abort_on_drop(),
             sender: None,
             hosted_port: port,
+            port_forwarder: None,
         }
     }
 
@@ -180,23 +182,17 @@ impl Console {
         )
     }
 
-    pub async fn port_forward(server_name: String, port: u16) {
-        let forwarder = portforwarder::PortForwarder::open(
+    pub fn port_forward(
+        server_name: String,
+        port: u16,
+    ) -> Result<PortForwarder, portforwarder::Error> {
+        portforwarder::PortForwarder::open(
             PortForwarderIP::Any,
             port,
             port,
             PortMappingProtocol::UDP,
             &server_name,
-        );
-
-        if let Err(_) = forwarder {
-            let _ = notification(
-                "MANNager",
-                "Port forwarding failed.",
-                Duration::from_secs(5),
-            )
-            .await;
-        }
+        )
     }
 }
 
