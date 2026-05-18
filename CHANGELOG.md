@@ -1,3 +1,9 @@
+# 1.0.4
+## Fixed
+- Fix notifications on Windows ( previously they were not happening ).
+- Fix the notification on SM install not happening
+- Made so you cannot change the hosting mode in the UI if the server is running
+
 # 1.0.3
 ## Fixed
 - Correctly initialize the server list config file if it doesn't exist ( regression ).

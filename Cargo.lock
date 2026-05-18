@@ -2958,7 +2958,7 @@ dependencies = [
 
 [[package]]
 name = "mannager"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "decoder",
  "directories",
