@@ -324,9 +324,18 @@ impl ServerList {
             Message::ServerMessage(id, ServerMessage::OpenTerminal) => Action::OpenTerminal(id),
             Message::ServerMessage(_, ServerMessage::DummyButtonEffectMsg) => Action::None,
             Message::ServerMessage(id, ServerMessage::HostingModeChange(mode)) => {
-                let Some(Server { hosting_mode, .. }) = servers.get_mut(id) else {
+                let Some(Server {
+                    hosting_mode,
+                    console,
+                    ..
+                }) = servers.get_mut(id)
+                else {
                     return Action::None;
                 };
+
+                if console.is_some() {
+                    return Action::None;
+                }
 
                 *hosting_mode = mode;
 
