@@ -9,20 +9,18 @@
       src="https://img.shields.io/github/downloads/tsuza/mannager-source/total?color=ff69b4"
       />
     <a href="https://github.com/tsuza/mannager-source/blob/main/LICENSE.txt">
-    <img alt="GitHub license" src="https://img.shields.io/github/license/tsuza/mannager-source?color=ff69b4">
+    <img alt="GitHub license" src="https://img.shields.io/github/license/tsuza/mannager-source">
     </a>
     <a href="https://github.com/tsuza/mannager-source/stargazers">
     <img alt="GitHub stars" src="https://img.shields.io/github/stars/tsuza/mannager-source?color=yellow&label=Project%20Stars">
     </a>
-    <a href="https://github.com/tsuza/mannager-source/issues">
-    <img alt="GitHub issues" src="https://img.shields.io/github/issues/tsuza/mannager-source?color=brightgreen&label=issues">
-    </a>
-    <a href="https://github.com/tsuza/mannager-source/network">
-    <img alt="GitHub forks" src="https://img.shields.io/github/forks/tsuza/mannager-source?color=9cf&label=forks">
-    </a>
     <img
       src="https://img.shields.io/github/actions/workflow/status/tsuza/mannager-source/release.yml"
       />
+    <a href="https://github.com/iced-rs/iced">
+    <img alt="GitHub stars" src="https://iced.rs/badge.svg">
+    </a>
+
   </p>
   
   <a href="#installation">Installation</a> •
@@ -104,3 +102,4 @@ For additional packaging options, see the worfklow file.
 <a href="https://github.com/tsuza/mannager-source/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=tsuza/mannager-source" alt="contrib.rocks image" />
 </a>
+
