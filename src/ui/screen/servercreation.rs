@@ -23,6 +23,7 @@ use iced_aw::number_input;
 use rfd::FileHandle;
 use snafu::{ResultExt, Snafu};
 use sweeten::progress_bar;
+use sweeten::widget::transition;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::core::depotdownloader::DepotDownloader;
@@ -117,7 +118,7 @@ pub enum Action {
     Run(Task<Message>),
 }
 
-#[derive(Default, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Default, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub enum FormSection {
     #[default]
     GameSelection,
@@ -292,7 +293,7 @@ impl State {
     }
 
     pub fn view<'a>(&'a self) -> Element<'a, Message> {
-        match self.form_page {
+        transition::transition(self.form_page.clone(), |form_page| match form_page {
             FormSection::GameSelection => choose_game_view(&self.server),
             FormSection::Downloading => downloading_view(
                 &self.download_depot_status,
@@ -301,7 +302,11 @@ impl State {
                 &self.server.game,
             ),
             FormSection::ServerInfo => info_view(&self.server),
-        }
+        })
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .direction(transition::Direction::Left)
+        .into()
     }
 }
 
