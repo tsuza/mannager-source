@@ -21,7 +21,7 @@ tokio = { version = "1.40.0", features = ["process", "fs", "macros"] }
 toml = "0.8.19"
 unicode-segmentation = "1.0"
 zip = { version = "2.2.0", features = ["deflate-flate2"] }
-sweeten = { git = "https://github.com/airstrike/sweeten.git" }
+sweeten = { git = "https://github.com/airstrike/sweeten" }
 num-traits = { version = "0.2.19" }
 decoder = "0.0.3"
 snafu = "0.8.6"
@@ -48,3 +48,8 @@ iced_core = { git = "https://github.com/iced-rs/iced", branch = "master" }
 iced_widget = { git = "https://github.com/iced-rs/iced", branch = "master" }
 iced_runtime = { git = "https://github.com/iced-rs/iced", branch = "master" }
 
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

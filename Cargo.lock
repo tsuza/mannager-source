@@ -5291,7 +5291,7 @@ dependencies = [
 [[package]]
 name = "sweeten"
 version = "0.15.0-dev"
-source = "git+https://github.com/airstrike/sweeten.git#d653c19255919459644c7ec8aeb49b0985479d1b"
+source = "git+https://github.com/airstrike/sweeten#d653c19255919459644c7ec8aeb49b0985479d1b"
 dependencies = [
  "iced_core",
  "iced_runtime",
