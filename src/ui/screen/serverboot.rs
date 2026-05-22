@@ -181,17 +181,21 @@ impl Console {
         )
     }
 
-    pub fn port_forward(
+    pub async fn port_forward(
         server_name: String,
         port: u16,
     ) -> Result<PortForwarder, portforwarder::Error> {
-        portforwarder::PortForwarder::open(
-            PortForwarderIP::Any,
-            port,
-            port,
-            PortMappingProtocol::UDP,
-            &server_name,
-        )
+        tokio::task::spawn_blocking(move || {
+            portforwarder::PortForwarder::open(
+                PortForwarderIP::Any,
+                port,
+                port,
+                PortMappingProtocol::UDP,
+                &server_name,
+            )
+        })
+        .await
+        .unwrap()
     }
 }
 

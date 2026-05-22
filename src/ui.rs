@@ -334,7 +334,7 @@ impl State {
 
                         let port_forward_task = match hosting_mode {
                             server::HostingMode::Upnp => Task::perform(
-                                async move { Console::port_forward(name, port) },
+                                async move { Console::port_forward(name, port).await },
                                 move |res| Message::PortForward(id, res.map(|pf| Arc::new(pf))),
                             ),
                             _ => Task::none(),
