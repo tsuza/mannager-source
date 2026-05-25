@@ -44,6 +44,7 @@
 - Counter-Strike 2
 - Deadlock
 - No More Room In Hell
+- Day of Defeat: Source
 
 Additional games can be requred through Github issues.
 
