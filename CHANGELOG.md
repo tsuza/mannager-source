@@ -1,3 +1,13 @@
+# 1.0.5
+## New
+- Added a transition to the server creation page.
+- Added Day of Defeat: Source as a supported game.
+
+## Fixed
+- Made port forwarding non-blocking
+  - Before, especially if it couldn't port forward, you'd notice that the terminal did not output
+    anything until you got a notification about it failing. Not anymore.
+
 # 1.0.4
 ## Fixed
 - Fix notifications on Windows ( previously they were not happening ).
