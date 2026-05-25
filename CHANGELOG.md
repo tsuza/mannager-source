@@ -1,4 +1,4 @@
-# 1.0.5
+# 1.1.0
 ## New
 - Added a transition to the server creation page.
 - Added Day of Defeat: Source as a supported game.
