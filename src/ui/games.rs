@@ -109,5 +109,16 @@ pub static SOURCE_GAMES: LazyLock<Vec<SourceGame>> = LazyLock::new(|| {
             can_sdr: true,
             executable_path: ["game", "bin", "wind64", "deadlock.exe"].iter().collect(),
         },
+        SourceGame {
+            game: Game::DayOfDefeatSource,
+            image: svg::Handle::from_memory(include_bytes!("../../images/dods-logo.svg")),
+            engine: SourceEngineVersion::Source1,
+            can_sdr: true,
+            executable_path: if cfg!(target_os = "windows") {
+                PathBuf::from("srcds-fix.exe")
+            } else {
+                PathBuf::from("srcds_run")
+            },
+        },
     ]
 });
