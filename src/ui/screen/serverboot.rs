@@ -7,12 +7,16 @@ use std::{
 
 use iced::{
     Alignment, Color, Font, Length, Shadow, Task,
+    advanced::widget::Id,
     futures::{SinkExt, Stream, StreamExt, channel::mpsc},
     keyboard, padding,
     stream::try_channel,
     task,
-    widget::{button, column, container, row, scrollable, space, text},
+    widget::{button, column, container, row, scrollable::Viewport, space, text},
 };
+
+use iced::widget::scrollable;
+
 use portforwarder_rs::port_forwarder::PortMappingProtocol;
 use snafu::{ResultExt, Snafu};
 use tokio::{
@@ -42,6 +46,8 @@ pub struct Console {
     pub sender: Option<mpsc::Sender<String>>,
     pub hosted_port: u16,
     pub port_forwarder: Option<Arc<PortForwarder>>,
+    pub scrollable_id: Id,
+    pub is_near_bottom: bool,
 }
 
 impl Console {
@@ -55,6 +61,8 @@ impl Console {
             sender: None,
             hosted_port: port,
             port_forwarder: None,
+            scrollable_id: Id::unique(),
+            is_near_bottom: true,
         }
     }
 
@@ -211,6 +219,7 @@ pub enum Message {
     SubmitServerTerminalInput,
     ShutDownServer,
     OnKeyPress(keyboard::Key, keyboard::Modifiers),
+    TerminalScroll(Viewport),
     GoBack,
 }
 
@@ -303,6 +312,11 @@ impl ServerTerminal {
                 }
             }
             Message::GoBack => Action::GoBack,
+            Message::TerminalScroll(viewport) => {
+                console.is_near_bottom = viewport.relative_offset().y > 0.99;
+
+                Action::None
+            }
         }
     }
 
@@ -356,7 +370,8 @@ impl ServerTerminal {
                     .direction(scrollable::Direction::Vertical(
                         scrollable::Scrollbar::new().width(15).scroller_width(12),
                     ))
-                    .anchor_bottom()
+                    .on_scroll(Message::TerminalScroll)
+                    .id(console.scrollable_id.clone())
                     .auto_scroll(true)
                     .width(Length::Fill)
                     .height(Length::Fill),

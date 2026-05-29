@@ -3,7 +3,7 @@ use std::{net::Ipv4Addr, sync::Arc, time::Duration};
 use iced::{
     Function, Task,
     futures::{self, FutureExt},
-    widget::markdown,
+    widget::{markdown, operation::snap_to_end},
 };
 use screen::{
     Screen,
@@ -178,13 +178,19 @@ impl State {
                 match communication {
                     ServerCommunicationTwoWay::Input(sender) => {
                         console.sender = Some(sender);
+
+                        Task::none()
                     }
                     ServerCommunicationTwoWay::Output(text) => {
                         console.output.push(text);
+
+                        if console.is_near_bottom {
+                            snap_to_end::<Message>(console.scrollable_id.clone()).discard()
+                        } else {
+                            Task::none()
+                        }
                     }
                 }
-
-                Task::none()
             }
             Message::ServerList(message) => {
                 use serverlist::Action;
