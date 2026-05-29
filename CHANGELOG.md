@@ -1,3 +1,10 @@
+# 1.1.1
+## Fixed
+- Improved the scrollable in the terminal
+  - Before, whenever a new item got added to the console, the view would jump
+    down a little bit. Now, it'll stay in the exact position.
+    Useful when you need to look at some errors, for example.
+
 # 1.1.0
 ## New
 - Added a transition to the server creation page.
