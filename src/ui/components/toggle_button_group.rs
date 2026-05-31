@@ -6,7 +6,7 @@ use iced::{
 use crate::ui::{Element, themes::Theme};
 
 pub fn grouped_buttons<'a, Value, Message>(
-    items: impl IntoIterator<Item = (Element<'a, Message>, Value)>,
+    items: impl IntoIterator<Item = (Element<'a, Message>, Value), IntoIter: ExactSizeIterator>,
     active: Value,
     on_press: impl Fn(Value) -> Message + Clone + 'a,
     style: impl Fn(&Theme, button::Status) -> button::Style + Clone + 'a,
@@ -15,7 +15,7 @@ where
     Message: Clone + 'a,
     Value: PartialEq,
 {
-    let items: Vec<_> = items.into_iter().collect();
+    let items = items.into_iter();
     let last_index = items.len().saturating_sub(1);
 
     let buttons =
