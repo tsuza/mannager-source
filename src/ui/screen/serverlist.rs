@@ -391,7 +391,10 @@ impl ServerList {
                     .padding(padding::bottom(4)),
                     rule::horizontal(1),
                     column![
-                        scrollable(servers).height(Length::Fill).spacing(5),
+                        scrollable(servers)
+                            .auto_scroll(true)
+                            .height(Length::Fill)
+                            .spacing(5),
                         container(
                             button(
                                 icon::plus()
