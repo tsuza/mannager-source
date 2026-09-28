@@ -28,7 +28,7 @@ snafu = "0.8.6"
 igd = "0.12.1"
 lyon_algorithms = "1.0.19"
 velopack = { version = "0.0.1298", features = ["async"] }
-iced_dialog = { git = "git://git.pml68.dev/iced_dialog" }
+iced_dialog = { git = "git://git.pml68.dev/general/iced_dialog", rev = "7a66942275fb6db4cb477cfc3e7d0acf312422b1" }
 anyhow = "1.0.104"
 
 [build-dependencies]
