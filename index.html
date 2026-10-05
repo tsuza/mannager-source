@@ -88,7 +88,6 @@
             width: 32px;
             height: 32px;
             object-fit: contain;
-            filter: drop-shadow(0 0 6px rgba(207, 98, 41, .4));
         }
 
         .nav-right {
@@ -165,7 +164,6 @@
             width: 700px;
             height: 700px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(207, 98, 41, .12) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -292,7 +290,6 @@
         .btn-big-primary:hover {
             background: var(--amber);
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(207, 98, 41, .35);
         }
 
         .btn-big-ghost {
@@ -565,6 +562,7 @@
             border-radius: 9px;
             padding: 4px;
             width: fit-content;
+            margin: 0 auto;
             margin-bottom: 40px;
         }
 
@@ -620,7 +618,6 @@
             content: '';
             position: absolute;
             inset: -20px;
-            background: radial-gradient(ellipse at center, rgba(207, 98, 41, .1), transparent 70%);
             pointer-events: none;
         }
 
@@ -753,17 +750,6 @@
             color: var(--text-m);
         }
 
-        .fade-in {
-            opacity: 0;
-            transform: translateY(24px);
-            transition: opacity .6s ease, transform .6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
         @media(max-width:900px) {
             nav {
                 padding: 14px 20px;
@@ -854,16 +840,11 @@
     <section class="hero">
         <div class="hero-inner">
             <div class="hero-copy">
-                <div class="hero-label">
-                    <span></span>Source Engine Server Manager
-                </div>
                 <h1 class="hero-title">
-                    Host your own<br>
-                    <em>server.</em>
-                    Easily.
+                    MANNager
                 </h1>
                 <p class="hero-sub">Create, download, manage, port-forward, and monitor your Source Engine dedicated
-                    servers — all from one clean interface.</p>
+                    servers.</p>
                 <div class="hero-actions">
                     <a href="#" class="btn-big btn-big-primary">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -874,26 +855,6 @@
                         Download Free
                     </a>
                     <a href="#features" class="btn-big btn-big-ghost">See Features →</a>
-                </div>
-                <div class="hero-meta">
-                    <div class="hero-meta-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Free &amp; open source
-                    </div>
-                    <div class="hero-meta-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Linux &amp; Windows
-                    </div>
-                    <div class="hero-meta-item">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        TF2, CS:GO &amp; more
-                    </div>
                 </div>
             </div>
             <div class="hero-visual">
@@ -912,7 +873,7 @@
     </section>
     <section id="features" class="features">
         <div class="section-label-wrap fade-in">
-            <span class="section-eyebrow">Why MANNager</span>
+            <span class="section-eyebrow">Features</span>
             <div class="section-line"></div>
         </div>
         <h2 class="section-title fade-in">Everything you need to<br><span>run a server.</span></h2>
@@ -1013,47 +974,18 @@
             </div>
         </div>
     </section>
-    <section class="how">
-        <div class="how-inner">
-            <div class="section-label-wrap fade-in">
-                <span class="section-eyebrow">How it works</span>
-                <div class="section-line"></div>
-            </div>
-            <h2 class="section-title fade-in">Up and running in<br><span>three steps.</span></h2>
-            <div class="steps">
-                <div class="step fade-in">
-                    <div class="step-num">1</div>
-                    <div class="step-title">Configure</div>
-                    <div class="step-desc">Give your server a name, pick a game (TF2, CS:GO, CS:S and more), and choose
-                        where to install it.</div>
-                </div>
-                <div class="step fade-in">
-                    <div class="step-num">2</div>
-                    <div class="step-title">Download</div>
-                    <div class="step-desc">MANNager runs DepotDownloader for you & streams the progress.</div>
-                </div>
-                <div class="step fade-in">
-                    <div class="step-num">3</div>
-                    <div class="step-title">Launch</div>
-                    <div class="step-desc">Hit play. Your server is live, and if selected, with automatic port
-                        forwarding ( or SDR ).</div>
-                </div>
-            </div>
-        </div>
-    </section>
     <section id="screenshots" class="screenshots">
         <div class="section-label-wrap fade-in">
             <span class="section-eyebrow">Screenshots</span>
             <div class="section-line"></div>
         </div>
-        <h2 class="section-title fade-in">See it in <span>action.</span></h2>
         <div class="screenshot-tabs fade-in">
             <button class="tab-btn active" onclick="switchTab(this,'tab-overview')">Server List</button>
             <button class="tab-btn" onclick="switchTab(this,'tab-create')">Server Creation</button>
             <button class="tab-btn" onclick="switchTab(this,'tab-terminal')">Terminal</button>
         </div>
         <div class="screenshot-pane active" id="tab-overview">
-            <div class="screenshot-img-wrap fade-in">
+            <div class="screenshot-img-wrap">
                 <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/overview.png"
                     alt="Server List Screenshot">
             </div>
@@ -1067,7 +999,7 @@
             </div>
         </div>
         <div class="screenshot-pane" id="tab-create">
-            <div class="screenshot-img-wrap fade-in">
+            <div class="screenshot-img-wrap">
                 <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_creation.png"
                     alt="Server Creation Screenshot">
             </div>
@@ -1082,7 +1014,7 @@
             </div>
         </div>
         <div class="screenshot-pane" id="tab-terminal">
-            <div class="screenshot-img-wrap fade-in">
+            <div class="screenshot-img-wrap">
                 <img src="https://raw.githubusercontent.com/tsuza/mannager-source/refs/heads/main/assets/screenshots/server_terminal.png"
                     alt="Live Console Screenshot">
             </div>
@@ -1092,41 +1024,6 @@
                 <div class="screenshot-desc">
                     Full real-time server terminal & command input with history navigation.
                 </div>
-            </div>
-        </div>
-    </section>
-    <section class="platforms fade-in">
-        <div class="platform-item">
-            <img class="platform-icon" alt="Windows"
-                src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/windows8/windows8-original.svg">
-            <div class="platform-name">Windows</div>
-        </div>
-        <div style="width:1px;height:48px;background:var(--border);align-self:center;"></div>
-        <div class="platform-item">
-            <img class="platform-icon" alt="Linux"
-                src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg">
-            <div class="platform-name">Linux</div>
-        </div>
-    </section>
-    <section class="cta">
-        <div class="cta-inner fade-in">
-            <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
-                <a href="#" class="btn-big btn-big-primary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16"
-                        height="16">
-                        <polyline points="8 17 12 21 16 17" />
-                        <line x1="12" y1="12" x2="12" y2="21" />
-                        <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
-                    </svg>
-                    Download Free
-                </a>
-                <a href="#" class="btn-big btn-big-ghost">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                        <path
-                            d="M12 2C6.477 2 2 6.484 2 12.008c0 4.42 2.865 8.166 6.839 9.487.5.091.682-.216.682-.482 0-.237-.008-.868-.012-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.464-1.11-1.464-.908-.621.068-.608.068-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.529 2.341 1.088 2.91.832.091-.647.35-1.088.636-1.339-2.22-.253-4.555-1.115-4.555-4.959 0-1.094.39-1.988 1.029-2.688-.104-.253-.447-1.272.097-2.65 0 0 .84-.269 2.75 1.025A9.548 9.548 0 0112 6.844c.85.004 1.704.115 2.503.338 1.909-1.294 2.748-1.025 2.748-1.025.546 1.378.203 2.397.1 2.65.64.7 1.028 1.594 1.028 2.688 0 3.853-2.338 4.702-4.566 4.949.36.311.679.92.679 1.854 0 1.338-.012 2.419-.012 2.747 0 .267.18.576.688.479C19.138 20.168 22 16.422 22 12.008 22 6.484 17.523 2 12 2z" />
-                    </svg>
-                    View on GitHub
-                </a>
             </div>
         </div>
     </section>
@@ -1149,25 +1046,6 @@
             btn.classList.add('active');
             document.getElementById(id).classList.add('active');
         }
-
-        const obs = new IntersectionObserver((entries) => {
-            entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
-        }, { threshold: 0.12 });
-
-        document.querySelectorAll('.fade-in').forEach(el => obs.observe(el));
-
-        const sections = document.querySelectorAll('section[id]');
-        const navLinks = document.querySelectorAll('nav a.nav-link');
-
-        window.addEventListener('scroll', () => {
-            let current = '';
-            sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) current = s.id; });
-            navLinks.forEach(a => {
-                a.style.color = a.getAttribute('href') === '#' + current ? 'var(--orange)' : '';
-                a.style.borderColor = a.getAttribute('href') === '#' + current ? 'rgba(207,98,41,.3)' : '';
-            });
-        });
-
     </script>
 </body>
 
